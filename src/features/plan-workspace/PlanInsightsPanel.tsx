@@ -193,7 +193,7 @@ function ItemRow({ id, title, badge, badgeTitle, onClick }: ItemRowProps) {
       className="flex w-full items-center justify-between gap-2 rounded-[var(--radius-sm)] border border-border bg-surface px-3 py-2 text-left transition-colors hover:border-border-strong hover:bg-surface-muted disabled:cursor-default"
     >
       <div className="flex min-w-0 flex-col gap-0.5">
-        <span className="font-mono text-[0.65rem] text-muted-foreground">
+        <span className="truncate font-mono text-[0.65rem] text-muted-foreground">
           {id}
         </span>
         <span className="truncate text-sm text-foreground">{title}</span>

@@ -455,7 +455,10 @@ export function PlanWorkspacePage({ source }: PlanWorkspacePageProps) {
             >
               {/* ReactFlow requires an explicit-height container */}
               <div className="absolute inset-0">
-                <PlanGraphCanvas projection={readyProjection} />
+                <PlanGraphCanvas
+                  projection={readyProjection}
+                  selectedWorkItemId={selectedWorkItemId}
+                />
               </div>
             </main>
 
@@ -499,7 +502,7 @@ export function PlanWorkspacePage({ source }: PlanWorkspacePageProps) {
 
               {/* Panel content */}
               <div
-                className="min-h-0 flex-1 overflow-y-auto p-4"
+                className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-4"
                 role="tabpanel"
                 aria-label={
                   rightTab === "details" ? "Details panel" : "Insights panel"

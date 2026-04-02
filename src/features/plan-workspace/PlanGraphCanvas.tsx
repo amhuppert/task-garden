@@ -9,9 +9,16 @@ import {
   type NodeProps,
   type NodeTypes,
   ReactFlow,
+  useReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { type ComponentType, useCallback, useMemo } from "react";
+import {
+  type ComponentType,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
 import type { FlowProjection } from "../../lib/graph/flow-projection-service";
 import {
   MetricBubbleNode,
@@ -140,14 +147,80 @@ function SizeLegendItems({
 
 export interface PlanGraphCanvasProps {
   projection: FlowProjection;
+  selectedWorkItemId: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// ViewportController — must be rendered inside <ReactFlow> to use useReactFlow
+// ---------------------------------------------------------------------------
+
+function ViewportController({
+  selectedWorkItemId,
+  nodes,
+  skipAutoPanRef,
+}: {
+  selectedWorkItemId: string | null;
+  nodes: Node[];
+  skipAutoPanRef: React.RefObject<boolean>;
+}) {
+  const { setCenter, getZoom, fitView } = useReactFlow();
+
+  // Auto-pan: when selection comes from outside the graph (panel clicks, etc.)
+  useEffect(() => {
+    if (!selectedWorkItemId) return;
+    if (skipAutoPanRef.current) {
+      skipAutoPanRef.current = false;
+      return;
+    }
+    const node = nodes.find((n) => n.id === selectedWorkItemId);
+    if (!node) return;
+    const x = node.position.x + (node.width ?? 200) / 2;
+    const y = node.position.y + (node.height ?? 80) / 2;
+    setCenter(x, y, { duration: 400, zoom: getZoom() });
+  }, [selectedWorkItemId, nodes, setCenter, getZoom, skipAutoPanRef]);
+
+  // Zoom-to-fit: when the set of visible node IDs changes (filter changes)
+  const topologySignature = useMemo(
+    () =>
+      nodes
+        .filter((n) => n.type !== "laneBand")
+        .map((n) => n.id)
+        .sort()
+        .join(","),
+    [nodes],
+  );
+
+  const prevSignatureRef = useRef(topologySignature);
+  const isInitialRenderRef = useRef(true);
+
+  useEffect(() => {
+    if (isInitialRenderRef.current) {
+      isInitialRenderRef.current = false;
+      prevSignatureRef.current = topologySignature;
+      return;
+    }
+    if (topologySignature !== prevSignatureRef.current) {
+      prevSignatureRef.current = topologySignature;
+      const timer = setTimeout(() => {
+        fitView({ padding: 0.12, duration: 400 });
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [topologySignature, fitView]);
+
+  return null;
 }
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-export function PlanGraphCanvas({ projection }: PlanGraphCanvasProps) {
+export function PlanGraphCanvas({
+  projection,
+  selectedWorkItemId,
+}: PlanGraphCanvasProps) {
   const selectWorkItem = usePlanExplorerStore((s) => s.selectWorkItem);
+  const skipAutoPanRef = useRef(false);
   const clearSelection = usePlanExplorerStore((s) => s.clearSelection);
   const clearFilters = usePlanExplorerStore((s) => s.clearFilters);
   const colorMode = usePlanDisplayStore(selectColorMode);
@@ -270,6 +343,7 @@ export function PlanGraphCanvas({ projection }: PlanGraphCanvasProps) {
 
   const onNodeClick = useCallback(
     (_: unknown, node: Node) => {
+      skipAutoPanRef.current = true;
       selectWorkItem(node.id);
     },
     [selectWorkItem],
@@ -318,6 +392,12 @@ export function PlanGraphCanvas({ projection }: PlanGraphCanvasProps) {
             color="var(--color-grid)"
           />
 
+          <ViewportController
+            selectedWorkItemId={selectedWorkItemId}
+            nodes={rfNodes}
+            skipAutoPanRef={skipAutoPanRef}
+          />
+
           {/* Viewport controls: zoom in/out + fit-view */}
           <Controls
             showInteractive={false}
@@ -331,24 +411,30 @@ export function PlanGraphCanvas({ projection }: PlanGraphCanvasProps) {
           />
 
           {/* Minimap for large graphs */}
+          {/* Note: nodeColor/nodeStrokeColor/maskColor use hardcoded oklch values
+              because CSS variables resolve to near-white in both themes, making
+              the minimap invisible. These values are minimap-specific overrides
+              tuned for visibility in light and dark themes. */}
           <MiniMap
+            pannable={true}
+            zoomable={true}
             nodeColor={(node) => {
-              if (node.type === "laneBand") return "transparent";
+              if (node.type === "laneBand") return "oklch(0.82 0.03 95 / 0.35)";
               const d = node.data as {
                 isSelected?: boolean;
                 visibilityRole?: string;
               };
               if (d.isSelected) return "var(--color-moss)";
-              if (d.visibilityRole === "context")
-                return "var(--color-surface-muted)";
-              return "var(--color-node-default)";
+              if (d.visibilityRole === "context") return "oklch(0.72 0.03 142)";
+              return "oklch(0.62 0.04 142)";
             }}
-            nodeStrokeColor="var(--color-node-stroke)"
-            maskColor="oklch(0.97 0.018 95 / 0.6)"
+            nodeStrokeColor="oklch(0.50 0.04 142)"
+            maskColor="oklch(0.96 0.01 95 / 0.25)"
             style={{
               border: "1px solid var(--color-border)",
               borderRadius: "var(--radius-md)",
               background: "var(--color-panel)",
+              cursor: "grab",
             }}
           />
         </ReactFlow>

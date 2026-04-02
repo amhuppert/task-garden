@@ -105,13 +105,16 @@ function WorkItemRefButton({
       disabled={!onClick}
       className="w-full rounded-[var(--radius-sm)] border border-border bg-surface px-3 py-2 text-left transition-colors hover:border-border-strong hover:bg-surface-muted disabled:cursor-default"
     >
-      <div className="flex items-center justify-between gap-2">
-        <span className="font-mono text-[0.68rem] text-muted-foreground">
+      <div className="flex min-w-0 items-center justify-between gap-2">
+        <span className="truncate font-mono text-[0.68rem] text-muted-foreground">
           {id}
         </span>
-        <div className="flex items-center gap-1.5">
+        <div
+          className="flex shrink-0 items-center gap-1.5"
+          title={`${getStatusLabel(status as Parameters<typeof getStatusLabel>[0])} · ${getPriorityLabel(priority as Parameters<typeof getPriorityLabel>[0])}`}
+        >
           <span
-            className="h-1.5 w-1.5 rounded-full shrink-0"
+            className="h-1.5 w-1.5 shrink-0 rounded-full"
             style={{
               backgroundColor: getStatusAccentColor(
                 status as Parameters<typeof getStatusAccentColor>[0],
@@ -120,7 +123,7 @@ function WorkItemRefButton({
             aria-label={status}
           />
           <span
-            className="h-1.5 w-1.5 rounded-full shrink-0"
+            className="h-1.5 w-1.5 shrink-0 rounded-full"
             style={{
               backgroundColor: getPriorityAccentColor(
                 priority as Parameters<typeof getPriorityAccentColor>[0],
@@ -246,7 +249,7 @@ export function PlanDetailsPanel({
 
   return (
     <article
-      className="flex flex-col gap-6"
+      className="flex min-w-0 flex-col gap-6"
       aria-label={`Details: ${item.title}`}
     >
       {/* Context-only banner */}
@@ -256,7 +259,7 @@ export function PlanDetailsPanel({
       {/* Core: id, title, summary                                            */}
       {/* ------------------------------------------------------------------ */}
       <div className="flex flex-col gap-1.5">
-        <p className="font-mono text-[0.68rem] uppercase tracking-wider text-muted-foreground">
+        <p className="truncate font-mono text-[0.68rem] uppercase tracking-wider text-muted-foreground">
           {item.id}
         </p>
         <h2 className="atlas-title text-xl leading-tight text-foreground">
