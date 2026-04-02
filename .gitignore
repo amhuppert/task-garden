@@ -1,0 +1,12 @@
+.vscode/settings.json
+.worktrees/
+node_modules/
+dist/
+.env.local
+.env.*.local
+*.tsbuildinfo
+test-results/
+.env
+.tmp/
+.playwright-mcp/
+.cc/graph-workflow-docs/

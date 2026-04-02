@@ -1,0 +1,208 @@
+version: 1
+plan_id: task-garden-v1
+title: Task Garden V1
+last_updated: 2026-04-01
+summary: >
+  Initial implementation plan for Task Garden, a single-user read-only planning tool
+  for visualizing project work items and their dependencies as an interactive graph.
+references:
+  - memory-bank/focus.md
+  - memory-bank/schema-proposal.md
+
+lanes:
+  - id: input
+    label: Input Boundary
+    description: Runtime config, plan registry, source subscription, and processing pipeline
+  - id: domain
+    label: Domain
+    description: Schema validation, reference resolution, and graph analysis
+  - id: ui
+    label: UI
+    description: Graph rendering, workspace composition, controls, details, and insights
+
+work_items:
+  - id: plan-runtime-config
+    title: Plan Runtime Config
+    summary: Resolve VITE_PLAN_KEY from the environment and fail fast when absent.
+    lane: input
+    status: done
+    priority: p0
+    depends_on: []
+    tags:
+      - startup
+      - config
+    deliverables:
+      - PlanRuntimeConfig service
+      - Typed ImportMetaEnv contract
+
+  - id: plan-registry
+    title: Plan Registry
+    summary: Compile-time registry mapping plan keys to bundled YAML documents.
+    lane: input
+    status: done
+    priority: p0
+    depends_on: []
+    tags:
+      - startup
+      - registry
+    deliverables:
+      - createPlanRegistry factory
+      - Bundled document path set
+
+  - id: plan-source-subscription
+    title: Plan Source Subscription
+    summary: Reactive hook that emits the current plan source and schema version, re-emitting on HMR changes.
+    lane: input
+    status: done
+    priority: p0
+    depends_on:
+      - plan-runtime-config
+      - plan-registry
+    tags:
+      - startup
+      - hmr
+    deliverables:
+      - useSelectedPlanSource hook
+      - PlanSourceEmission type
+
+  - id: plan-schema
+    title: Task Garden Plan Schema
+    summary: Zod schema validating the authored YAML contract including lane and dependency integrity.
+    lane: domain
+    status: planned
+    priority: p0
+    depends_on:
+      - plan-source-subscription
+    tags:
+      - schema
+      - validation
+    links:
+      - label: Schema Proposal
+        href: memory-bank/schema-proposal.md
+    notes: Use superRefine for cross-record integrity checks (cycles, missing lanes, duplicate IDs).
+
+  - id: processing-pipeline
+    title: Plan Processing Pipeline
+    summary: Convert source emissions into a ready snapshot or invalid state, replacing stale output on failure.
+    lane: input
+    status: planned
+    priority: p0
+    depends_on:
+      - plan-schema
+      - plan-source-subscription
+    tags:
+      - pipeline
+      - validation
+    deliverables:
+      - PlanProcessingPipeline service
+      - PlanProcessingState discriminated union
+
+  - id: reference-resolver
+    title: Reference Resolver
+    summary: Resolve plan references and work-item links to external URLs or bundled document paths.
+    lane: domain
+    status: planned
+    priority: p1
+    depends_on:
+      - plan-schema
+    tags:
+      - references
+      - links
+
+  - id: graph-analysis
+    title: Plan Analysis Engine
+    summary: Build canonical Graphology DAG and derive topological order, roots, leaves, metrics, and longest chain.
+    lane: domain
+    status: planned
+    priority: p0
+    depends_on:
+      - processing-pipeline
+    tags:
+      - graph
+      - analysis
+    estimate:
+      value: 3
+      unit: days
+    notes: Use graphology-dag for topological sort. Avoid calling it critical-path without duration data.
+
+  - id: flow-projection
+    title: Flow Projection Service
+    summary: Derive React Flow nodes, edges, legends, and filtered visible subsets from analysis and UI state.
+    lane: domain
+    status: planned
+    priority: p0
+    depends_on:
+      - graph-analysis
+    tags:
+      - graph
+      - projection
+    estimate:
+      value: 2
+      unit: days
+
+  - id: workspace-page
+    title: Plan Workspace Page
+    summary: Own processing-state switching and compose the full workspace layout from all surfaces.
+    lane: ui
+    status: planned
+    priority: p0
+    depends_on:
+      - processing-pipeline
+      - flow-projection
+    tags:
+      - layout
+      - composition
+
+  - id: graph-canvas
+    title: Plan Graph Canvas
+    summary: Render the lane-aware dependency graph with viewport navigation and selection interactions.
+    lane: ui
+    status: planned
+    priority: p0
+    depends_on:
+      - workspace-page
+      - flow-projection
+    tags:
+      - graph
+      - rendering
+    estimate:
+      value: 3
+      unit: days
+
+  - id: details-panel
+    title: Plan Details Panel
+    summary: Show neutral and selected-item detail states with core fields, relationships, and optional metadata.
+    lane: ui
+    status: planned
+    priority: p1
+    depends_on:
+      - workspace-page
+      - graph-analysis
+    tags:
+      - details
+      - panel
+
+  - id: insights-panel
+    title: Plan Insights Panel
+    summary: Show topological ordering, longest dependency chain, roots, leaves, metrics, and encoding legends.
+    lane: ui
+    status: planned
+    priority: p1
+    depends_on:
+      - workspace-page
+      - graph-analysis
+    tags:
+      - insights
+      - panel
+
+  - id: control-rail
+    title: Plan Toolbar
+    summary: Search, lane/status/priority/tag filters, scope controls, and encoding mode controls.
+    lane: ui
+    status: planned
+    priority: p1
+    depends_on:
+      - workspace-page
+    tags:
+      - controls
+      - filters

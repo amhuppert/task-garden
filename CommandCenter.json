@@ -1,0 +1,5 @@
+{
+  "initScriptPath": "scripts/worktree-init.sh",
+  "preMergeCommand": "scripts/pre-merge-validate.sh",
+  "devServers": [{ "name": "vite", "command": ".cc/dev-servers/vite.sh" }]
+}

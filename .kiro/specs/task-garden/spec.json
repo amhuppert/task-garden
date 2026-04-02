@@ -1,0 +1,22 @@
+{
+  "feature_name": "task-garden",
+  "created_at": "2026-04-01T21:46:01Z",
+  "updated_at": "2026-04-02T00:52:59Z",
+  "language": "en",
+  "phase": "tasks-generated",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": true
+}

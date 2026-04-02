@@ -1,0 +1,60 @@
+import type {
+  TaskGardenPriority,
+  TaskGardenStatus,
+} from "../../lib/plan/task-garden-plan.schema";
+
+// ---------------------------------------------------------------------------
+// Status labels
+// ---------------------------------------------------------------------------
+
+export function getStatusLabel(status: TaskGardenStatus): string {
+  switch (status) {
+    case "planned":
+      return "Planned";
+    case "ready":
+      return "Ready";
+    case "blocked":
+      return "Blocked";
+    case "in_progress":
+      return "In Progress";
+    case "done":
+      return "Done";
+    case "future":
+      return "Future";
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Priority labels
+// ---------------------------------------------------------------------------
+
+export function getPriorityLabel(priority: TaskGardenPriority): string {
+  switch (priority) {
+    case "p0":
+      return "P0";
+    case "p1":
+      return "P1";
+    case "p2":
+      return "P2";
+    case "p3":
+      return "P3";
+    case "nice_to_have":
+      return "Nice to Have";
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Estimate formatting
+// ---------------------------------------------------------------------------
+
+export function formatEstimate(estimate: {
+  value: number;
+  unit: string;
+}): string {
+  const { value, unit } = estimate;
+  // Singular: strip trailing 's' from unit
+  if (value === 1) {
+    return `${value} ${unit.replace(/s$/, "")}`;
+  }
+  return `${value} ${unit}`;
+}

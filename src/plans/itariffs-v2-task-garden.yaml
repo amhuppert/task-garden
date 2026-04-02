@@ -1,0 +1,510 @@
+version: 1
+plan_id: itariffs_v2_hackathon_release
+title: iTariffs V2 Hackathon Release
+last_updated: 2026-04-01
+summary: Artemis-first implementation plan for iTariffs V2. The plan keeps V1 and V2
+  alive on the shared /itariffs route until rollout is complete, uses the
+  customer-config add-on gate plus a new V2 feature flag, reuses the strongest V1
+  primitives where they fit, front-loads frontend progress through a UI-owned
+  trade-policy service contract with mock-first implementation, and records backend
+  dependencies as explicit work items.
+references:
+  - memory-bank/focus.md
+lanes:
+  - id: backend
+    label: Backend
+    description: Data pipeline, storage, CQE, and API dependencies for iTariffs V2.
+  - id: frontend_artemis
+    label: Frontend Artemis
+    description: Artemis app routing, service layer, and V2 UI implementation.
+work_items:
+  - id: pipeline_gta_flattening
+    title: GTA Flattening
+    summary: Deliver the flattened GTA event layer and AI summaries that feed curated
+      trade-policy tables for V2.
+    lane: backend
+    status: planned
+    priority: p0
+    depends_on: []
+    tags:
+      - backend
+      - data_pipeline
+      - dependency
+    deliverables:
+      - Flattened GTA event records in the data lake
+      - AI-generated titles and summaries for trade-policy records
+      - "React components served: TradePolicyLandingPage, TradePolicyDetailPage"
+    reuse_candidates: []
+    notes: Existing ingest and S3 landing already exist; V2 depends on the new flattened
+      layer.
+  - id: pipeline_trade_policy_curation
+    title: Policy Curation
+    summary: Build the curated trade-policy layer that drives customer-scoped policy tables
+      and CQE consumption.
+    lane: backend
+    status: blocked
+    priority: p0
+    depends_on:
+      - pipeline_gta_flattening
+    tags:
+      - backend
+      - data_pipeline
+      - dependency
+    deliverables:
+      - Curated active and pending trade-policy aggregation layer
+      - Stable mapping of targeted countries, product categories, and HS-code metadata
+      - "React components served: TradePolicyLandingPage, TradePolicyDetailPage,
+        CountryImpactList, ProductImpactList"
+    reuse_candidates: []
+    notes: Naming drift exists across notes and Jira; treat the curated output shape as
+      still settling.
+  - id: backend_default_group_entities_dt
+    title: Ecosystem Table
+    summary: Create the dynamic table that precomputes Tier 1 entities in the customer's
+      default My Ecosystem group.
+    lane: backend
+    status: ready
+    priority: p0
+    depends_on: []
+    tags:
+      - backend
+      - api_dependency
+      - dependency
+    deliverables:
+      - Customer default-group entity table with Tier 1 scope for policy matching
+      - "React components served: TradePolicyLandingPage, SuppliersImpactedTable,
+        CountryImpactList"
+    reuse_candidates: []
+  - id: backend_customer_trade_policy_dt
+    title: Customer Policy Table
+    summary: Create the customer-scoped dynamic table that joins curated trade-policy data
+      to default-group ecosystem entities.
+    lane: backend
+    status: blocked
+    priority: p0
+    depends_on:
+      - backend_default_group_entities_dt
+      - pipeline_trade_policy_curation
+    tags:
+      - backend
+      - api_dependency
+      - dependency
+    deliverables:
+      - PRIV.ACTIVE_TRADE_POLICY_BY_CUSTOMER backing table for CQE
+      - Customer- and group-scoped impacted supplier counts and product objects
+      - "React components served: TradePolicyLandingPage, TradePolicyDetailPage,
+        SuppliersImpactedTable, CountryImpactList, ProductImpactList"
+    reuse_candidates: []
+    notes: Jira only explicitly calls out VOGUE-4674 as a blocker, but the pipeline diagram
+      makes the curated aggregation layer a structural prerequisite too.
+  - id: backend_read_status_storage
+    title: Read Status Storage
+    summary: Create the hybrid table used to persist read and unread state for trade
+      policies per customer and user.
+    lane: backend
+    status: ready
+    priority: p0
+    depends_on: []
+    tags:
+      - backend
+      - api_dependency
+      - dependency
+    deliverables:
+      - PRIV.USER_TRADE_POLICY_READ_STATUS table keyed by policy, customer, and user
+      - "React components served: TradePolicyViewProvider, TradePolicyCardList,
+        TradePolicyCard"
+    reuse_candidates: []
+  - id: backend_read_status_endpoints
+    title: Read Status API
+    summary: Ship the API contract for trade-policy read and unread state used by the V2
+      landing page.
+    lane: backend
+    status: blocked
+    priority: p0
+    depends_on:
+      - backend_read_status_storage
+    tags:
+      - backend
+      - api_dependency
+      - dependency
+    deliverables:
+      - GET /v1/users/read_status/trade_policies
+      - POST /v1/users/read_status/trade_policies
+      - "React components served: TradePolicyViewProvider, TradePolicyCardList,
+        TradePolicyCard"
+    reuse_candidates: []
+  - id: backend_trade_policy_cqe_cleanup
+    title: CQE Contract
+    summary: Finalize the trade-policies CQE so the frontend can rely on targeted country
+      filters, targeted product-category filters, HS-code reference data, and aggregated
+      spend.
+    lane: backend
+    status: blocked
+    priority: p0
+    depends_on:
+      - backend_customer_trade_policy_dt
+    tags:
+      - backend
+      - api_dependency
+      - dependency
+    deliverables:
+      - Stable POST /v1/cqe/trade_policies fields for landing and detail routes
+      - Aggregated spend fields required by list cards and KPI panels
+      - HS-code reference-data support for detail drill-down
+      - "React components served: TradePolicyViewProvider, TradePolicyLandingPage,
+        TradePolicyDetailHero, TradePolicyKpiRail, SuppliersImpactedTable,
+        CountryImpactList, TradePolicyCountryMap, ProductImpactList, HsCodePanel"
+    reuse_candidates: []
+    notes: Field names and final request shape are still soft until this story settles.
+  - id: artemis_v2_access_and_coexistence
+    title: Route Gating
+    summary: Introduce the new V2 feature flag, require hasItariffAddOn customer config for
+      access, and keep V1 and V2 coexisting safely on the shared /itariffs route until
+      V2 is released. This is app-integration work and should not block isolated
+      service, hook, or component implementation.
+    lane: frontend_artemis
+    status: planned
+    priority: p0
+    depends_on: []
+    tags:
+      - frontend
+      - gating
+      - routing
+      - coexistence
+    deliverables:
+      - New enableItariffV2 LaunchDarkly flag
+      - Route-level switch choosing V1 or V2 on /itariffs
+      - Side-nav and entry-point gating updated to use add-on plus feature flags
+      - "React components: ITariffV2RouteGate"
+    reuse_candidates:
+      - src/pages/portal/[authOrgSlug]/itariffs.tsx
+      - src/data/contexts/customer-config.tsx
+      - flags.ts
+    notes: "Access is dual-gated: customer config decides entitlement, flag decides rollout."
+  - id: artemis_trade_policy_frontend_foundation
+    title: Service Foundation
+    summary: Define a UI-owned trade-policy domain contract, expose only the minimal
+      CQE-style pagination semantics the UI needs, and stand up mock-backed hooks and
+      fixtures so component work can proceed before backend fields settle.
+    lane: frontend_artemis
+    status: planned
+    priority: p0
+    depends_on: []
+    tags:
+      - frontend
+      - foundation
+      - data_layer
+      - service_pattern
+      - mocks
+    deliverables:
+      - Zod schemas and FE types for policy list items, detail objects, read status, and
+        route state
+      - TradePolicy V2 service interface that hides CQE field names, request builders,
+        and endpoint-specific payloads
+      - Paginated result shape that preserves only CQE cursor and total-count semantics
+        needed by the UI
+      - Mock fixtures, base mock service, and service-provider registration for
+        Storybook and tests
+      - React Query hooks and query keys built strictly against the service interface
+      - Feature tags and route-parameter helpers for V2 list and detail state
+      - "React components: TradePolicyViewProvider"
+    reuse_candidates:
+      - docs/service-pattern.md
+      - docs/service-pattern-checklist.md
+      - src/services/dimensions.ts
+      - src/services/reputational-risk-events.ts
+      - src/services/service-provider.tsx
+      - src/components/views/tariff-explorer/tariff-explorer-routing.tsx
+      - src/schemas/route-parameters/tariff-filters.ts
+    notes: The current tariff-explorer service is a reuse reference only, not the contract
+      model for V2. Components and hooks should code against the new V2 interface and
+      mock implementation first, with live CQE mapping deferred to a later adapter task.
+  - id: artemis_trade_policy_live_service_adapter
+    title: Live Service Adapter
+    summary: Once the backend contract settles, implement the production service that maps
+      CQE and read-status endpoints into the UI-owned V2 trade-policy interface without
+      leaking backend request or field details into hooks or components.
+    lane: frontend_artemis
+    status: blocked
+    priority: p0
+    depends_on:
+      - artemis_trade_policy_frontend_foundation
+      - backend_trade_policy_cqe_cleanup
+      - backend_read_status_endpoints
+    tags:
+      - frontend
+      - data_layer
+      - service_pattern
+      - api_integration
+      - dependency
+    deliverables:
+      - Production TradePolicy V2 service implementation wired to CQE and read-status
+        endpoints
+      - Mapping layer from backend response shapes into frontend policy list, detail,
+        and read-status types
+      - Cursor-pagination parity between mock responses and live responses
+      - Cutover plan that keeps hooks and components stable while swapping mock and live
+        implementations
+      - "React components: TradePolicyViewProvider"
+    reuse_candidates:
+      - src/services/api.ts
+      - src/services/reputational-risk-events.ts
+      - src/services/service-provider.tsx
+    notes: This is the only frontend item that should absorb backend contract churn. All
+      component and hook work should remain behind the V2 service boundary.
+  - id: artemis_policy_list_ui
+    title: Landing Page UI
+    summary: "Build the V2 landing experience above the treemap: header copy, Active and
+      Upcoming tabs, implementing-country filter UI, pagination controls, policy cards,
+      loading states, and empty and error states."
+    lane: frontend_artemis
+    status: planned
+    priority: p0
+    depends_on:
+      - artemis_trade_policy_frontend_foundation
+    tags:
+      - frontend
+      - landing
+      - policy_list
+    deliverables:
+      - Import Tariff Policy Impact landing header
+      - Policy card list shell for active and upcoming states
+      - Implementing-country filter control and pager UI
+      - Empty, loading, and error states that match the new IA
+      - "React components: TradePolicyLandingPage, TradePolicyPageHeader,
+        TradePolicyStatusTabs, TradePolicyToolbar, TradePolicyCountryFilter,
+        TradePolicyPager, TradePolicyCardList, TradePolicyCard"
+    reuse_candidates: []
+    notes: Use My Ecosystem consistently; the Figma variant with your Ecosystem should not
+      be copied.
+  - id: artemis_policy_list_data_and_read_status
+    title: Landing Behavior
+    summary: Build landing-page behavior against the V2 trade-policy hooks and mock service
+      so tab state, pagination, and read-status UX can be completed before live backend
+      integration.
+    lane: frontend_artemis
+    status: planned
+    priority: p0
+    depends_on:
+      - artemis_trade_policy_frontend_foundation
+    tags:
+      - frontend
+      - landing
+      - policy_list
+      - read_status
+    deliverables:
+      - Active tab loads full policy data immediately
+      - Upcoming tab count-only bootstrap and on-demand data fetch
+      - Read and unread visual state plus mark-read flow
+      - Implementing-country filter, sort, and pagination wired to service hooks
+      - "React components: TradePolicyViewProvider, TradePolicyStatusTabs,
+        TradePolicyToolbar, TradePolicyCountryFilter, TradePolicyPager,
+        TradePolicyCardList, TradePolicyCard"
+    reuse_candidates: []
+    notes: This item should not know CQE field names, request builders, or endpoint URLs.
+      Live API cutover is handled separately by
+      artemis_trade_policy_live_service_adapter.
+  - id: artemis_v2_treemap_section
+    title: Treemap Adaptation
+    summary: Reuse the existing V1 treemap rendering and control components under the new
+      landing page, while removing V1 route assumptions and replacing the V1
+      toolbar/header copy with the V2 exposure section layout and required disclaimer
+      text.
+    lane: frontend_artemis
+    status: planned
+    priority: p0
+    depends_on: []
+    tags:
+      - frontend
+      - landing
+      - treemap
+      - reuse
+    deliverables:
+      - Extract the V1 treemap visualization so it can render as an embedded section
+        below policy cards without depending on the old tariff-explorer page shell
+      - Replace the V1 toolbar/header copy and EO or MFN explorer framing with the V2
+        exposure section copy and layout
+      - Keep the Country or Product toggle, product scope select, tier select, and
+        search controls, but bind them to the V2 landing-page state model instead of V1
+        query-param assumptions
+      - Add the US-focused disclaimer reflecting the separate pipeline from the policy
+        feed
+      - "React components: TradePolicyTreemapSection, TradePolicyTreemapToolbar,
+        TradePolicyTreemap, TradePolicyTreemapLegend"
+    reuse_candidates:
+      - src/components/tariff-explorer/tariff-treemap.tsx
+      - src/components/tariff-explorer/treemap.tsx
+      - src/components/tariff-explorer/tariff-explorer-find-tool.tsx
+      - src/components/tariff-explorer/tariff-explorer-country-product-toggle.tsx
+  - id: artemis_policy_detail_shell
+    title: Detail Route Shell
+    summary: Create the dedicated V2 detail route and page structure for hero, KPI,
+      suppliers, countries, and products sections.
+    lane: frontend_artemis
+    status: planned
+    priority: p0
+    depends_on:
+      - artemis_trade_policy_frontend_foundation
+    tags:
+      - frontend
+      - detail
+      - routing
+    deliverables:
+      - Dedicated policy-detail route and container
+      - Section layout for hero, KPI sidebar, suppliers, countries, and products
+      - Shared loading and error handling for the detail page
+      - "React components: TradePolicyDetailPage"
+    reuse_candidates: []
+  - id: artemis_policy_detail_hero_and_kpis
+    title: Hero and KPIs
+    summary: Render the detailed policy summary, AI text, source URL, and KPI metrics from
+      the service-level trade-policy detail model.
+    lane: frontend_artemis
+    status: planned
+    priority: p0
+    depends_on:
+      - artemis_policy_detail_shell
+      - artemis_trade_policy_frontend_foundation
+    tags:
+      - frontend
+      - detail
+      - hero
+      - kpi
+    deliverables:
+      - Policy title, rate, dates, AI summary, and source-link rendering
+      - KPI sidebar with spend at risk, spend delta, supplier count, country count, and
+        product count
+      - Read-more treatment matching the V2 prototype
+      - "React components: TradePolicyDetailHero, TradePolicyKpiRail"
+    reuse_candidates: []
+  - id: artemis_suppliers_impacted_table
+    title: Suppliers Table
+    summary: Reuse the existing organizations-table and tariff breakdown table
+      infrastructure for the V2 supplier impact table, but replace the V1 country and
+      product drilldown framing with policy-detail-specific columns, product-overlap
+      display rules, and row-expansion behavior.
+    lane: frontend_artemis
+    status: planned
+    priority: p0
+    depends_on:
+      - artemis_policy_detail_hero_and_kpis
+    tags:
+      - frontend
+      - detail
+      - suppliers
+      - reuse
+    deliverables:
+      - Reuse the existing streaming organizations-table shell, sorting, search,
+        pagination, and CSV export instead of building a new table container
+      - Replace the V1 tariff breakdown header and country-drilldown assumptions with
+        the V2 Suppliers Impacted columns for company, risk score, spend, and
+        overlapping product categories
+      - Filter the displayed product categories in each row down to the categories that
+        overlap the selected trade policy, even if the backend payload includes more
+        categories
+      - Keep row-expansion hooks for risk profile and product relationship detail
+        without tying them to V1 table copy or layout
+      - "React components: SuppliersImpactedSection, SuppliersImpactedTable"
+    reuse_candidates:
+      - src/components/tariff-explorer/tariff-product-breakdown-table.tsx
+      - src/components/organizations-table/organizations-table-container.tsx
+  - id: artemis_targeted_countries_map
+    title: Countries Section
+    summary: Build the Countries Targeted section by reusing the shared map stack used on
+      the dedicated map page and in the embedded company profile map, then layering
+      trade-policy-specific highlighting and supplier-count behavior on top of that base
+      implementation.
+    lane: frontend_artemis
+    status: planned
+    priority: p0
+    depends_on:
+      - artemis_policy_detail_hero_and_kpis
+    tags:
+      - frontend
+      - detail
+      - countries
+      - map
+    deliverables:
+      - Country list with supplier counts synchronized to the selected or hovered
+        country on the map
+      - Reuse the existing embedded-map configuration rather than building a new
+        world-map component
+      - Add policy-targeted country highlighting, hover state, zoom controls, and a
+        small legend on top of the shared map base
+      - Disable unrelated map-page behaviors and panels that are not part of the V2
+        detail-page experience
+      - "React components: TargetedCountriesSection, CountryImpactList,
+        TradePolicyCountryMap"
+    reuse_candidates:
+      - src/components/map/map-view.tsx
+      - src/components/views/company-profile-360/components/locations/company-info-location-map.tsx
+      - src/components/map/map-with-url-persistence.tsx
+    notes: P1 supplier-concentration color gradients should be a follow-up, not part of the
+      first ship.
+  - id: artemis_targeted_products_hs_codes
+    title: Products Drilldown
+    summary: Build the Products Targeted section with product-category selection and HS-code
+      descriptions sourced from CQE reference data.
+    lane: frontend_artemis
+    status: planned
+    priority: p0
+    depends_on:
+      - artemis_policy_detail_hero_and_kpis
+    tags:
+      - frontend
+      - detail
+      - products
+      - hs_codes
+    deliverables:
+      - Product category list with supplier counts
+      - HS-code panel with descriptions for the selected category
+      - Selectable structure that supports the launch list flow without committing to
+        the later product-search enhancement now
+      - "React components: TargetedProductsSection, ProductImpactList, HsCodePanel"
+    reuse_candidates: []
+  - id: artemis_similar_suppliers_entrypoints
+    title: Similar Suppliers
+    summary: Use the existing similar-suppliers route as the V2 continuation path from
+      impacted suppliers if the initial release keeps that flow, without taking on a
+      separate V2-specific redesign of the similar-suppliers experience.
+    lane: frontend_artemis
+    status: planned
+    priority: p0
+    depends_on:
+      - artemis_suppliers_impacted_table
+    tags:
+      - frontend
+      - similar_suppliers
+      - reuse
+    deliverables:
+      - Similar Suppliers CTA from supplier rows on the V2 detail page
+      - Navigation from policy detail into the existing similar-suppliers route
+      - Back-navigation that preserves the V2 detail context
+      - "React components: SimilarSuppliersPageBridge"
+    reuse_candidates:
+      - src/components/views/similar-suppliers/similar-suppliers-view.tsx
+      - src/components/similar-suppliers/similar-suppliers-button.tsx
+  - id: artemis_spend_display_support
+    title: Spend Display
+    summary: Ensure spend-at-risk and supplier spend display correctly everywhere V2
+      promises them, while treating spend editing as a follow-up decision.
+    lane: frontend_artemis
+    status: planned
+    priority: p0
+    depends_on:
+      - artemis_policy_list_data_and_read_status
+      - artemis_policy_detail_hero_and_kpis
+      - artemis_suppliers_impacted_table
+    tags:
+      - frontend
+      - spend
+      - detail
+      - landing
+    deliverables:
+      - Spend at risk rendered on policy cards and KPI sidebar
+      - Current Spend rendered in the suppliers table
+      - Clear fallback treatment when spend is missing
+      - "React components: TradePolicyCard, TradePolicyKpiRail, SuppliersImpactedTable"
+    reuse_candidates: []
+    notes: Keep spend editing out of the launch-critical path unless product and security
+      explicitly pull it in.

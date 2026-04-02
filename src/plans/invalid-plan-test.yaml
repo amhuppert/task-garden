@@ -1,0 +1,17 @@
+version: 1
+plan_id: invalid-plan-test
+title: Invalid Plan Test
+last_updated: "2024-01-01"
+summary: A test plan with schema validation errors for browser tests.
+
+lanes:
+  - id: backend
+    label: Backend
+
+work_items:
+  - id: task-a
+    title: Task A
+    summary: This work item references a lane that does not exist.
+    lane: does-not-exist-lane
+    status: planned
+    priority: p1
