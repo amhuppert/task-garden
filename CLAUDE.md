@@ -1,26 +1,20 @@
-# AI-DLC and Spec-Driven Development
+# Task Garden
 
-Kiro-style Spec Driven Development implementation on AI-DLC (AI Development Life Cycle)
+Single-user planning tool for software development projects. Loads YAML project plans, validates them as DAGs, and renders an interactive dependency graph. V1 is read-only.
 
-## Project Context
+**Stack**: TypeScript, React, Vite, Bun, Tailwind CSS, React Flow, graphology, Zustand, Zod
+**Dev commands**: `bun run dev` | `bun test` | `bun run lint` | `bun run typecheck` | `bun run build`
 
-### Paths
-- Steering: `.kiro/steering/`
-- Specs: `.kiro/specs/`
+## Steering
 
-### Steering vs Specification
+At conversation start, read all files in `.kiro/steering/` before beginning work. These contain project-wide rules and context.
 
-**Steering** (`.kiro/steering/`) - Guide AI with project-wide rules and context
-**Specs** (`.kiro/specs/`) - Formalize development process for individual features
+## Specifications
 
-### Active Specifications
-- Check `.kiro/specs/` for active specifications
+- Specs live in `.kiro/specs/`
 - Use `/kiro:spec-status [feature-name]` to check progress
 
-## Development Guidelines
-- Think in English, generate responses in English. All Markdown content written to project files (e.g., requirements.md, design.md, tasks.md, research.md, validation reports) MUST be written in the target language configured for this specification (see spec.json.language).
-
-## Minimal Workflow
+## Spec-Driven Workflow
 - Phase 0 (optional): `/kiro:steering`, `/kiro:steering-custom`
 - Phase 1 (Specification):
   - `/kiro:spec-init "description"`
@@ -34,12 +28,7 @@ Kiro-style Spec Driven Development implementation on AI-DLC (AI Development Life
 - Progress check: `/kiro:spec-status {feature}` (use anytime)
 
 ## Development Rules
-- 3-phase approval workflow: Requirements → Design → Tasks → Implementation
+- 3-phase approval workflow: Requirements -> Design -> Tasks -> Implementation
 - Human review required each phase; use `-y` only for intentional fast-track
 - Keep steering current and verify alignment with `/kiro:spec-status`
-- Follow the user's instructions precisely, and within that scope act autonomously: gather the necessary context and complete the requested work end-to-end in this run, asking questions only when essential information is missing or the instructions are critically ambiguous.
-
-## Steering Configuration
-- Load entire `.kiro/steering/` as project memory
-- Default files: `product.md`, `tech.md`, `structure.md`
-- Custom files are supported (managed via `/kiro:steering-custom`)
+- All Markdown written to spec files must use the target language configured in spec.json

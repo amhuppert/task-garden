@@ -30,8 +30,6 @@ Do not test through internal helpers, internal state shape, or call ordering bet
 - Place pure logic tests next to the module in `src/lib/` or the owning feature
 - Use browser tests for user workflows and graph interactions that need real rendering behavior
 
-Colocation matters here for the same reason it does elsewhere in the project: code and tests that change together should live together.
-
 ## Mocking Policy
 
 Prefer this order:
@@ -40,58 +38,7 @@ Prefer this order:
 2. Injected test double: pass a fake implementation through parameters, factories, or React context
 3. Module mock for third-party side effects: use `vi.mock` only when a dependency cannot be controlled through injection
 
-Avoid mocking internal modules with `vi.mock`. Replacing the project's own modules at import time is usually a design smell because it couples the test to implementation details instead of the unit's real contract.
-
-If a component, hook, or service feels hard to test without mocking an internal module, fix the boundary instead:
-
-- introduce an explicit interface
-- inject the dependency through context or a factory parameter
-- move side-effecting code behind a thin adapter
-
-## Acceptable Uses of `vi.mock`
-
-Use `vi.mock` sparingly for third-party or environment-owned boundaries such as:
-
-- browser or runtime globals that the test environment does not provide naturally
-- file system, process, or timer APIs
-- network-bound libraries or framework singletons that cannot be injected cleanly
-
-Even in those cases, prefer mocking a thin adapter owned by the boundary layer over scattering module mocks through feature tests.
-
-## Problematic Mocking Patterns
-
-Treat these as warning signs:
-
-- mocking internal service, utility, or state modules
-- tests that mostly assert a mocked return value was passed through unchanged
-- tests that only verify call sequences on mocks without asserting a meaningful observable outcome
-- tests that break whenever internals move around but user-visible behavior stays the same
-
-A useful check is: if the production code were replaced with "return the mocked value directly," would the test still pass? If yes, the test is probably validating the mock setup more than the production behavior.
-
-## Dependency Injection Pattern
-
-When external data sources or services are introduced, align testing with the project's DI guidance:
-
-- components and hooks depend on interfaces, not concrete implementations
-- service implementations handle boundary concerns such as fetching and validation
-- tests provide fake services through the same context or factory path used in production
-
-Example shape:
-
-```typescript
-const mockPlanService: PlanService = {
-  loadPlan: vi.fn().mockResolvedValue(testPlan),
-};
-
-render(
-  <ServiceContext.Provider value={{ planService: mockPlanService }}>
-    <PlanGraph />
-  </ServiceContext.Provider>
-);
-```
-
-This keeps tests close to production wiring without requiring internal module replacement.
+Avoid mocking internal modules with `vi.mock`. Replacing the project's own modules at import time couples the test to implementation details. If something feels hard to test without mocking an internal module, fix the boundary: introduce an explicit interface, inject the dependency through context or a factory parameter, or move side-effecting code behind a thin adapter.
 
 ## Review Checklist
 

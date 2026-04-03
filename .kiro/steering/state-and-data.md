@@ -50,13 +50,3 @@ All plan data loaded from YAML should be parsed and validated immediately. After
 - derived fields are computed from that model
 - UI code consumes validated and derived data rather than raw YAML objects
 
-## Future Service Boundary
-
-V1 does not need a backend API, but if future versions introduce remote data or multiple loaders:
-
-- use service interfaces
-- use factory functions rather than classes
-- keep implementation details behind service boundaries
-- inject services through React context rather than importing concrete implementations directly in components
-
-This keeps the UI insulated from transport details and preserves testability.
