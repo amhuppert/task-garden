@@ -15,7 +15,10 @@ const validPlan = {
   title: "Test Plan",
   last_updated: "2026-04-01",
   summary: "A minimal test plan.",
-  references: ["https://example.com", "memory-bank/focus.md"],
+  references: [
+    { label: "Example", href: "https://example.com" },
+    { label: "Focus", href: "memory-bank/focus.md" },
+  ],
   lanes: [
     { id: "frontend", label: "Frontend" },
     { id: "backend", label: "Backend" },
@@ -135,25 +138,49 @@ describe("TaskGardenPlanSchemaService – valid plans", () => {
     }
   });
 
-  it("accepts https URL reference targets", () => {
+  it("accepts structured references with https URL href", () => {
     const plan = {
       ...validPlan,
-      references: ["https://example.com/doc"],
+      references: [{ label: "Docs", href: "https://example.com/doc" }],
     };
     expect(schemaService.parse(plan).ok).toBe(true);
   });
 
-  it("accepts http URL reference targets", () => {
-    const plan = { ...validPlan, references: ["http://localhost:3000"] };
+  it("accepts structured references with http URL href", () => {
+    const plan = {
+      ...validPlan,
+      references: [{ label: "Local", href: "http://localhost:3000" }],
+    };
     expect(schemaService.parse(plan).ok).toBe(true);
   });
 
-  it("accepts repo-relative .md reference targets", () => {
+  it("accepts structured references with repo-relative .md href", () => {
     const plan = {
       ...validPlan,
-      references: ["memory-bank/focus.md", "docs/overview.md"],
+      references: [
+        { label: "Focus", href: "memory-bank/focus.md" },
+        { label: "Overview", href: "docs/overview.md" },
+      ],
     };
     expect(schemaService.parse(plan).ok).toBe(true);
+  });
+
+  it("preserves both label and href on parsed plan references", () => {
+    const plan = {
+      ...validPlan,
+      references: [
+        { label: "Example", href: "https://example.com" },
+        { label: "Focus", href: "memory-bank/focus.md" },
+      ],
+    };
+    const result = schemaService.parse(plan);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.references).toEqual([
+        { label: "Example", href: "https://example.com" },
+        { label: "Focus", href: "memory-bank/focus.md" },
+      ]);
+    }
   });
 
   it("accepts optional lane description and color", () => {
@@ -195,34 +222,58 @@ describe("TaskGardenPlanSchemaService – field validation", () => {
     expect(result.ok).toBe(false);
   });
 
-  it("rejects reference target that is not a URL or .md path", () => {
+  it("rejects legacy bare-string references", () => {
     const result = schemaService.parse({
       ...validPlan,
-      references: ["some-random-string"],
+      references: ["https://example.com"],
     });
     expect(result.ok).toBe(false);
   });
 
-  it("rejects absolute .md paths (must be repo-relative)", () => {
+  it("rejects reference object missing label", () => {
     const result = schemaService.parse({
       ...validPlan,
-      references: ["/absolute/path.md"],
+      references: [{ href: "https://example.com" }],
     });
     expect(result.ok).toBe(false);
   });
 
-  it("rejects path-traversal .md paths", () => {
+  it("rejects reference with unsupported href scheme", () => {
     const result = schemaService.parse({
       ...validPlan,
-      references: ["../outside.md"],
+      references: [{ label: "Bad", href: "ftp://example.com" }],
     });
     expect(result.ok).toBe(false);
   });
 
-  it("rejects embedded path-traversal sequences", () => {
+  it("rejects reference with href that is not a URL or .md path", () => {
     const result = schemaService.parse({
       ...validPlan,
-      references: ["docs/../outside.md"],
+      references: [{ label: "Bad", href: "some-random-string" }],
+    });
+    expect(result.ok).toBe(false);
+  });
+
+  it("rejects reference with absolute .md href (must be repo-relative)", () => {
+    const result = schemaService.parse({
+      ...validPlan,
+      references: [{ label: "Abs", href: "/absolute/path.md" }],
+    });
+    expect(result.ok).toBe(false);
+  });
+
+  it("rejects reference with path-traversal .md href", () => {
+    const result = schemaService.parse({
+      ...validPlan,
+      references: [{ label: "Traverse", href: "../outside.md" }],
+    });
+    expect(result.ok).toBe(false);
+  });
+
+  it("rejects reference with embedded path-traversal sequences", () => {
+    const result = schemaService.parse({
+      ...validPlan,
+      references: [{ label: "Sneaky", href: "docs/../outside.md" }],
     });
     expect(result.ok).toBe(false);
   });

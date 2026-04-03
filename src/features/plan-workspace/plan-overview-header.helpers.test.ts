@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  deriveReferenceLabel,
-  formatLastUpdated,
-} from "./plan-overview-header.helpers";
+import { formatLastUpdated } from "./plan-overview-header.helpers";
 
 // ---------------------------------------------------------------------------
 // formatLastUpdated
@@ -37,40 +34,5 @@ describe("formatLastUpdated", () => {
     const result = formatLastUpdated("2024-12-31");
     expect(result).toContain("2024");
     expect(result).toMatch(/december/i);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// deriveReferenceLabel
-// ---------------------------------------------------------------------------
-
-describe("deriveReferenceLabel", () => {
-  it("returns the filename without extension for a .md path", () => {
-    expect(deriveReferenceLabel("docs/guide.md")).toBe("guide");
-  });
-
-  it("handles a nested path", () => {
-    expect(deriveReferenceLabel("memory-bank/specs/design.md")).toBe("design");
-  });
-
-  it("returns the URL hostname for an http URL", () => {
-    expect(deriveReferenceLabel("https://example.com/docs")).toBe(
-      "example.com/docs",
-    );
-  });
-
-  it("returns the URL hostname for an http URL without a path", () => {
-    expect(deriveReferenceLabel("https://github.com")).toBe("github.com");
-  });
-
-  it("handles http URLs", () => {
-    expect(deriveReferenceLabel("http://example.com/resource")).toBe(
-      "example.com/resource",
-    );
-  });
-
-  it("falls back to the raw target for unrecognized formats", () => {
-    const raw = "some-unrecognized-target";
-    expect(deriveReferenceLabel(raw)).toBe(raw);
   });
 });

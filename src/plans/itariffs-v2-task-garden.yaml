@@ -9,7 +9,8 @@ summary: Artemis-first implementation plan for iTariffs V2. The plan keeps V1 an
   trade-policy service contract with mock-first implementation, and records backend
   dependencies as explicit work items.
 references:
-  - memory-bank/focus.md
+  - label: Focus
+    href: memory-bank/focus.md
 lanes:
   - id: backend
     label: Backend

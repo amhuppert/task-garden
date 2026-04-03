@@ -1,9 +1,6 @@
 import type { PlanAnalysisSnapshot } from "../../lib/graph/plan-analysis-engine";
-import type {
-  ReferenceResolutionFailure,
-  ReferenceResolverService,
-  ResolvedReference,
-} from "../../lib/plan/reference-resolver";
+import type { ReferenceResolverService } from "../../lib/plan/reference-resolver";
+import { ResourceLink } from "./ResourceLink";
 import {
   formatEstimate,
   getPriorityLabel,
@@ -14,7 +11,6 @@ import {
   getPriorityAccentColor,
   getStatusAccentColor,
 } from "./plan-graph-canvas.helpers";
-import { deriveReferenceLabel } from "./plan-overview-header.helpers";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -134,68 +130,6 @@ function WorkItemRefButton({
         </div>
       </div>
       <p className="mt-0.5 text-sm text-foreground">{title}</p>
-    </button>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Resolved link item
-// ---------------------------------------------------------------------------
-
-type ResolveResult =
-  | { ok: true; value: ResolvedReference }
-  | { ok: false; error: ReferenceResolutionFailure };
-
-interface ResolvedLinkItemProps {
-  label: string;
-  result: ResolveResult;
-  onDocumentPreview?: (documentPath: string, rawDocument: string) => void;
-}
-
-function ResolvedLinkItem({
-  label,
-  result,
-  onDocumentPreview,
-}: ResolvedLinkItemProps) {
-  if (!result.ok) {
-    return (
-      <button
-        type="button"
-        disabled
-        title={result.error.message}
-        className="flex items-center gap-1.5 rounded-[var(--radius-sm)] border border-border bg-surface-muted px-2.5 py-1 font-mono text-xs text-muted-foreground opacity-50 cursor-not-allowed"
-      >
-        <span aria-hidden="true">⊘</span>
-        {label}
-      </button>
-    );
-  }
-
-  const ref = result.value;
-
-  if (ref.kind === "external_url") {
-    return (
-      <a
-        href={ref.href}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center gap-1.5 rounded-[var(--radius-sm)] border border-border bg-surface px-2.5 py-1 font-mono text-xs text-foreground transition-colors hover:border-border-strong hover:bg-surface-muted"
-      >
-        <span aria-hidden="true">↗</span>
-        {label}
-      </a>
-    );
-  }
-
-  // bundled_document
-  return (
-    <button
-      type="button"
-      onClick={() => onDocumentPreview?.(ref.documentPath, ref.rawDocument)}
-      className="flex items-center gap-1.5 rounded-[var(--radius-sm)] border border-border bg-surface px-2.5 py-1 font-mono text-xs text-foreground transition-colors hover:border-border-strong hover:bg-surface-muted"
-    >
-      <span aria-hidden="true">⊞</span>
-      {label}
     </button>
   );
 }
@@ -453,12 +387,12 @@ export function PlanDetailsPanel({
         <Section label="Links">
           <div className="flex flex-wrap gap-2">
             {item.links.map((link) => {
-              const label = link.label || deriveReferenceLabel(link.href);
-              const result = resolver.resolve(link.href, label);
+              const result = resolver.resolve(link.href, link.label);
               return (
-                <ResolvedLinkItem
-                  key={link.href}
-                  label={label}
+                <ResourceLink
+                  key={`${link.label}:${link.href}`}
+                  label={link.label}
+                  target={link.href}
                   result={result}
                   onDocumentPreview={onDocumentPreview}
                 />

@@ -6,8 +6,10 @@ summary: >
   Initial implementation plan for Task Garden, a single-user read-only planning tool
   for visualizing project work items and their dependencies as an interactive graph.
 references:
-  - memory-bank/focus.md
-  - memory-bank/schema-proposal.md
+  - label: Focus
+    href: memory-bank/focus.md
+  - label: Schema Proposal
+    href: memory-bank/schema-proposal.md
 
 lanes:
   - id: input

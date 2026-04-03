@@ -1,13 +1,7 @@
-import type {
-  ReferenceResolutionFailure,
-  ReferenceResolverService,
-  ResolvedReference,
-} from "../../lib/plan/reference-resolver";
+import type { ReferenceResolverService } from "../../lib/plan/reference-resolver";
 import type { TaskGardenPlan } from "../../lib/plan/task-garden-plan.schema";
-import {
-  deriveReferenceLabel,
-  formatLastUpdated,
-} from "./plan-overview-header.helpers";
+import { ResourceLink } from "./ResourceLink";
+import { formatLastUpdated } from "./plan-overview-header.helpers";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -23,66 +17,6 @@ export interface PlanOverviewHeaderProps {
 }
 
 // ---------------------------------------------------------------------------
-// Sub-components
-// ---------------------------------------------------------------------------
-
-type ResolveResult =
-  | { ok: true; value: ResolvedReference }
-  | { ok: false; error: ReferenceResolutionFailure };
-
-interface ResolvedReferenceItemProps {
-  result: ResolveResult;
-  onDocumentPreview?: (documentPath: string, rawDocument: string) => void;
-}
-
-function ResolvedReferenceItem({
-  result,
-  onDocumentPreview,
-}: ResolvedReferenceItemProps) {
-  if (!result.ok) {
-    return (
-      <button
-        type="button"
-        disabled
-        title={result.error.message}
-        className="flex items-center gap-1.5 rounded-[var(--radius-sm)] border border-border bg-surface-muted px-2.5 py-1 font-mono text-xs text-muted-foreground opacity-50 cursor-not-allowed"
-      >
-        <span aria-hidden="true">⊘</span>
-        {deriveReferenceLabel(result.error.target)}
-      </button>
-    );
-  }
-
-  const ref = result.value;
-
-  if (ref.kind === "external_url") {
-    return (
-      <a
-        href={ref.href}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center gap-1.5 rounded-[var(--radius-sm)] border border-border bg-surface px-2.5 py-1 font-mono text-xs text-foreground transition-colors hover:border-border-strong hover:bg-surface-muted"
-      >
-        <span aria-hidden="true">↗</span>
-        {deriveReferenceLabel(ref.href)}
-      </a>
-    );
-  }
-
-  // bundled_document
-  return (
-    <button
-      type="button"
-      onClick={() => onDocumentPreview?.(ref.documentPath, ref.rawDocument)}
-      className="flex items-center gap-1.5 rounded-[var(--radius-sm)] border border-border bg-surface px-2.5 py-1 font-mono text-xs text-foreground transition-colors hover:border-border-strong hover:bg-surface-muted"
-    >
-      <span aria-hidden="true">⊞</span>
-      {deriveReferenceLabel(ref.documentPath)}
-    </button>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
@@ -91,12 +25,6 @@ export function PlanOverviewHeader({
   resolver,
   onDocumentPreview,
 }: PlanOverviewHeaderProps) {
-  const resolvedRefs: Array<{ target: string; result: ResolveResult }> =
-    plan.references.map((target) => ({
-      target,
-      result: resolver.resolve(target, deriveReferenceLabel(target)),
-    }));
-
   return (
     <header className="flex flex-col gap-6 border-b border-border pb-6">
       {/* ------------------------------------------------------------------ */}
@@ -152,17 +80,22 @@ export function PlanOverviewHeader({
       {/* ------------------------------------------------------------------ */}
       {/* References (only when the plan has references)                      */}
       {/* ------------------------------------------------------------------ */}
-      {resolvedRefs.length > 0 && (
+      {plan.references.length > 0 && (
         <div className="flex flex-col gap-2">
           <span className="atlas-kicker">Plan References</span>
           <div className="flex flex-wrap gap-2">
-            {resolvedRefs.map(({ target, result }) => (
-              <ResolvedReferenceItem
-                key={target}
-                result={result}
-                onDocumentPreview={onDocumentPreview}
-              />
-            ))}
+            {plan.references.map((ref) => {
+              const result = resolver.resolve(ref.href, ref.label);
+              return (
+                <ResourceLink
+                  key={`${ref.label}:${ref.href}`}
+                  label={ref.label}
+                  target={ref.href}
+                  result={result}
+                  onDocumentPreview={onDocumentPreview}
+                />
+              );
+            })}
           </div>
         </div>
       )}

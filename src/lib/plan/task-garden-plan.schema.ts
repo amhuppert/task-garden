@@ -280,7 +280,7 @@ export const TaskGardenPlanSchemaDefinition = z
     title: z.string().min(1),
     last_updated: DateOnlySchema,
     summary: z.string().min(1),
-    references: z.array(ReferenceTargetSchema).default([]),
+    references: z.array(TaskGardenLinkSchema).default([]),
     lanes: z.array(TaskGardenLaneSchema).min(1),
     work_items: z.array(TaskGardenWorkItemSchema).min(1),
   })
