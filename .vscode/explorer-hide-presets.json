@@ -24,6 +24,10 @@
         {
           "kind": "exactFile",
           "path": "LICENSE"
+        },
+        {
+          "kind": "exactFile",
+          "path": "package-lock.json"
         }
       ]
     }

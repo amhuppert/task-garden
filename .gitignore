@@ -10,3 +10,7 @@ test-results/
 .tmp/
 .playwright-mcp/
 .cc/graph-workflow-docs/
+src/plans/**
+!src/plans/bundled-plans.schema.test.ts
+!src/plans/invalid-plan-test.yaml
+!src/plans/task-garden-v1.yaml
