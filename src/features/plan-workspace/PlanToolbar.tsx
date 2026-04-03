@@ -231,7 +231,7 @@ export function PlanToolbar({
   );
 
   return (
-    <div className="atlas-panel flex flex-col gap-5 overflow-y-auto p-4">
+    <div className="flex flex-col gap-5 overflow-y-auto p-4">
       {/* ------------------------------------------------------------------ */}
       {/* Visibility summary                                                   */}
       {/* ------------------------------------------------------------------ */}
