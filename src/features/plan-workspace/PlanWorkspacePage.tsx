@@ -10,6 +10,7 @@ import {
   useInteractions,
 } from "@floating-ui/react";
 import { useCallback, useMemo, useState } from "react";
+import { useHotkeys } from "react-hotkeys-hook";
 import {
   type FlowProjection,
   flowProjectionService,
@@ -37,6 +38,11 @@ import type {
   PlanToolbarProjectionSummary,
 } from "./PlanToolbar";
 import { PlanValidationState } from "./PlanValidationState";
+import {
+  selectCanGoBack,
+  selectCanGoForward,
+  useNavigationHistoryStore,
+} from "./navigation-history.store";
 import {
   type InsightMode,
   type PlanDisplayStateValue,
@@ -236,6 +242,14 @@ export function PlanWorkspacePage({ source }: PlanWorkspacePageProps) {
   const priorities = usePlanExplorerStore(selectPriorities);
   const tags = usePlanExplorerStore(selectTags);
   const selectWorkItem = usePlanExplorerStore((s) => s.selectWorkItem);
+  const clearSelection = usePlanExplorerStore((s) => s.clearSelection);
+
+  // ── Navigation history store subscriptions ─────────────────────────────────
+  const canGoBack = useNavigationHistoryStore(selectCanGoBack);
+  const canGoForward = useNavigationHistoryStore(selectCanGoForward);
+  const navPush = useNavigationHistoryStore((s) => s.push);
+  const navGoBack = useNavigationHistoryStore((s) => s.goBack);
+  const navGoForward = useNavigationHistoryStore((s) => s.goForward);
 
   // ── Display store subscriptions ───────────────────────────────────────────
   const colorMode = usePlanDisplayStore(selectColorMode);
@@ -309,10 +323,45 @@ export function PlanWorkspacePage({ source }: PlanWorkspacePageProps) {
 
   const handleSelectWorkItem = useCallback(
     (id: string) => {
+      navPush(id);
       selectWorkItem(id);
       setRightTab("details");
     },
-    [selectWorkItem],
+    [navPush, selectWorkItem],
+  );
+
+  const handleClearSelection = useCallback(() => {
+    clearSelection();
+  }, [clearSelection]);
+
+  const handleGoBack = useCallback(() => {
+    const id = navGoBack();
+    if (id) {
+      selectWorkItem(id);
+      setRightTab("details");
+    }
+  }, [navGoBack, selectWorkItem]);
+
+  const handleGoForward = useCallback(() => {
+    const id = navGoForward();
+    if (id) {
+      selectWorkItem(id);
+      setRightTab("details");
+    }
+  }, [navGoForward, selectWorkItem]);
+
+  // ── Keyboard shortcuts ───────────────────────────────────────────────────
+  useHotkeys(
+    "alt+left",
+    handleGoBack,
+    { enabled: canGoBack, preventDefault: true },
+    [handleGoBack, canGoBack],
+  );
+  useHotkeys(
+    "alt+right",
+    handleGoForward,
+    { enabled: canGoForward, preventDefault: true },
+    [handleGoForward, canGoForward],
   );
 
   const handleSetInsightMode = useCallback(
@@ -458,6 +507,8 @@ export function PlanWorkspacePage({ source }: PlanWorkspacePageProps) {
                 <PlanGraphCanvas
                   projection={readyProjection}
                   selectedWorkItemId={selectedWorkItemId}
+                  onSelectWorkItem={handleSelectWorkItem}
+                  onClearSelection={handleClearSelection}
                 />
               </div>
             </main>
@@ -518,6 +569,10 @@ export function PlanWorkspacePage({ source }: PlanWorkspacePageProps) {
                     }
                     onSelectWorkItem={handleSelectWorkItem}
                     onDocumentPreview={handleDocumentPreview}
+                    canGoBack={canGoBack}
+                    canGoForward={canGoForward}
+                    onGoBack={handleGoBack}
+                    onGoForward={handleGoForward}
                   />
                 ) : (
                   <PlanInsightsPanel

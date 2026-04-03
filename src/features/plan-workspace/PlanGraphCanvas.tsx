@@ -148,6 +148,10 @@ function SizeLegendItems({
 export interface PlanGraphCanvasProps {
   projection: FlowProjection;
   selectedWorkItemId: string | null;
+  /** Called when a graph node is clicked. */
+  onSelectWorkItem: (id: string) => void;
+  /** Called when the graph background is clicked (deselect). */
+  onClearSelection: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -218,10 +222,10 @@ function ViewportController({
 export function PlanGraphCanvas({
   projection,
   selectedWorkItemId,
+  onSelectWorkItem,
+  onClearSelection,
 }: PlanGraphCanvasProps) {
-  const selectWorkItem = usePlanExplorerStore((s) => s.selectWorkItem);
   const skipAutoPanRef = useRef(false);
-  const clearSelection = usePlanExplorerStore((s) => s.clearSelection);
   const clearFilters = usePlanExplorerStore((s) => s.clearFilters);
   const colorMode = usePlanDisplayStore(selectColorMode);
   const sizeMode = usePlanDisplayStore(selectSizeMode);
@@ -344,14 +348,14 @@ export function PlanGraphCanvas({
   const onNodeClick = useCallback(
     (_: unknown, node: Node) => {
       skipAutoPanRef.current = true;
-      selectWorkItem(node.id);
+      onSelectWorkItem(node.id);
     },
-    [selectWorkItem],
+    [onSelectWorkItem],
   );
 
   const onPaneClick = useCallback(() => {
-    clearSelection();
-  }, [clearSelection]);
+    onClearSelection();
+  }, [onClearSelection]);
 
   // Empty state when all items are filtered out
   if (projection.emptyStateMessage) {

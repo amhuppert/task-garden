@@ -32,6 +32,14 @@ export interface PlanDetailsPanelProps {
   onSelectWorkItem?: (id: string) => void;
   /** Called when a successfully resolved bundled document reference is activated. */
   onDocumentPreview?: (documentPath: string, rawDocument: string) => void;
+  /** Whether the back button should be enabled. */
+  canGoBack?: boolean;
+  /** Whether the forward button should be enabled. */
+  canGoForward?: boolean;
+  /** Navigate to the previous work item in history. */
+  onGoBack?: () => void;
+  /** Navigate to the next work item in history. */
+  onGoForward?: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -161,6 +169,10 @@ export function PlanDetailsPanel({
   selectedNodeFilteredOut,
   onSelectWorkItem,
   onDocumentPreview,
+  canGoBack = false,
+  canGoForward = false,
+  onGoBack,
+  onGoForward,
 }: PlanDetailsPanelProps) {
   const { selectedWorkItemId } = explorer;
 
@@ -190,12 +202,65 @@ export function PlanDetailsPanel({
       {selectedNodeFilteredOut && <ContextOnlyBanner />}
 
       {/* ------------------------------------------------------------------ */}
-      {/* Core: id, title, summary                                            */}
+      {/* Navigation + Core: id, title, summary                               */}
       {/* ------------------------------------------------------------------ */}
       <div className="flex flex-col gap-1.5">
-        <p className="truncate font-mono text-[0.68rem] uppercase tracking-wider text-muted-foreground">
-          {item.id}
-        </p>
+        <div className="flex items-center justify-between">
+          <p className="min-w-0 truncate font-mono text-[0.68rem] uppercase tracking-wider text-muted-foreground">
+            {item.id}
+          </p>
+          <nav
+            className="flex shrink-0 items-center gap-0.5"
+            aria-label="History navigation"
+          >
+            <button
+              type="button"
+              aria-label="Go back (Alt+Left)"
+              disabled={!canGoBack}
+              onClick={onGoBack}
+              className="flex h-6 w-6 items-center justify-center rounded-[var(--radius-sm)] text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 14 14"
+                fill="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M8.5 3L4.5 7L8.5 11"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+            <button
+              type="button"
+              aria-label="Go forward (Alt+Right)"
+              disabled={!canGoForward}
+              onClick={onGoForward}
+              className="flex h-6 w-6 items-center justify-center rounded-[var(--radius-sm)] text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 14 14"
+                fill="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M5.5 3L9.5 7L5.5 11"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          </nav>
+        </div>
         <h2 className="atlas-title text-xl leading-tight text-foreground">
           {item.title}
         </h2>
