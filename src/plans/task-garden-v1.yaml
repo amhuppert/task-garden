@@ -36,6 +36,9 @@ work_items:
     deliverables:
       - PlanRuntimeConfig service
       - Typed ImportMetaEnv contract
+    links:
+      - label: "Vite Env Variables"
+        href: https://vitejs.dev/guide/env-and-mode
 
   - id: plan-registry
     title: Plan Registry
@@ -50,6 +53,11 @@ work_items:
     deliverables:
       - createPlanRegistry factory
       - Bundled document path set
+    links:
+      - label: "Vite Glob Import"
+        href: https://vitejs.dev/guide/features#glob-import
+      - label: "TG-42 Registry spike"
+        href: https://mycompany.atlassian.net/browse/TG-42
 
   - id: plan-source-subscription
     title: Plan Source Subscription
@@ -66,6 +74,9 @@ work_items:
     deliverables:
       - useSelectedPlanSource hook
       - PlanSourceEmission type
+    links:
+      - label: "Vite HMR API"
+        href: https://vitejs.dev/guide/api-hmr
 
   - id: plan-schema
     title: Task Garden Plan Schema
@@ -98,6 +109,11 @@ work_items:
     deliverables:
       - PlanProcessingPipeline service
       - PlanProcessingState discriminated union
+    links:
+      - label: "TG-58 Pipeline design"
+        href: https://mycompany.atlassian.net/browse/TG-58
+      - label: "Pipeline architecture notes"
+        href: memory-bank/codex/resource-links-plan-notes.md
 
   - id: reference-resolver
     title: Reference Resolver
@@ -125,6 +141,13 @@ work_items:
     estimate:
       value: 3
       unit: days
+    links:
+      - label: "Graphology docs"
+        href: https://graphology.github.io/
+      - label: "graphology-dag"
+        href: https://github.com/graphology/graphology/tree/master/src/dag
+      - label: "TG-71 Graph engine"
+        href: https://mycompany.atlassian.net/browse/TG-71
     notes: Use graphology-dag for topological sort. Avoid calling it critical-path without duration data.
 
   - id: flow-projection
@@ -170,6 +193,13 @@ work_items:
     estimate:
       value: 3
       unit: days
+    links:
+      - label: "React Flow docs"
+        href: https://reactflow.dev/learn
+      - label: "Canvas layout spike"
+        href: https://github.com/task-garden/task-garden/pull/34
+      - label: "TG-80 Graph canvas"
+        href: https://mycompany.atlassian.net/browse/TG-80
 
   - id: details-panel
     title: Plan Details Panel
@@ -183,6 +213,11 @@ work_items:
     tags:
       - details
       - panel
+    links:
+      - label: "Details panel mockup"
+        href: https://www.figma.com/file/abc123/task-garden-v1?node-id=42-1080
+      - label: "Design system"
+        href: memory-bank/botanical-systems-atlas-design-system.md
 
   - id: insights-panel
     title: Plan Insights Panel
@@ -208,3 +243,8 @@ work_items:
     tags:
       - controls
       - filters
+    links:
+      - label: "Filter UX research"
+        href: https://mycompany.atlassian.net/wiki/spaces/DESIGN/pages/98765/Filter+Patterns
+      - label: "TG-95 Toolbar"
+        href: https://gitlab.com/task-garden/task-garden/-/issues/95
