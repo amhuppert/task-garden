@@ -3,7 +3,7 @@ import type {
   MetricKey,
   PlanAnalysisSnapshot,
 } from "../../lib/graph/plan-analysis-engine";
-import { SectionInfoTooltip } from "./SectionInfoTooltip";
+import { SectionInfoModal } from "./SectionInfoModal";
 import {
   formatCompactDayCount,
   formatDayCount,
@@ -196,9 +196,7 @@ function Section({
       <div className="flex items-center gap-1.5">
         <span className="atlas-kicker">{label}</span>
         {description ? (
-          <SectionInfoTooltip label={`${label} explanation`}>
-            {description}
-          </SectionInfoTooltip>
+          <SectionInfoModal title={label}>{description}</SectionInfoModal>
         ) : null}
       </div>
       {children}
@@ -210,16 +208,16 @@ function EstimateProfileExplanation() {
   return (
     <>
       <p>
-        This summarizes the estimate data in the plan. It is useful for seeing
-        how much work has been estimated and how trustworthy the schedule view
-        is.
+        A compact summary of the estimate data in the plan. Useful for seeing
+        how complete the estimates are and how trustworthy the schedule view is.
       </p>
-      <p>
-        Calculation: coverage counts items with day estimates, total effort adds
-        those day estimates, schedule floor keeps the longest estimated
-        dependency route, parallelism is total effort divided by that route, and
-        critical items count tasks with no schedule buffer.
-      </p>
+      <div className="rounded-[var(--radius-sm)] bg-surface-muted px-2.5 py-2">
+        <span className="font-semibold text-foreground/70">How it works: </span>
+        Coverage counts items that have day estimates. Total effort adds those
+        estimates together. Schedule floor finds the longest estimated
+        dependency route. Parallelism divides total effort by that route.
+        Critical items counts tasks with no schedule buffer.
+      </div>
     </>
   );
 }
@@ -228,13 +226,15 @@ function EstimatedCriticalPathExplanation() {
   return (
     <>
       <p>
-        This shows the estimated route most likely to set the minimum delivery
-        time. It is useful for spotting the sequence where delays matter most.
+        The estimated route most likely to set the minimum delivery time. Useful
+        for spotting the sequence where delays matter most — slips on this path
+        directly push back delivery.
       </p>
-      <p>
-        Calculation: walk each dependency route, add the day estimates on that
-        route, and keep the route with the largest total.
-      </p>
+      <div className="rounded-[var(--radius-sm)] bg-surface-muted px-2.5 py-2">
+        <span className="font-semibold text-foreground/70">How it works: </span>
+        Walk each dependency route from start to finish, add the day estimates
+        along each route, and keep the route with the largest total.
+      </div>
     </>
   );
 }
@@ -243,13 +243,15 @@ function MostUnlockingItemsExplanation() {
   return (
     <>
       <p>
-        These are the tasks that unlock the most estimated work behind them. It
-        is useful for spotting items that release a lot of follow-on progress.
+        Tasks that unlock the most estimated work behind them. Useful for
+        spotting items that release a lot of follow-on progress — finishing
+        these first can unblock the most work for others.
       </p>
-      <p>
-        Calculation: start from a task, collect every reachable dependent below
-        it, and add their day estimates without double-counting shared items.
-      </p>
+      <div className="rounded-[var(--radius-sm)] bg-surface-muted px-2.5 py-2">
+        <span className="font-semibold text-foreground/70">How it works: </span>
+        Start from a task, collect every reachable dependent below it, and add
+        their day estimates without double-counting shared items.
+      </div>
     </>
   );
 }
@@ -258,13 +260,15 @@ function LongestDependencyChainExplanation() {
   return (
     <>
       <p>
-        This is the longest prerequisite sequence in the plan, even if there are
-        no estimates. It is useful for seeing the deepest handoff chain.
+        The longest prerequisite sequence in the plan, regardless of whether
+        items have estimates. Useful for seeing the deepest handoff chain —
+        longer chains mean more sequential coordination.
       </p>
-      <p>
-        Calculation: follow dependency links and keep the route with the most
-        items from start to finish.
-      </p>
+      <div className="rounded-[var(--radius-sm)] bg-surface-muted px-2.5 py-2">
+        <span className="font-semibold text-foreground/70">How it works: </span>
+        Follow dependency links and keep the route with the most items from
+        start to finish.
+      </div>
     </>
   );
 }
@@ -273,10 +277,14 @@ function RootsExplanation() {
   return (
     <>
       <p>
-        Roots are starting points. They are useful for seeing which tasks can
-        begin without waiting on anything else.
+        Starting points of the plan — tasks that can begin immediately without
+        waiting on anything else. Useful for identifying where work can kick off
+        right away.
       </p>
-      <p>Calculation: count items that have zero dependencies.</p>
+      <div className="rounded-[var(--radius-sm)] bg-surface-muted px-2.5 py-2">
+        <span className="font-semibold text-foreground/70">How it works: </span>
+        Count items that have zero dependencies.
+      </div>
     </>
   );
 }
@@ -285,10 +293,14 @@ function LeavesExplanation() {
   return (
     <>
       <p>
-        Leaves are endpoints. They are useful for seeing which tasks sit at the
-        ends of delivery paths.
+        Endpoints of the plan — tasks that sit at the ends of delivery paths
+        with nothing depending on them. Useful for seeing what the final
+        deliverables are.
       </p>
-      <p>Calculation: count items that no other tasks depend on.</p>
+      <div className="rounded-[var(--radius-sm)] bg-surface-muted px-2.5 py-2">
+        <span className="font-semibold text-foreground/70">How it works: </span>
+        Count items that no other tasks depend on.
+      </div>
     </>
   );
 }
@@ -297,14 +309,16 @@ function HighImportanceExplanation() {
   return (
     <>
       <p>
-        These are the items that connect many parts of the plan. They are useful
-        for spotting work where delays can ripple outward.
+        Items that connect many different parts of the plan, acting as bridges
+        between separate groups of work. Useful for spotting tasks where delays
+        can ripple outward and affect unrelated work streams.
       </p>
-      <p>
-        Calculation: for many pairs of tasks, find the shortest dependency route
-        between them and count how often each item sits in the middle of those
-        routes.
-      </p>
+      <div className="rounded-[var(--radius-sm)] bg-surface-muted px-2.5 py-2">
+        <span className="font-semibold text-foreground/70">How it works: </span>
+        For many pairs of tasks, find the shortest dependency route between them
+        and count how often each item sits in the middle of those routes. Items
+        that appear on many routes score higher.
+      </div>
     </>
   );
 }
@@ -313,14 +327,15 @@ function ActiveScopeExplanation() {
   return (
     <>
       <p>
-        This explains which slice of the plan the graph is showing right now. It
-        is useful when filters and selection make the canvas look smaller than
-        the full plan.
+        Shows which slice of the plan the graph is displaying right now. Useful
+        when filters and selection make the canvas look smaller than the full
+        plan.
       </p>
-      <p>
-        Calculation: combine the current selection with the chosen scope rule,
-        then keep only the items that match that dependency slice.
-      </p>
+      <div className="rounded-[var(--radius-sm)] bg-surface-muted px-2.5 py-2">
+        <span className="font-semibold text-foreground/70">How it works: </span>
+        Combine the current selection with the chosen scope rule, then keep only
+        the items that match that dependency slice.
+      </div>
     </>
   );
 }
@@ -329,14 +344,15 @@ function ColorEncodingExplanation() {
   return (
     <>
       <p>
-        This explains what node color means right now. It is useful for reading
-        the graph quickly without guessing what the palette stands for.
+        What node color means right now. Useful for reading the graph quickly
+        without guessing what the palette stands for.
       </p>
-      <p>
-        Calculation: authored modes use lane, status, or priority directly.
-        Metric modes compute the selected value for each item and map lower
-        values to lighter color and higher values to stronger color.
-      </p>
+      <div className="rounded-[var(--radius-sm)] bg-surface-muted px-2.5 py-2">
+        <span className="font-semibold text-foreground/70">How it works: </span>
+        Authored modes use lane, status, or priority directly. Metric modes
+        compute the selected value for each item and map lower values to lighter
+        color and higher values to stronger color.
+      </div>
     </>
   );
 }
@@ -345,14 +361,14 @@ function SizeEncodingExplanation() {
   return (
     <>
       <p>
-        This explains what node size means right now. It is useful for seeing
-        which items stand out by the currently selected measure.
+        What node size means right now. Useful for seeing which items stand out
+        by the currently selected measure.
       </p>
-      <p>
-        Calculation: uniform keeps all nodes the same size. Metric modes compute
-        the selected value for each item and scale larger values to larger
-        nodes.
-      </p>
+      <div className="rounded-[var(--radius-sm)] bg-surface-muted px-2.5 py-2">
+        <span className="font-semibold text-foreground/70">How it works: </span>
+        Uniform keeps all nodes the same size. Metric modes compute the selected
+        value for each item and scale larger values to larger nodes.
+      </div>
     </>
   );
 }
@@ -361,14 +377,15 @@ function MetricRangesExplanation() {
   return (
     <>
       <p>
-        This shows the smallest and largest values for each metric across the
-        whole plan. It is useful for interpreting the graph’s color and size
-        scales.
+        The smallest and largest values for each metric across the whole plan.
+        Useful for interpreting what "low" and "high" mean when reading the
+        graph’s color and size scales.
       </p>
-      <p>
-        Calculation: compute each metric for every item, then keep the minimum
-        and maximum values.
-      </p>
+      <div className="rounded-[var(--radius-sm)] bg-surface-muted px-2.5 py-2">
+        <span className="font-semibold text-foreground/70">How it works: </span>
+        Compute each metric for every item, then keep the minimum and maximum
+        values.
+      </div>
     </>
   );
 }
@@ -377,15 +394,15 @@ function InterpretationNoteExplanation() {
   return (
     <>
       <p>
-        This explains how to read structural metrics alongside estimate-based
-        metrics. It is useful for knowing when a number is about dependency
-        shape versus estimated time.
+        How to read structural metrics alongside estimate-based metrics. Useful
+        for knowing when a number reflects dependency shape versus estimated
+        time.
       </p>
-      <p>
-        Calculation: structural metrics use dependency links only. Estimate
-        metrics add authored day estimates on top of those same dependency
-        links.
-      </p>
+      <div className="rounded-[var(--radius-sm)] bg-surface-muted px-2.5 py-2">
+        <span className="font-semibold text-foreground/70">How it works: </span>
+        Structural metrics use dependency links only. Estimate metrics add
+        authored day estimates on top of those same dependency links.
+      </div>
     </>
   );
 }
@@ -394,13 +411,15 @@ function TopItemsByDegreeExplanation() {
   return (
     <>
       <p>
-        These are the most connected items in the plan. It is useful for
-        spotting work that touches many other tasks directly.
+        The most connected items in the plan. Useful for spotting work that
+        touches many other tasks directly — these items often need extra
+        coordination attention.
       </p>
-      <p>
-        Calculation: add the number of direct dependencies and direct dependents
-        for each item, then sort from highest to lowest.
-      </p>
+      <div className="rounded-[var(--radius-sm)] bg-surface-muted px-2.5 py-2">
+        <span className="font-semibold text-foreground/70">How it works: </span>
+        Add the number of direct dependencies and direct dependents for each
+        item, then sort from highest to lowest.
+      </div>
     </>
   );
 }

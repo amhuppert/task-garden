@@ -17,6 +17,7 @@
   "dependencies": {
     "@dagrejs/dagre": "^1.1.4",
     "@floating-ui/react": "^0.27.19",
+    "@radix-ui/react-dialog": "^1.1.15",
     "@xyflow/react": "^12.3.6",
     "graphology": "^0.26.0",
     "graphology-dag": "^0.4.1",

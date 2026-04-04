@@ -3,7 +3,7 @@ import type {
   TaskGardenPriority,
   TaskGardenStatus,
 } from "../../lib/plan/task-garden-plan.schema";
-import { SectionInfoTooltip } from "./SectionInfoTooltip";
+import { SectionInfoModal } from "./SectionInfoModal";
 import {
   selectColorMode,
   selectScheduleOverlay,
@@ -65,38 +65,36 @@ const METRIC_SIZE_MODES = Object.keys(
   METRIC_SIZE_DESCRIPTIONS,
 ) as MetricSizeMode[];
 
-function ScopeInfoTooltip() {
+function ScopeInfoModal() {
   return (
-    <SectionInfoTooltip label="Scope explanation">
+    <SectionInfoModal title="Scope">
       <p>
         Scope narrows the graph around the selected item. It is useful when you
         want to focus on just the work before it, after it, or both.
       </p>
-      <p>
-        Calculation: the app follows dependency links from the selected item.
-        Upstream shows prerequisites, downstream shows follow-on work, and full
-        chain shows both directions together.
-      </p>
-    </SectionInfoTooltip>
+      <div className="rounded-[var(--radius-sm)] bg-surface-muted px-2.5 py-2">
+        <span className="font-semibold text-foreground/70">How it works: </span>
+        The app follows dependency links from the selected item. Upstream shows
+        prerequisites, downstream shows follow-on work, and full chain shows
+        both directions together.
+      </div>
+    </SectionInfoModal>
   );
 }
 
-function ColorInfoTooltip() {
+function ColorInfoModal() {
   return (
-    <SectionInfoTooltip label="Color explanation">
-      <p className="atlas-kicker text-[0.62rem] text-foreground">
-        What does color show?
-      </p>
-      <dl className="flex flex-col gap-3">
+    <SectionInfoModal title="Color Encoding">
+      <dl className="flex flex-col gap-4">
         {COLOR_MODE_OPTIONS.map((mode) => {
           const desc = getColorModeDescription(mode);
           return (
             <div key={mode}>
-              <dt className="text-[0.65rem] font-semibold text-foreground">
+              <dt className="text-[0.72rem] font-semibold text-foreground">
                 {getColorModeLabel(mode).replace("By ", "")}
               </dt>
               <dd className="mt-0.5">{desc.summary}</dd>
-              <dd className="mt-1 rounded-[var(--radius-sm)] bg-surface-muted px-2 py-1.5">
+              <dd className="mt-1.5 rounded-[var(--radius-sm)] bg-surface-muted px-2.5 py-2">
                 <span className="font-semibold text-foreground/70">
                   How it works:{" "}
                 </span>
@@ -106,26 +104,23 @@ function ColorInfoTooltip() {
           );
         })}
       </dl>
-    </SectionInfoTooltip>
+    </SectionInfoModal>
   );
 }
 
-function SizeInfoTooltip() {
+function SizeInfoModal() {
   return (
-    <SectionInfoTooltip label="Node Size explanation">
-      <p className="atlas-kicker text-[0.62rem] text-foreground">
-        What do these size modes mean?
-      </p>
-      <dl className="flex flex-col gap-3">
+    <SectionInfoModal title="Node Size">
+      <dl className="flex flex-col gap-4">
         {METRIC_SIZE_MODES.map((mode) => {
           const desc = METRIC_SIZE_DESCRIPTIONS[mode];
           return (
             <div key={mode}>
-              <dt className="text-[0.65rem] font-semibold text-foreground">
+              <dt className="text-[0.72rem] font-semibold text-foreground">
                 {getSizeModeLabel(mode).replace("By ", "")}
               </dt>
               <dd className="mt-0.5">{desc.summary}</dd>
-              <dd className="mt-1 rounded-[var(--radius-sm)] bg-surface-muted px-2 py-1.5">
+              <dd className="mt-1.5 rounded-[var(--radius-sm)] bg-surface-muted px-2.5 py-2">
                 <span className="font-semibold text-foreground/70">
                   How it works:{" "}
                 </span>
@@ -135,26 +130,23 @@ function SizeInfoTooltip() {
           );
         })}
       </dl>
-    </SectionInfoTooltip>
+    </SectionInfoModal>
   );
 }
 
-function ScheduleOverlayInfoTooltip() {
+function ScheduleOverlayInfoModal() {
   return (
-    <SectionInfoTooltip label="Schedule Overlay explanation">
-      <p className="atlas-kicker text-[0.62rem] text-foreground">
-        What does the schedule overlay show?
-      </p>
-      <dl className="flex flex-col gap-3">
+    <SectionInfoModal title="Schedule Overlay">
+      <dl className="flex flex-col gap-4">
         {SCHEDULE_OVERLAY_OPTIONS.map((mode) => {
           const desc = SCHEDULE_OVERLAY_DESCRIPTIONS[mode];
           return (
             <div key={mode}>
-              <dt className="text-[0.65rem] font-semibold text-foreground">
+              <dt className="text-[0.72rem] font-semibold text-foreground">
                 {getScheduleOverlayLabel(mode)}
               </dt>
               <dd className="mt-0.5">{desc.summary}</dd>
-              <dd className="mt-1 rounded-[var(--radius-sm)] bg-surface-muted px-2 py-1.5">
+              <dd className="mt-1.5 rounded-[var(--radius-sm)] bg-surface-muted px-2.5 py-2">
                 <span className="font-semibold text-foreground/70">
                   How it works:{" "}
                 </span>
@@ -164,7 +156,7 @@ function ScheduleOverlayInfoTooltip() {
           );
         })}
       </dl>
-    </SectionInfoTooltip>
+    </SectionInfoModal>
   );
 }
 
@@ -438,7 +430,7 @@ export function PlanToolbar({
         <div className="mb-2 flex items-center justify-between">
           <span className="atlas-kicker flex items-center gap-1.5">
             Scope
-            <ScopeInfoTooltip />
+            <ScopeInfoModal />
           </span>
           <span className="font-mono text-xs text-muted-foreground">
             {getScopeLabel(activeScope)}
@@ -475,7 +467,7 @@ export function PlanToolbar({
         <div className="mb-2 flex items-center justify-between">
           <span className="atlas-kicker flex items-center gap-1.5">
             Color
-            <ColorInfoTooltip />
+            <ColorInfoModal />
           </span>
           <span className="font-mono text-xs text-muted-foreground">
             {getColorModeLabel(colorMode)}
@@ -503,7 +495,7 @@ export function PlanToolbar({
         <div className="mb-2 flex items-center justify-between">
           <span className="atlas-kicker flex items-center gap-1.5">
             Schedule Overlay
-            <ScheduleOverlayInfoTooltip />
+            <ScheduleOverlayInfoModal />
           </span>
           <span className="font-mono text-xs text-muted-foreground">
             {getScheduleOverlayLabel(scheduleOverlay)}
@@ -531,7 +523,7 @@ export function PlanToolbar({
         <div className="mb-2 flex items-center justify-between">
           <span className="atlas-kicker flex items-center gap-1.5">
             Node Size
-            <SizeInfoTooltip />
+            <SizeInfoModal />
           </span>
           <span className="font-mono text-xs text-muted-foreground">
             {getSizeModeLabel(sizeMode)}
