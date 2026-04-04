@@ -169,7 +169,7 @@ function ScheduleOverlayCard({
             aria-hidden="true"
             className="h-[3px] flex-1 rounded-full"
             style={{
-              background: `linear-gradient(90deg, ${criticalPathAccent}, color-mix(in oklab, ${criticalPathAccent} 58%, var(--color-moss) 42%))`,
+              backgroundImage: `repeating-linear-gradient(90deg, ${criticalPathAccent} 0 8px, transparent 8px 12px)`,
               boxShadow: `0 0 14px color-mix(in oklab, ${criticalPathAccent} 18%, transparent)`,
             }}
           />
@@ -457,6 +457,9 @@ export function PlanGraphCanvas({
         id: e.id,
         source: e.source,
         target: e.target,
+        className: shouldEmphasizeCriticalPath
+          ? "critical-path-edge"
+          : undefined,
         markerEnd: {
           type: MarkerType.ArrowClosed,
           color: strokeColor,

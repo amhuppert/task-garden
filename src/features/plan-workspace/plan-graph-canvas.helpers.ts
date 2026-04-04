@@ -181,7 +181,7 @@ export function getMetricAccentColor(normalizedValue: number): string {
 }
 
 export function getCriticalPathAccentColor(): string {
-  return "color-mix(in oklab, var(--color-pollen) 72%, var(--color-moss) 28%)";
+  return "var(--color-petal)";
 }
 
 export function getSlackHeatColor(normalizedValue: number): string {
