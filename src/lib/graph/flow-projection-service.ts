@@ -2,6 +2,7 @@ import dagre from "@dagrejs/dagre";
 import type {
   ColorEncodingMode,
   PlanDisplayStateValue,
+  ScheduleOverlayMode,
   SizeEncodingMode,
 } from "../../features/plan-workspace/plan-display.store";
 import type {
@@ -29,6 +30,10 @@ export interface FlowNodeData {
   status: TaskGardenWorkItem["status"];
   priority: TaskGardenWorkItem["priority"];
   summary: string;
+  estimate: TaskGardenWorkItem["estimate"];
+  isOnCriticalPath: boolean;
+  criticalPathOrder: number | null;
+  slackDays: number;
   metricSummary: Readonly<Record<MetricKey, number>>;
   isSelected: boolean;
   visibilityRole: "focus" | "context";
@@ -45,11 +50,25 @@ export interface FlowEdge {
   source: string;
   target: string;
   isHighlighted: boolean;
+  isOnCriticalPath: boolean;
 }
 
 export interface DisplayLegend {
   title: string;
   items: readonly { key: string; label: string; value: string }[];
+  fallbackMessage?: string;
+}
+
+export interface ScheduleOverlayLegend {
+  mode: Exclude<ScheduleOverlayMode, "none">;
+  title: string;
+  note: string;
+  stats: readonly { key: string; label: string; value: string }[];
+  gradientLabels?: {
+    start: string;
+    end: string;
+    neutralNote?: string;
+  };
   fallbackMessage?: string;
 }
 
@@ -59,6 +78,7 @@ export interface FlowProjection {
   emptyStateMessage: string | null;
   colorLegend: DisplayLegend;
   sizeLegend: DisplayLegend | null;
+  scheduleLegend: ScheduleOverlayLegend | null;
   summary: {
     focusNodeCount: number;
     contextNodeCount: number;
@@ -405,6 +425,17 @@ function buildColorLegend(
   snapshot: PlanAnalysisSnapshot,
   colorMode: ColorEncodingMode,
 ): DisplayLegend {
+  const formatMetricValue = (metric: MetricKey, value: number): string => {
+    if (
+      metric === "estimate_days" ||
+      metric === "remaining_days" ||
+      metric === "downstream_effort_days"
+    ) {
+      return `${Number.isInteger(value) ? value : value.toFixed(1)}d`;
+    }
+    return value.toFixed(2);
+  };
+
   switch (colorMode) {
     case "default":
       return {
@@ -463,6 +494,9 @@ function buildColorLegend(
       };
     }
 
+    case "estimate_days":
+    case "remaining_days":
+    case "downstream_effort_days":
     case "degree":
     case "betweenness":
     case "dependency_span": {
@@ -477,8 +511,16 @@ function buildColorLegend(
       return {
         title: colorMode.replace(/_/g, " "),
         items: [
-          { key: "low", label: "Low", value: range.min.toFixed(2) },
-          { key: "high", label: "High", value: range.max.toFixed(2) },
+          {
+            key: "low",
+            label: "Low",
+            value: formatMetricValue(colorMode, range.min),
+          },
+          {
+            key: "high",
+            label: "High",
+            value: formatMetricValue(colorMode, range.max),
+          },
         ],
       };
     }
@@ -490,6 +532,19 @@ function buildSizeLegend(
   sizeMode: SizeEncodingMode,
 ): DisplayLegend | null {
   if (sizeMode === "uniform") return null;
+  const formatMetricValue = (
+    metric: SizeEncodingMode,
+    value: number,
+  ): string => {
+    if (
+      metric === "estimate_days" ||
+      metric === "remaining_days" ||
+      metric === "downstream_effort_days"
+    ) {
+      return `${Number.isInteger(value) ? value : value.toFixed(1)}d`;
+    }
+    return value.toFixed(2);
+  };
   const range = snapshot.metricRanges[sizeMode];
   if (range.min === range.max) {
     return {
@@ -506,9 +561,21 @@ function buildSizeLegend(
   return {
     title: `Size: ${sizeMode.replace(/_/g, " ")}`,
     items: [
-      { key: "min", label: range.min.toFixed(2), value: range.min.toFixed(2) },
-      { key: "mean", label: mean.toFixed(2), value: mean.toFixed(2) },
-      { key: "max", label: range.max.toFixed(2), value: range.max.toFixed(2) },
+      {
+        key: "min",
+        label: formatMetricValue(sizeMode, range.min),
+        value: formatMetricValue(sizeMode, range.min),
+      },
+      {
+        key: "mean",
+        label: formatMetricValue(sizeMode, mean),
+        value: formatMetricValue(sizeMode, mean),
+      },
+      {
+        key: "max",
+        label: formatMetricValue(sizeMode, range.max),
+        value: formatMetricValue(sizeMode, range.max),
+      },
     ],
   };
 }
@@ -523,6 +590,106 @@ function buildLegends(
   };
 }
 
+function formatDayValue(value: number): string {
+  return `${Number.isInteger(value) ? value : value.toFixed(1)}d`;
+}
+
+function buildScheduleLegend(
+  snapshot: PlanAnalysisSnapshot,
+  scheduleOverlay: ScheduleOverlayMode,
+  visibleIds: ReadonlySet<string>,
+): ScheduleOverlayLegend | null {
+  if (scheduleOverlay === "none") return null;
+
+  if (snapshot.estimateSummary.estimatedItemCount === 0) {
+    return {
+      mode: scheduleOverlay,
+      title:
+        scheduleOverlay === "critical_path"
+          ? "Schedule Overlay — Critical Path"
+          : "Schedule Overlay — Slack Heatmap",
+      note: "Schedule overlays need authored day estimates.",
+      stats: [],
+      fallbackMessage:
+        "Add day estimates to the plan to activate schedule overlays.",
+    };
+  }
+
+  if (scheduleOverlay === "critical_path") {
+    const pathIds = snapshot.estimateSummary.estimatedCriticalPath.workItemIds;
+    const visiblePathCount = pathIds.filter((id) => visibleIds.has(id)).length;
+    return {
+      mode: "critical_path",
+      title: "Schedule Overlay — Critical Path",
+      note: "The gold trace marks the no-buffer route created by the longest estimated dependency chain.",
+      stats: [
+        {
+          key: "route",
+          label: "Plan Route",
+          value: formatDayValue(
+            snapshot.estimateSummary.estimatedCriticalPath.totalDays,
+          ),
+        },
+        {
+          key: "visible",
+          label: "Visible",
+          value: `${visiblePathCount}/${pathIds.length} items`,
+        },
+      ],
+    };
+  }
+
+  const visibleEstimatedIds = [...visibleIds].filter(
+    (id) => snapshot.workItems[id]?.estimate?.unit === "days",
+  );
+  if (visibleEstimatedIds.length === 0) {
+    return {
+      mode: "slack_heatmap",
+      title: "Schedule Overlay — Slack Heatmap",
+      note: "Slack heat needs estimated items in the current view.",
+      stats: [],
+      fallbackMessage:
+        "No estimated items are visible in the current scope or filter set.",
+    };
+  }
+
+  const slackValues = visibleEstimatedIds.map(
+    (id) => snapshot.analysisById[id]!.schedule.slackDays,
+  );
+  const minSlack = Math.min(...slackValues);
+  const maxSlack = Math.max(...slackValues);
+
+  return {
+    mode: "slack_heatmap",
+    title: "Schedule Overlay — Slack Heatmap",
+    note: "Warm specimens have less schedule buffer. Cooler specimens can slip more safely.",
+    stats: [
+      {
+        key: "estimated",
+        label: "Estimated",
+        value: `${visibleEstimatedIds.length}/${visibleIds.size} visible`,
+      },
+      {
+        key: "peak",
+        label: "Most Buffer",
+        value: formatDayValue(maxSlack),
+      },
+    ],
+    gradientLabels: {
+      start: `${formatDayValue(minSlack)} buffer`,
+      end: `${formatDayValue(maxSlack)} buffer`,
+      neutralNote:
+        visibleEstimatedIds.length < visibleIds.size
+          ? "Unestimated items stay neutral."
+          : undefined,
+    },
+    fallbackMessage:
+      minSlack === maxSlack
+        ? "All visible estimated items currently have the same slack."
+        : undefined,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Factory
 // ---------------------------------------------------------------------------
@@ -534,6 +701,18 @@ export function createFlowProjectionService(): FlowProjectionService {
     project(snapshot, explorer, display): FlowProjection {
       const { analysisById, workItems } = snapshot;
       const allItemIds = Object.keys(workItems);
+      const criticalPathIds =
+        snapshot.estimateSummary.estimatedCriticalPath.workItemIds;
+      const criticalPathOrderById = new Map<string, number>();
+      const criticalPathEdgeIds = new Set<string>();
+      for (let index = 0; index < criticalPathIds.length; index++) {
+        criticalPathOrderById.set(criticalPathIds[index], index);
+        if (index > 0) {
+          criticalPathEdgeIds.add(
+            `${criticalPathIds[index - 1]}→${criticalPathIds[index]}`,
+          );
+        }
+      }
 
       // ── 1. Effective scope ────────────────────────────────────────────────
       const effectiveScope: GraphScope =
@@ -657,6 +836,10 @@ export function createFlowProjectionService(): FlowProjectionService {
             status: item.status,
             priority: item.priority,
             summary: item.summary,
+            estimate: item.estimate,
+            isOnCriticalPath: analysis.schedule.isOnCriticalPath,
+            criticalPathOrder: criticalPathOrderById.get(nodeId) ?? null,
+            slackDays: analysis.schedule.slackDays,
             metricSummary: analysis.metrics,
             isSelected: nodeId === explorer.selectedWorkItemId,
             visibilityRole: visibilityRoles.get(nodeId) ?? "focus",
@@ -673,6 +856,7 @@ export function createFlowProjectionService(): FlowProjectionService {
           explorer.selectedWorkItemId !== null &&
           (e.source === explorer.selectedWorkItemId ||
             e.target === explorer.selectedWorkItemId),
+        isOnCriticalPath: criticalPathEdgeIds.has(e.id),
       }));
 
       // ── 11. Summary ───────────────────────────────────────────────────────
@@ -697,6 +881,11 @@ export function createFlowProjectionService(): FlowProjectionService {
 
       // ── 13. Legend ────────────────────────────────────────────────────────
       const { colorLegend, sizeLegend } = buildLegends(snapshot, display);
+      const scheduleLegend = buildScheduleLegend(
+        snapshot,
+        display.scheduleOverlay,
+        visibleIds,
+      );
 
       return {
         nodes,
@@ -704,6 +893,7 @@ export function createFlowProjectionService(): FlowProjectionService {
         emptyStateMessage,
         colorLegend,
         sizeLegend,
+        scheduleLegend,
         summary: {
           focusNodeCount: focusIds.size,
           contextNodeCount: contextIds.size,

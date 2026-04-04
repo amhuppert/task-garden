@@ -2,6 +2,8 @@ import type { PlanAnalysisSnapshot } from "../../lib/graph/plan-analysis-engine"
 import type { ReferenceResolverService } from "../../lib/plan/reference-resolver";
 import { ResourceLink } from "./ResourceLink";
 import {
+  formatCompactDayCount,
+  formatDayCount,
   formatEstimate,
   getPriorityLabel,
   getStatusLabel,
@@ -192,6 +194,7 @@ export function PlanDetailsPanel({
 
   const statusColor = getStatusAccentColor(item.status);
   const priorityColor = getPriorityAccentColor(item.priority);
+  const hasScheduleEstimate = analysis.schedule.estimateDays !== null;
 
   return (
     <article
@@ -326,13 +329,88 @@ export function PlanDetailsPanel({
       )}
 
       {/* ------------------------------------------------------------------ */}
-      {/* Estimate                                                            */}
+      {/* Schedule                                                            */}
       {/* ------------------------------------------------------------------ */}
-      {item.estimate && (
-        <Section label="Estimate">
-          <p className="font-mono text-sm text-foreground">
-            {formatEstimate(item.estimate)}
-          </p>
+      {(item.estimate || hasScheduleEstimate) && (
+        <Section label="Schedule">
+          <div className="atlas-metric-grid">
+            {item.estimate && (
+              <div className="atlas-stat-card">
+                <span className="atlas-kicker text-[0.58rem]">
+                  Authored Estimate
+                </span>
+                <span className="mt-1 block font-mono text-base text-foreground">
+                  {formatEstimate(item.estimate)}
+                </span>
+              </div>
+            )}
+
+            {hasScheduleEstimate && (
+              <>
+                <div className="atlas-stat-card">
+                  <span className="atlas-kicker text-[0.58rem]">
+                    Remaining Chain
+                  </span>
+                  <span className="mt-1 block font-mono text-base text-foreground">
+                    {formatCompactDayCount(analysis.schedule.remainingDays)}
+                  </span>
+                  <span className="mt-1 block text-[0.68rem] leading-snug text-muted-foreground">
+                    Longest estimated path to a leaf.
+                  </span>
+                </div>
+
+                <div className="atlas-stat-card">
+                  <span className="atlas-kicker text-[0.58rem]">
+                    Unlocked Effort
+                  </span>
+                  <span className="mt-1 block font-mono text-base text-foreground">
+                    {formatCompactDayCount(
+                      analysis.schedule.downstreamEffortDays,
+                    )}
+                  </span>
+                  <span className="mt-1 block text-[0.68rem] leading-snug text-muted-foreground">
+                    Unique downstream work gated behind this item.
+                  </span>
+                </div>
+
+                <div
+                  className="atlas-stat-card"
+                  style={
+                    analysis.schedule.isOnCriticalPath
+                      ? {
+                          borderColor:
+                            "color-mix(in oklab, var(--color-pollen) 44%, transparent)",
+                          background:
+                            "linear-gradient(180deg, color-mix(in oklab, var(--color-pollen) 14%, var(--color-surface)), var(--color-surface))",
+                        }
+                      : undefined
+                  }
+                >
+                  <span className="atlas-kicker text-[0.58rem]">Slack</span>
+                  <span className="mt-1 block font-mono text-base text-foreground">
+                    {formatCompactDayCount(analysis.schedule.slackDays)}
+                  </span>
+                  <span className="mt-1 block text-[0.68rem] leading-snug text-muted-foreground">
+                    {analysis.schedule.isOnCriticalPath
+                      ? "Critical path item with no schedule buffer."
+                      : `${formatDayCount(analysis.schedule.slackDays)} of schedule flexibility.`}
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+
+          {hasScheduleEstimate && (
+            <p className="text-[0.72rem] leading-relaxed text-muted-foreground">
+              Earliest finish at{" "}
+              <span className="font-mono text-foreground">
+                {formatCompactDayCount(analysis.schedule.earliestFinishDay)}
+              </span>
+              {analysis.schedule.isOnCriticalPath
+                ? ", on the estimated critical path."
+                : ` with a latest safe start around ${formatCompactDayCount(analysis.schedule.latestStartDay)}.`}
+            </p>
+          )}
         </Section>
       )}
 

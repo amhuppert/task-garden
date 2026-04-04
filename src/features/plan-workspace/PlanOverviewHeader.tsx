@@ -1,6 +1,9 @@
+import type { EstimateSummary } from "../../lib/graph/plan-analysis-engine";
 import type { ReferenceResolverService } from "../../lib/plan/reference-resolver";
 import type { TaskGardenPlan } from "../../lib/plan/task-garden-plan.schema";
 import { ResourceLink } from "./ResourceLink";
+import { SectionInfoTooltip } from "./SectionInfoTooltip";
+import { formatCompactDayCount } from "./plan-details-panel.helpers";
 import { formatLastUpdated } from "./plan-overview-header.helpers";
 
 // ---------------------------------------------------------------------------
@@ -10,6 +13,8 @@ import { formatLastUpdated } from "./plan-overview-header.helpers";
 export interface PlanOverviewHeaderProps {
   /** The validated, ready plan snapshot. */
   plan: TaskGardenPlan;
+  /** Optional estimate summary for schedule-aware overview stats. */
+  estimateSummary?: EstimateSummary;
   /** Reference resolver — inject for testability, use singleton in production. */
   resolver: ReferenceResolverService;
   /** Called when a successfully resolved bundled document is activated. */
@@ -22,6 +27,7 @@ export interface PlanOverviewHeaderProps {
 
 export function PlanOverviewHeader({
   plan,
+  estimateSummary,
   resolver,
   onDocumentPreview,
 }: PlanOverviewHeaderProps) {
@@ -43,6 +49,60 @@ export function PlanOverviewHeader({
           Updated {formatLastUpdated(plan.last_updated)}
         </p>
       </div>
+
+      {estimateSummary && estimateSummary.estimatedItemCount > 0 && (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-1.5">
+            <span className="atlas-kicker">Estimate Profile</span>
+            <SectionInfoTooltip label="Estimate Profile explanation">
+              <p>
+                This is a compact summary of the estimate data in the plan. It
+                helps you see how complete the estimates are and what they imply
+                for effort and minimum schedule.
+              </p>
+              <p>
+                Calculation: coverage counts items with day estimates, total
+                effort adds those estimates, schedule floor keeps the longest
+                estimated dependency route, and parallelism compares total
+                effort to that route.
+              </p>
+            </SectionInfoTooltip>
+          </div>
+          <div className="atlas-metric-grid">
+            {[
+              {
+                label: "Coverage",
+                value: `${estimateSummary.estimatedItemCount}/${estimateSummary.totalWorkItemCount}`,
+              },
+              {
+                label: "Total Effort",
+                value: formatCompactDayCount(
+                  estimateSummary.totalEstimatedDays,
+                ),
+              },
+              {
+                label: "Schedule Floor",
+                value: formatCompactDayCount(
+                  estimateSummary.estimatedCriticalPath.totalDays,
+                ),
+              },
+              {
+                label: "Parallelism",
+                value: `${estimateSummary.parallelismRatio.toFixed(1)}x`,
+              },
+            ].map((stat) => (
+              <div key={stat.label} className="atlas-stat-card">
+                <span className="atlas-kicker text-[0.58rem]">
+                  {stat.label}
+                </span>
+                <span className="mt-1 block font-mono text-base text-foreground">
+                  {stat.value}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ------------------------------------------------------------------ */}
       {/* Lanes                                                                */}

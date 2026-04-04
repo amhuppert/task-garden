@@ -1,21 +1,12 @@
-import {
-  FloatingPortal,
-  autoUpdate,
-  flip,
-  offset,
-  shift,
-  useDismiss,
-  useFloating,
-  useHover,
-  useInteractions,
-} from "@floating-ui/react";
 import { useState } from "react";
 import type {
   TaskGardenPriority,
   TaskGardenStatus,
 } from "../../lib/plan/task-garden-plan.schema";
+import { SectionInfoTooltip } from "./SectionInfoTooltip";
 import {
   selectColorMode,
+  selectScheduleOverlay,
   selectSizeMode,
   usePlanDisplayStore,
 } from "./plan-display.store";
@@ -34,9 +25,13 @@ import {
   COLOR_MODE_OPTIONS,
   METRIC_SIZE_DESCRIPTIONS,
   type MetricSizeMode,
+  SCHEDULE_OVERLAY_DESCRIPTIONS,
+  SCHEDULE_OVERLAY_OPTIONS,
   SCOPE_OPTIONS,
   SIZE_MODE_OPTIONS,
+  getColorModeDescription,
   getColorModeLabel,
+  getScheduleOverlayLabel,
   getScopeLabel,
   getSizeModeLabel,
 } from "./plan-toolbar.helpers";
@@ -63,98 +58,113 @@ const PRIORITY_LABELS: Record<TaskGardenPriority, string> = {
 };
 
 // ---------------------------------------------------------------------------
-// Metric info tooltip
+// Tooltip content
 // ---------------------------------------------------------------------------
 
 const METRIC_SIZE_MODES = Object.keys(
   METRIC_SIZE_DESCRIPTIONS,
 ) as MetricSizeMode[];
 
-function MetricInfoTooltip() {
-  const [open, setOpen] = useState(false);
-  const { refs, floatingStyles, context } = useFloating({
-    open,
-    onOpenChange: setOpen,
-    placement: "bottom-start",
-    middleware: [offset(6), flip(), shift({ padding: 8 })],
-    whileElementsMounted: autoUpdate,
-  });
-  const hover = useHover(context, { delay: { open: 150, close: 0 } });
-  const dismiss = useDismiss(context);
-  const { getReferenceProps, getFloatingProps } = useInteractions([
-    hover,
-    dismiss,
-  ]);
-
+function ScopeInfoTooltip() {
   return (
-    <>
-      <span
-        ref={refs.setReference}
-        {...getReferenceProps()}
-        aria-label="Metric explanations"
-        className="inline-flex cursor-help items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 16 16"
-          fill="none"
-          aria-hidden="true"
-        >
-          <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" />
-          <rect
-            x="7.25"
-            y="7"
-            width="1.5"
-            height="5"
-            rx="0.75"
-            fill="currentColor"
-          />
-          <rect
-            x="7.25"
-            y="4"
-            width="1.5"
-            height="1.5"
-            rx="0.75"
-            fill="currentColor"
-          />
-        </svg>
-      </span>
+    <SectionInfoTooltip label="Scope explanation">
+      <p>
+        Scope narrows the graph around the selected item. It is useful when you
+        want to focus on just the work before it, after it, or both.
+      </p>
+      <p>
+        Calculation: the app follows dependency links from the selected item.
+        Upstream shows prerequisites, downstream shows follow-on work, and full
+        chain shows both directions together.
+      </p>
+    </SectionInfoTooltip>
+  );
+}
 
-      {open && (
-        <FloatingPortal>
-          <div
-            ref={refs.setFloating}
-            {...getFloatingProps()}
-            style={floatingStyles}
-            className="atlas-panel z-50 max-w-[260px] px-3.5 py-3"
-          >
-            <p className="atlas-kicker mb-2.5">What do these metrics mean?</p>
-            <dl className="flex flex-col gap-3">
-              {METRIC_SIZE_MODES.map((mode) => {
-                const desc = METRIC_SIZE_DESCRIPTIONS[mode];
-                return (
-                  <div key={mode}>
-                    <dt className="text-[0.65rem] font-semibold text-foreground">
-                      {getSizeModeLabel(mode).replace("By ", "")}
-                    </dt>
-                    <dd className="mt-0.5 text-[0.6rem] leading-relaxed text-muted-foreground">
-                      {desc.summary}
-                    </dd>
-                    <dd className="mt-1 rounded-[var(--radius-sm)] bg-surface-muted px-2 py-1.5 text-[0.6rem] leading-relaxed text-muted-foreground">
-                      <span className="font-semibold text-foreground/70">
-                        How it works:{" "}
-                      </span>
-                      {desc.calculation}
-                    </dd>
-                  </div>
-                );
-              })}
-            </dl>
-          </div>
-        </FloatingPortal>
-      )}
-    </>
+function ColorInfoTooltip() {
+  return (
+    <SectionInfoTooltip label="Color explanation">
+      <p className="atlas-kicker text-[0.62rem] text-foreground">
+        What does color show?
+      </p>
+      <dl className="flex flex-col gap-3">
+        {COLOR_MODE_OPTIONS.map((mode) => {
+          const desc = getColorModeDescription(mode);
+          return (
+            <div key={mode}>
+              <dt className="text-[0.65rem] font-semibold text-foreground">
+                {getColorModeLabel(mode).replace("By ", "")}
+              </dt>
+              <dd className="mt-0.5">{desc.summary}</dd>
+              <dd className="mt-1 rounded-[var(--radius-sm)] bg-surface-muted px-2 py-1.5">
+                <span className="font-semibold text-foreground/70">
+                  How it works:{" "}
+                </span>
+                {desc.calculation}
+              </dd>
+            </div>
+          );
+        })}
+      </dl>
+    </SectionInfoTooltip>
+  );
+}
+
+function SizeInfoTooltip() {
+  return (
+    <SectionInfoTooltip label="Node Size explanation">
+      <p className="atlas-kicker text-[0.62rem] text-foreground">
+        What do these size modes mean?
+      </p>
+      <dl className="flex flex-col gap-3">
+        {METRIC_SIZE_MODES.map((mode) => {
+          const desc = METRIC_SIZE_DESCRIPTIONS[mode];
+          return (
+            <div key={mode}>
+              <dt className="text-[0.65rem] font-semibold text-foreground">
+                {getSizeModeLabel(mode).replace("By ", "")}
+              </dt>
+              <dd className="mt-0.5">{desc.summary}</dd>
+              <dd className="mt-1 rounded-[var(--radius-sm)] bg-surface-muted px-2 py-1.5">
+                <span className="font-semibold text-foreground/70">
+                  How it works:{" "}
+                </span>
+                {desc.calculation}
+              </dd>
+            </div>
+          );
+        })}
+      </dl>
+    </SectionInfoTooltip>
+  );
+}
+
+function ScheduleOverlayInfoTooltip() {
+  return (
+    <SectionInfoTooltip label="Schedule Overlay explanation">
+      <p className="atlas-kicker text-[0.62rem] text-foreground">
+        What does the schedule overlay show?
+      </p>
+      <dl className="flex flex-col gap-3">
+        {SCHEDULE_OVERLAY_OPTIONS.map((mode) => {
+          const desc = SCHEDULE_OVERLAY_DESCRIPTIONS[mode];
+          return (
+            <div key={mode}>
+              <dt className="text-[0.65rem] font-semibold text-foreground">
+                {getScheduleOverlayLabel(mode)}
+              </dt>
+              <dd className="mt-0.5">{desc.summary}</dd>
+              <dd className="mt-1 rounded-[var(--radius-sm)] bg-surface-muted px-2 py-1.5">
+                <span className="font-semibold text-foreground/70">
+                  How it works:{" "}
+                </span>
+                {desc.calculation}
+              </dd>
+            </div>
+          );
+        })}
+      </dl>
+    </SectionInfoTooltip>
   );
 }
 
@@ -218,10 +228,12 @@ export function PlanToolbar({
 
   // Display store — state
   const colorMode = usePlanDisplayStore(selectColorMode);
+  const scheduleOverlay = usePlanDisplayStore(selectScheduleOverlay);
   const sizeMode = usePlanDisplayStore(selectSizeMode);
 
   // Display store — actions
   const setColorMode = usePlanDisplayStore((s) => s.setColorMode);
+  const setScheduleOverlay = usePlanDisplayStore((s) => s.setScheduleOverlay);
   const setSizeMode = usePlanDisplayStore((s) => s.setSizeMode);
 
   const hasSelection = selectedWorkItemId !== null;
@@ -424,7 +436,10 @@ export function PlanToolbar({
       {/* ------------------------------------------------------------------ */}
       <section>
         <div className="mb-2 flex items-center justify-between">
-          <span className="atlas-kicker">Scope</span>
+          <span className="atlas-kicker flex items-center gap-1.5">
+            Scope
+            <ScopeInfoTooltip />
+          </span>
           <span className="font-mono text-xs text-muted-foreground">
             {getScopeLabel(activeScope)}
           </span>
@@ -458,7 +473,10 @@ export function PlanToolbar({
       {/* ------------------------------------------------------------------ */}
       <section>
         <div className="mb-2 flex items-center justify-between">
-          <span className="atlas-kicker">Color</span>
+          <span className="atlas-kicker flex items-center gap-1.5">
+            Color
+            <ColorInfoTooltip />
+          </span>
           <span className="font-mono text-xs text-muted-foreground">
             {getColorModeLabel(colorMode)}
           </span>
@@ -479,13 +497,41 @@ export function PlanToolbar({
       </section>
 
       {/* ------------------------------------------------------------------ */}
+      {/* Schedule overlay                                                     */}
+      {/* ------------------------------------------------------------------ */}
+      <section>
+        <div className="mb-2 flex items-center justify-between">
+          <span className="atlas-kicker flex items-center gap-1.5">
+            Schedule Overlay
+            <ScheduleOverlayInfoTooltip />
+          </span>
+          <span className="font-mono text-xs text-muted-foreground">
+            {getScheduleOverlayLabel(scheduleOverlay)}
+          </span>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {SCHEDULE_OVERLAY_OPTIONS.map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => setScheduleOverlay(mode)}
+              aria-pressed={scheduleOverlay === mode}
+              className={`atlas-chip hover:border-border-strong${scheduleOverlay === mode ? " atlas-chip-active" : ""}`}
+            >
+              {getScheduleOverlayLabel(mode)}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* ------------------------------------------------------------------ */}
       {/* Size encoding                                                        */}
       {/* ------------------------------------------------------------------ */}
       <section>
         <div className="mb-2 flex items-center justify-between">
           <span className="atlas-kicker flex items-center gap-1.5">
             Node Size
-            <MetricInfoTooltip />
+            <SizeInfoTooltip />
           </span>
           <span className="font-mono text-xs text-muted-foreground">
             {getSizeModeLabel(sizeMode)}

@@ -29,6 +29,9 @@ work_items:
     lane: input
     status: done
     priority: p0
+    estimate:
+      value: 1
+      unit: days
     depends_on: []
     tags:
       - startup
@@ -46,6 +49,9 @@ work_items:
     lane: input
     status: done
     priority: p0
+    estimate:
+      value: 1
+      unit: days
     depends_on: []
     tags:
       - startup
@@ -65,6 +71,9 @@ work_items:
     lane: input
     status: done
     priority: p0
+    estimate:
+      value: 1.5
+      unit: days
     depends_on:
       - plan-runtime-config
       - plan-registry
@@ -84,6 +93,9 @@ work_items:
     lane: domain
     status: planned
     priority: p0
+    estimate:
+      value: 2
+      unit: days
     depends_on:
       - plan-source-subscription
     tags:
@@ -100,6 +112,9 @@ work_items:
     lane: input
     status: planned
     priority: p0
+    estimate:
+      value: 2
+      unit: days
     depends_on:
       - plan-schema
       - plan-source-subscription
@@ -121,6 +136,9 @@ work_items:
     lane: domain
     status: planned
     priority: p1
+    estimate:
+      value: 1
+      unit: days
     depends_on:
       - plan-schema
     tags:
@@ -171,6 +189,9 @@ work_items:
     lane: ui
     status: planned
     priority: p0
+    estimate:
+      value: 2
+      unit: days
     depends_on:
       - processing-pipeline
       - flow-projection
@@ -207,6 +228,9 @@ work_items:
     lane: ui
     status: planned
     priority: p1
+    estimate:
+      value: 1.5
+      unit: days
     depends_on:
       - workspace-page
       - graph-analysis
@@ -225,6 +249,9 @@ work_items:
     lane: ui
     status: planned
     priority: p1
+    estimate:
+      value: 2
+      unit: days
     depends_on:
       - workspace-page
       - graph-analysis
@@ -238,6 +265,9 @@ work_items:
     lane: ui
     status: planned
     priority: p1
+    estimate:
+      value: 1.5
+      unit: days
     depends_on:
       - workspace-page
     tags:

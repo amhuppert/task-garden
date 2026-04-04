@@ -6,6 +6,7 @@ beforeEach(() => {
     colorMode: "default",
     sizeMode: "uniform",
     insightMode: "overview",
+    scheduleOverlay: "none",
   });
 });
 
@@ -15,6 +16,7 @@ describe("usePlanDisplayStore", () => {
     expect(s.colorMode).toBe("default");
     expect(s.sizeMode).toBe("uniform");
     expect(s.insightMode).toBe("overview");
+    expect(s.scheduleOverlay).toBe("none");
   });
 
   it("setColorMode updates colorMode", () => {
@@ -32,16 +34,25 @@ describe("usePlanDisplayStore", () => {
     expect(usePlanDisplayStore.getState().insightMode).toBe("ordering");
   });
 
-  it("resetEncodings restores color and size defaults but not insightMode", () => {
+  it("setScheduleOverlay updates scheduleOverlay", () => {
+    usePlanDisplayStore.getState().setScheduleOverlay("critical_path");
+    expect(usePlanDisplayStore.getState().scheduleOverlay).toBe(
+      "critical_path",
+    );
+  });
+
+  it("resetEncodings restores color and size defaults but not insightMode or scheduleOverlay", () => {
     usePlanDisplayStore.setState({
       colorMode: "status",
       sizeMode: "betweenness",
       insightMode: "metrics",
+      scheduleOverlay: "slack_heatmap",
     });
     usePlanDisplayStore.getState().resetEncodings();
     const s = usePlanDisplayStore.getState();
     expect(s.colorMode).toBe("default");
     expect(s.sizeMode).toBe("uniform");
-    expect(s.insightMode).toBe("metrics"); // insightMode not reset by resetEncodings
+    expect(s.insightMode).toBe("metrics");
+    expect(s.scheduleOverlay).toBe("slack_heatmap");
   });
 });

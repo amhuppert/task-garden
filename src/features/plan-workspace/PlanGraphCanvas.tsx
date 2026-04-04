@@ -28,14 +28,19 @@ import { PlanEmptyState } from "./PlanEmptyState";
 import { WorkItemNode, type WorkItemNodeType } from "./WorkItemNode";
 import {
   selectColorMode,
+  selectScheduleOverlay,
   selectSizeMode,
   usePlanDisplayStore,
 } from "./plan-display.store";
 import { usePlanExplorerStore } from "./plan-explorer.store";
-import { GraphMetricRangesContext } from "./plan-graph-canvas.context";
+import {
+  GraphMetricRangesContext,
+  GraphScheduleOverlayContext,
+} from "./plan-graph-canvas.context";
 import {
   computeLaneBands,
   computeMetricRanges,
+  getCriticalPathAccentColor,
   normalizeMetric,
   resolveLegendItemColor,
 } from "./plan-graph-canvas.helpers";
@@ -141,6 +146,96 @@ function SizeLegendItems({
   );
 }
 
+function ScheduleOverlayCard({
+  legend,
+}: {
+  legend: FlowProjection["scheduleLegend"];
+}) {
+  if (!legend) return null;
+
+  const criticalPathAccent = getCriticalPathAccentColor();
+
+  return (
+    <div
+      aria-label="Schedule overlay legend"
+      className="atlas-panel atlas-noise pointer-events-none absolute right-4 top-4 max-w-[264px] px-4 py-3.5"
+      style={{ zIndex: 20 }}
+    >
+      <p className="atlas-kicker mb-2">{legend.title}</p>
+
+      {legend.mode === "critical_path" ? (
+        <div className="mb-2 flex items-center gap-2">
+          <span
+            aria-hidden="true"
+            className="h-[3px] flex-1 rounded-full"
+            style={{
+              background: `linear-gradient(90deg, ${criticalPathAccent}, color-mix(in oklab, ${criticalPathAccent} 58%, var(--color-moss) 42%))`,
+              boxShadow: `0 0 14px color-mix(in oklab, ${criticalPathAccent} 18%, transparent)`,
+            }}
+          />
+          <span
+            aria-hidden="true"
+            className="inline-flex h-5 w-5 items-center justify-center rounded-full border bg-surface text-[0.58rem] font-mono font-semibold text-foreground"
+            style={{
+              borderColor: `color-mix(in oklab, ${criticalPathAccent} 44%, transparent)`,
+              boxShadow: `0 10px 24px color-mix(in oklab, ${criticalPathAccent} 12%, transparent)`,
+            }}
+          >
+            1
+          </span>
+        </div>
+      ) : legend.gradientLabels ? (
+        <div className="mb-2 flex flex-col gap-1.5">
+          <div
+            aria-hidden="true"
+            className="h-2 rounded-full"
+            style={{
+              background:
+                "linear-gradient(90deg, color-mix(in oklab, var(--color-petal) 78%, var(--color-pollen) 22%), color-mix(in oklab, var(--color-pollen) 78%, var(--color-lichen) 22%), color-mix(in oklab, var(--color-water) 72%, var(--color-lichen) 28%))",
+            }}
+          />
+          <div className="flex items-center justify-between gap-2 text-[0.6rem] text-muted-foreground">
+            <span>{legend.gradientLabels?.start}</span>
+            <span>{legend.gradientLabels?.end}</span>
+          </div>
+        </div>
+      ) : null}
+
+      {legend.stats.length > 0 && (
+        <div className="grid grid-cols-2 gap-2">
+          {legend.stats.map((stat) => (
+            <div
+              key={stat.key}
+              className="rounded-[var(--radius-sm)] border border-border bg-surface px-2.5 py-2"
+            >
+              <span className="atlas-kicker text-[0.55rem]">{stat.label}</span>
+              <span className="mt-1 block font-mono text-sm text-foreground">
+                {stat.value}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <p className="mt-2 text-[0.66rem] leading-relaxed text-muted-foreground">
+        {legend.note}
+      </p>
+
+      {legend.gradientLabels?.neutralNote && (
+        <p className="mt-1 text-[0.62rem] italic text-muted-foreground">
+          {legend.gradientLabels.neutralNote}
+        </p>
+      )}
+
+      {legend.fallbackMessage && (
+        <p className="mt-1 text-[0.62rem] italic text-muted-foreground">
+          {legend.fallbackMessage}
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
@@ -228,6 +323,7 @@ export function PlanGraphCanvas({
   const skipAutoPanRef = useRef(false);
   const clearFilters = usePlanExplorerStore((s) => s.clearFilters);
   const colorMode = usePlanDisplayStore(selectColorMode);
+  const scheduleOverlay = usePlanDisplayStore(selectScheduleOverlay);
   const sizeMode = usePlanDisplayStore(selectSizeMode);
 
   // Metric ranges for WorkItemNode normalization
@@ -235,6 +331,16 @@ export function PlanGraphCanvas({
     () => computeMetricRanges(projection.nodes),
     [projection.nodes],
   );
+  const slackRange = useMemo(() => {
+    const values = projection.nodes
+      .filter((node) => node.data.estimate?.unit === "days")
+      .map((node) => node.data.slackDays);
+    if (values.length === 0) return null;
+    return {
+      min: Math.min(...values),
+      max: Math.max(...values),
+    };
+  }, [projection.nodes]);
 
   // Visibility role map for edge opacity
   const visibilityRoleMap = useMemo(() => {
@@ -316,14 +422,36 @@ export function PlanGraphCanvas({
 
   // Styled edges with botanical tokens + focus/context opacity
   const rfEdges: Edge[] = useMemo(() => {
+    const criticalPathAccent = getCriticalPathAccentColor();
     return projection.edges.map((e) => {
       const sourceRole = visibilityRoleMap.get(e.source);
       const targetRole = visibilityRoleMap.get(e.target);
       const isContextEdge =
         sourceRole === "context" || targetRole === "context";
-      const strokeColor = e.isHighlighted
-        ? "var(--color-edge-strong)"
-        : "var(--color-edge)";
+      const shouldEmphasizeCriticalPath =
+        scheduleOverlay === "critical_path" && e.isOnCriticalPath;
+      const strokeColor = shouldEmphasizeCriticalPath
+        ? criticalPathAccent
+        : e.isHighlighted
+          ? "var(--color-edge-strong)"
+          : "var(--color-edge)";
+      const strokeWidth = shouldEmphasizeCriticalPath
+        ? 3.2
+        : e.isHighlighted
+          ? 2
+          : 1;
+      const opacity =
+        scheduleOverlay === "critical_path"
+          ? shouldEmphasizeCriticalPath
+            ? 0.98
+            : isContextEdge
+              ? 0.08
+              : e.isHighlighted
+                ? 0.28
+                : 0.16
+          : isContextEdge
+            ? 0.38
+            : 1;
 
       return {
         id: e.id,
@@ -332,18 +460,22 @@ export function PlanGraphCanvas({
         markerEnd: {
           type: MarkerType.ArrowClosed,
           color: strokeColor,
-          width: 10,
-          height: 10,
+          width: shouldEmphasizeCriticalPath ? 12 : 10,
+          height: shouldEmphasizeCriticalPath ? 12 : 10,
         },
         style: {
           stroke: strokeColor,
-          strokeWidth: e.isHighlighted ? 2 : 1,
-          opacity: isContextEdge ? 0.38 : 1,
-          transition: "opacity 220ms ease, stroke-width 120ms ease",
+          strokeWidth,
+          opacity,
+          filter: shouldEmphasizeCriticalPath
+            ? `drop-shadow(0 0 10px color-mix(in oklab, ${criticalPathAccent} 18%, transparent))`
+            : undefined,
+          transition:
+            "opacity 220ms ease, stroke-width 120ms ease, filter 220ms ease",
         },
       };
     });
-  }, [projection.edges, visibilityRoleMap]);
+  }, [projection.edges, scheduleOverlay, visibilityRoleMap]);
 
   const onNodeClick = useCallback(
     (_: unknown, node: Node) => {
@@ -371,134 +503,140 @@ export function PlanGraphCanvas({
 
   return (
     <GraphMetricRangesContext.Provider value={metricRanges}>
-      <div className="relative h-full w-full">
-        <ReactFlow
-          nodes={rfNodes}
-          edges={rfEdges}
-          nodeTypes={nodeTypes}
-          onNodeClick={onNodeClick}
-          onPaneClick={onPaneClick}
-          nodesDraggable={false}
-          nodesConnectable={false}
-          elementsSelectable={true}
-          fitView
-          fitViewOptions={{ padding: 0.12 }}
-          minZoom={0.15}
-          maxZoom={3}
-          proOptions={{ hideAttribution: true }}
-          style={{ background: "transparent" }}
-        >
-          {/* Atlas-style dot grid background */}
-          <Background
-            variant={BackgroundVariant.Dots}
-            gap={32}
-            size={1}
-            color="var(--color-grid)"
-          />
-
-          <ViewportController
-            selectedWorkItemId={selectedWorkItemId}
+      <GraphScheduleOverlayContext.Provider value={{ slackRange }}>
+        <div className="relative h-full w-full">
+          <ReactFlow
             nodes={rfNodes}
-            skipAutoPanRef={skipAutoPanRef}
-          />
-
-          {/* Viewport controls: zoom in/out + fit-view */}
-          <Controls
-            showInteractive={false}
-            style={{
-              boxShadow: "var(--shadow-specimen)",
-              border: "1px solid var(--color-border)",
-              borderRadius: "var(--radius-md)",
-              background: "var(--color-panel)",
-              overflow: "hidden",
-            }}
-          />
-
-          {/* Minimap for large graphs */}
-          {/* Note: nodeColor/nodeStrokeColor/maskColor use hardcoded oklch values
-              because CSS variables resolve to near-white in both themes, making
-              the minimap invisible. These values are minimap-specific overrides
-              tuned for visibility in light and dark themes. */}
-          <MiniMap
-            pannable={true}
-            zoomable={true}
-            nodeColor={(node) => {
-              if (node.type === "laneBand") return "oklch(0.82 0.03 95 / 0.35)";
-              const d = node.data as {
-                isSelected?: boolean;
-                visibilityRole?: string;
-              };
-              if (d.isSelected) return "var(--color-moss)";
-              if (d.visibilityRole === "context") return "oklch(0.72 0.03 142)";
-              return "oklch(0.62 0.04 142)";
-            }}
-            nodeStrokeColor="oklch(0.50 0.04 142)"
-            maskColor="oklch(0.96 0.01 95 / 0.25)"
-            style={{
-              border: "1px solid var(--color-border)",
-              borderRadius: "var(--radius-md)",
-              background: "var(--color-panel)",
-              cursor: "grab",
-            }}
-          />
-        </ReactFlow>
-
-        {/* Legend overlay (bottom-right of canvas, pointer-events:none) */}
-        {(projection.colorLegend.items.length > 0 ||
-          projection.colorLegend.fallbackMessage ||
-          projection.sizeLegend) && (
-          <div
-            aria-label="Graph legend"
-            className="atlas-panel pointer-events-none absolute bottom-[210px] right-4 max-w-[210px] px-4 py-3"
-            style={{ zIndex: 20 }}
+            edges={rfEdges}
+            nodeTypes={nodeTypes}
+            onNodeClick={onNodeClick}
+            onPaneClick={onPaneClick}
+            nodesDraggable={false}
+            nodesConnectable={false}
+            elementsSelectable={true}
+            fitView
+            fitViewOptions={{ padding: 0.12 }}
+            minZoom={0.15}
+            maxZoom={3}
+            proOptions={{ hideAttribution: true }}
+            style={{ background: "transparent" }}
           >
-            {/* Color section */}
-            <p className="atlas-kicker mb-1.5">{`Color \u2014 ${getColorModeLabel(colorMode)}`}</p>
-            {projection.colorLegend.fallbackMessage ? (
-              <p className="text-[0.65rem] italic text-muted-foreground">
-                {projection.colorLegend.fallbackMessage}
-              </p>
-            ) : (
-              <ul className="flex flex-col gap-1">
-                {projection.colorLegend.items.map((item) => {
-                  const dotColor = resolveLegendItemColor(
-                    projection.colorLegend.title,
-                    item,
-                  );
-                  return (
-                    <li key={item.key} className="flex items-center gap-2">
-                      <span
-                        className={`h-2 w-2 shrink-0 rounded-full${dotColor ? "" : " bg-foreground opacity-50"}`}
-                        style={
-                          dotColor ? { backgroundColor: dotColor } : undefined
-                        }
-                      />
-                      <span className="truncate text-[0.65rem] text-foreground">
-                        {item.label}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
+            {/* Atlas-style dot grid background */}
+            <Background
+              variant={BackgroundVariant.Dots}
+              gap={32}
+              size={1}
+              color="var(--color-grid)"
+            />
 
-            {/* Size section */}
-            {projection.sizeLegend && (
-              <>
-                <div className="my-2 border-t border-border" />
-                <p className="atlas-kicker mb-1.5">{`Node Size \u2014 ${getSizeModeLabel(sizeMode)}`}</p>
-                {projection.sizeLegend.fallbackMessage ? (
-                  <p className="text-[0.65rem] italic text-muted-foreground">
-                    {projection.sizeLegend.fallbackMessage}
-                  </p>
-                ) : (
-                  <SizeLegendItems items={projection.sizeLegend.items} />
-                )}
-              </>
-            )}
-          </div>
-        )}
-      </div>
+            <ViewportController
+              selectedWorkItemId={selectedWorkItemId}
+              nodes={rfNodes}
+              skipAutoPanRef={skipAutoPanRef}
+            />
+
+            {/* Viewport controls: zoom in/out + fit-view */}
+            <Controls
+              showInteractive={false}
+              style={{
+                boxShadow: "var(--shadow-specimen)",
+                border: "1px solid var(--color-border)",
+                borderRadius: "var(--radius-md)",
+                background: "var(--color-panel)",
+                overflow: "hidden",
+              }}
+            />
+
+            {/* Minimap for large graphs */}
+            {/* Note: nodeColor/nodeStrokeColor/maskColor use hardcoded oklch values
+                because CSS variables resolve to near-white in both themes, making
+                the minimap invisible. These values are minimap-specific overrides
+                tuned for visibility in light and dark themes. */}
+            <MiniMap
+              pannable={true}
+              zoomable={true}
+              nodeColor={(node) => {
+                if (node.type === "laneBand")
+                  return "oklch(0.82 0.03 95 / 0.35)";
+                const d = node.data as {
+                  isSelected?: boolean;
+                  visibilityRole?: string;
+                };
+                if (d.isSelected) return "var(--color-moss)";
+                if (d.visibilityRole === "context")
+                  return "oklch(0.72 0.03 142)";
+                return "oklch(0.62 0.04 142)";
+              }}
+              nodeStrokeColor="oklch(0.50 0.04 142)"
+              maskColor="oklch(0.96 0.01 95 / 0.25)"
+              style={{
+                border: "1px solid var(--color-border)",
+                borderRadius: "var(--radius-md)",
+                background: "var(--color-panel)",
+                cursor: "grab",
+              }}
+            />
+          </ReactFlow>
+
+          <ScheduleOverlayCard legend={projection.scheduleLegend} />
+
+          {/* Legend overlay (bottom-right of canvas, pointer-events:none) */}
+          {(projection.colorLegend.items.length > 0 ||
+            projection.colorLegend.fallbackMessage ||
+            projection.sizeLegend) && (
+            <div
+              aria-label="Graph legend"
+              className="atlas-panel pointer-events-none absolute bottom-[210px] right-4 max-w-[210px] px-4 py-3"
+              style={{ zIndex: 20 }}
+            >
+              {/* Color section */}
+              <p className="atlas-kicker mb-1.5">{`Color \u2014 ${getColorModeLabel(colorMode)}`}</p>
+              {projection.colorLegend.fallbackMessage ? (
+                <p className="text-[0.65rem] italic text-muted-foreground">
+                  {projection.colorLegend.fallbackMessage}
+                </p>
+              ) : (
+                <ul className="flex flex-col gap-1">
+                  {projection.colorLegend.items.map((item) => {
+                    const dotColor = resolveLegendItemColor(
+                      projection.colorLegend.title,
+                      item,
+                    );
+                    return (
+                      <li key={item.key} className="flex items-center gap-2">
+                        <span
+                          className={`h-2 w-2 shrink-0 rounded-full${dotColor ? "" : " bg-foreground opacity-50"}`}
+                          style={
+                            dotColor ? { backgroundColor: dotColor } : undefined
+                          }
+                        />
+                        <span className="truncate text-[0.65rem] text-foreground">
+                          {item.label}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+
+              {/* Size section */}
+              {projection.sizeLegend && (
+                <>
+                  <div className="my-2 border-t border-border" />
+                  <p className="atlas-kicker mb-1.5">{`Node Size \u2014 ${getSizeModeLabel(sizeMode)}`}</p>
+                  {projection.sizeLegend.fallbackMessage ? (
+                    <p className="text-[0.65rem] italic text-muted-foreground">
+                      {projection.sizeLegend.fallbackMessage}
+                    </p>
+                  ) : (
+                    <SizeLegendItems items={projection.sizeLegend.items} />
+                  )}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </GraphScheduleOverlayContext.Provider>
     </GraphMetricRangesContext.Provider>
   );
 }

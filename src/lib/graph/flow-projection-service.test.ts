@@ -20,6 +20,7 @@ function makeWorkItem(
     status: TaskGardenPlan["work_items"][0]["status"];
     priority: TaskGardenPlan["work_items"][0]["priority"];
     tags: string[];
+    estimateDays: number;
   }> = {},
 ): TaskGardenPlan["work_items"][0] {
   return {
@@ -34,6 +35,14 @@ function makeWorkItem(
     deliverables: [],
     reuse_candidates: [],
     links: [],
+    ...(overrides.estimateDays === undefined
+      ? {}
+      : {
+          estimate: {
+            value: overrides.estimateDays,
+            unit: "days" as const,
+          },
+        }),
   };
 }
 
@@ -68,6 +77,7 @@ const defaultDisplay: PlanDisplayStateValue = {
   colorMode: "default",
   sizeMode: "uniform",
   insightMode: "overview",
+  scheduleOverlay: "none",
 };
 
 // A → B → C linear plan (A is root, C is leaf)
@@ -104,6 +114,19 @@ function makeDiamondSnapshot(): PlanAnalysisSnapshot {
   return createPlanAnalysisEngine().build(plan);
 }
 
+function makeEstimatedBranchingSnapshot(): PlanAnalysisSnapshot {
+  const plan = makePlan({
+    lanes: [{ id: "core", label: "Core" }],
+    work_items: [
+      makeWorkItem("a", "core", [], { estimateDays: 2 }),
+      makeWorkItem("b", "core", ["a"], { estimateDays: 1 }),
+      makeWorkItem("c", "core", ["a"], { estimateDays: 4 }),
+      makeWorkItem("d", "core", ["b", "c"], { estimateDays: 2 }),
+    ],
+  });
+  return createPlanAnalysisEngine().build(plan);
+}
+
 // ---------------------------------------------------------------------------
 // Tests — Task 3.3: Basic projection (nodes, edges, layout, legend)
 // ---------------------------------------------------------------------------
@@ -135,6 +158,10 @@ describe("FlowProjectionService — task 3.3: basic projection", () => {
     expect(nodeA.data.status).toBe("planned");
     expect(nodeA.data.priority).toBe("p1");
     expect(nodeA.data.summary).toBe("Summary a");
+    expect(nodeA.data.estimate).toBeUndefined();
+    expect(nodeA.data.isOnCriticalPath).toBe(false);
+    expect(nodeA.data.criticalPathOrder).toBeNull();
+    expect(nodeA.data.slackDays).toBe(0);
     expect(nodeA.data.isSelected).toBe(false);
   });
 
@@ -295,6 +322,11 @@ describe("FlowProjectionService — task 3.3: basic projection", () => {
     expect(typeof nodeB.data.metricSummary.degree).toBe("number");
     expect(typeof nodeB.data.metricSummary.betweenness).toBe("number");
     expect(typeof nodeB.data.metricSummary.dependency_span).toBe("number");
+    expect(typeof nodeB.data.metricSummary.estimate_days).toBe("number");
+    expect(typeof nodeB.data.metricSummary.remaining_days).toBe("number");
+    expect(typeof nodeB.data.metricSummary.downstream_effort_days).toBe(
+      "number",
+    );
   });
 
   it("emptyStateMessage is null when no filters are active", () => {
@@ -302,6 +334,65 @@ describe("FlowProjectionService — task 3.3: basic projection", () => {
     const snapshot = makeLinearSnapshot();
     const result = svc.project(snapshot, defaultExplorer, defaultDisplay);
     expect(result.emptyStateMessage).toBeNull();
+  });
+});
+
+describe("FlowProjectionService — schedule overlays", () => {
+  it("marks critical path edges and node order for the critical path overlay", () => {
+    const svc = createFlowProjectionService();
+    const snapshot = makeEstimatedBranchingSnapshot();
+    const display = {
+      ...defaultDisplay,
+      scheduleOverlay: "critical_path" as const,
+    };
+    const result = svc.project(snapshot, defaultExplorer, display);
+
+    expect(result.scheduleLegend?.mode).toBe("critical_path");
+    expect(result.scheduleLegend?.stats).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "Plan Route", value: "8d" }),
+      ]),
+    );
+
+    const nodeA = result.nodes.find((node) => node.id === "a")!;
+    const nodeC = result.nodes.find((node) => node.id === "c")!;
+    const nodeD = result.nodes.find((node) => node.id === "d")!;
+    const nodeB = result.nodes.find((node) => node.id === "b")!;
+    expect(nodeA.data.criticalPathOrder).toBe(0);
+    expect(nodeC.data.criticalPathOrder).toBe(1);
+    expect(nodeD.data.criticalPathOrder).toBe(2);
+    expect(nodeB.data.criticalPathOrder).toBeNull();
+
+    expect(
+      result.edges.find((edge) => edge.id === "a→c")?.isOnCriticalPath,
+    ).toBe(true);
+    expect(
+      result.edges.find((edge) => edge.id === "c→d")?.isOnCriticalPath,
+    ).toBe(true);
+    expect(
+      result.edges.find((edge) => edge.id === "a→b")?.isOnCriticalPath,
+    ).toBe(false);
+  });
+
+  it("builds a slack heatmap legend from visible estimated items", () => {
+    const svc = createFlowProjectionService();
+    const snapshot = makeEstimatedBranchingSnapshot();
+    const display = {
+      ...defaultDisplay,
+      scheduleOverlay: "slack_heatmap" as const,
+    };
+    const result = svc.project(snapshot, defaultExplorer, display);
+
+    expect(result.scheduleLegend?.mode).toBe("slack_heatmap");
+    expect(result.scheduleLegend?.gradientLabels).toEqual(
+      expect.objectContaining({
+        start: "0d buffer",
+        end: "3d buffer",
+      }),
+    );
+
+    const nodeB = result.nodes.find((node) => node.id === "b")!;
+    expect(nodeB.data.slackDays).toBe(3);
   });
 });
 

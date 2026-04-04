@@ -12,17 +12,24 @@ import {
 import { Handle, type Node, type NodeProps, Position } from "@xyflow/react";
 import { useContext, useState } from "react";
 import type { FlowNodeData } from "../../lib/graph/flow-projection-service";
+import { formatCompactEstimate } from "./plan-details-panel.helpers";
 import type { ColorEncodingMode } from "./plan-display.store";
 import {
   selectColorMode,
+  selectScheduleOverlay,
   selectSizeMode,
   usePlanDisplayStore,
 } from "./plan-display.store";
-import { GraphMetricRangesContext } from "./plan-graph-canvas.context";
+import {
+  GraphMetricRangesContext,
+  GraphScheduleOverlayContext,
+} from "./plan-graph-canvas.context";
 import {
   type MetricRanges,
+  getCriticalPathAccentColor,
   getMetricAccentColor,
   getPriorityAccentColor,
+  getSlackHeatColor,
   getStatusAccentColor,
   normalizeMetric,
 } from "./plan-graph-canvas.helpers";
@@ -62,6 +69,9 @@ const PRIORITY_LABELS: Record<FlowNodeData["priority"], string> = {
 };
 
 const METRIC_LABELS: Record<string, string> = {
+  estimate_days: "Estimate",
+  remaining_days: "Remaining Chain",
+  downstream_effort_days: "Unlocked Effort",
   degree: "Degree",
   betweenness: "Betweenness",
   dependency_span: "Dependency Span",
@@ -92,6 +102,9 @@ function getBubbleColor(
     case "lane":
       accent = data.laneColor;
       break;
+    case "estimate_days":
+    case "remaining_days":
+    case "downstream_effort_days":
     case "degree":
     case "betweenness":
     case "dependency_span": {
@@ -132,8 +145,10 @@ function getBubbleColor(
 
 export function MetricBubbleNode({ data }: NodeProps<MetricBubbleNodeType>) {
   const colorMode = usePlanDisplayStore(selectColorMode);
+  const scheduleOverlay = usePlanDisplayStore(selectScheduleOverlay);
   const sizeMode = usePlanDisplayStore(selectSizeMode);
   const metricRanges = useContext(GraphMetricRangesContext);
+  const { slackRange } = useContext(GraphScheduleOverlayContext);
 
   const isFocus = data.visibilityRole === "focus";
 
@@ -150,6 +165,23 @@ export function MetricBubbleNode({ data }: NodeProps<MetricBubbleNodeType>) {
   const metricLabel = METRIC_LABELS[sizeMode] ?? sizeMode;
   const metricValue =
     sizeMode !== "uniform" ? (data.metricSummary[sizeMode] ?? 0) : 0;
+  const compactEstimate = formatCompactEstimate(data.estimate);
+  const hasDayEstimate = data.estimate?.unit === "days";
+  const criticalPathAccent = getCriticalPathAccentColor();
+  const slackNorm =
+    hasDayEstimate && slackRange
+      ? slackRange.min === slackRange.max
+        ? 0.5
+        : normalizeMetric(data.slackDays, slackRange.min, slackRange.max)
+      : null;
+  const slackColor = slackNorm === null ? null : getSlackHeatColor(slackNorm);
+  const showCriticalPathOverlay =
+    scheduleOverlay === "critical_path" && data.criticalPathOrder !== null;
+  const showSlackHeatOverlay =
+    scheduleOverlay === "slack_heatmap" &&
+    hasDayEstimate &&
+    slackColor !== null;
+  const slackLabel = `${Number.isInteger(data.slackDays) ? data.slackDays : data.slackDays.toFixed(1)}d buffer`;
 
   // Floating UI tooltip
   const [isOpen, setIsOpen] = useState(false);
@@ -177,6 +209,7 @@ export function MetricBubbleNode({ data }: NodeProps<MetricBubbleNodeType>) {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
+        position: "relative",
       }}
     >
       {/* Invisible connection handles */}
@@ -204,8 +237,46 @@ export function MetricBubbleNode({ data }: NodeProps<MetricBubbleNodeType>) {
           boxShadow: "var(--shadow-specimen)",
           flexShrink: 0,
           cursor: "pointer",
+          position: "relative",
+          overflow: "hidden",
         }}
-      />
+      >
+        {showSlackHeatOverlay && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-[2px] rounded-full"
+            style={{
+              border: `1px solid color-mix(in oklab, ${slackColor} 30%, transparent)`,
+              background: `radial-gradient(circle at 30% 28%, color-mix(in oklab, ${slackColor} 22%, transparent), transparent 58%)`,
+              boxShadow: `inset 0 0 0 1px color-mix(in oklab, ${slackColor} 10%, transparent), 0 18px 34px color-mix(in oklab, ${slackColor} 10%, transparent)`,
+            }}
+          />
+        )}
+
+        {showCriticalPathOverlay && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-[2px] rounded-full"
+            style={{
+              border: `2px solid color-mix(in oklab, ${criticalPathAccent} 44%, transparent)`,
+              boxShadow: `inset 0 0 0 1px color-mix(in oklab, ${criticalPathAccent} 14%, transparent), 0 18px 34px color-mix(in oklab, ${criticalPathAccent} 12%, transparent)`,
+            }}
+          />
+        )}
+      </div>
+
+      {showCriticalPathOverlay && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-1 -top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full border bg-surface px-1.5 font-mono text-[0.55rem] font-semibold leading-none text-foreground"
+          style={{
+            borderColor: `color-mix(in oklab, ${criticalPathAccent} 44%, transparent)`,
+            boxShadow: `0 10px 20px color-mix(in oklab, ${criticalPathAccent} 10%, transparent)`,
+          }}
+        >
+          {data.criticalPathOrder! + 1}
+        </span>
+      )}
 
       {/* Tooltip via FloatingPortal */}
       {isOpen && (
@@ -239,10 +310,59 @@ export function MetricBubbleNode({ data }: NodeProps<MetricBubbleNodeType>) {
                 {PRIORITY_LABELS[data.priority]}
               </span>
             </div>
+            {(compactEstimate || data.isOnCriticalPath) && (
+              <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                {compactEstimate && (
+                  <span className="atlas-microchip text-foreground">
+                    {compactEstimate}
+                  </span>
+                )}
+                {showCriticalPathOverlay ? (
+                  <span
+                    className="atlas-microchip"
+                    style={{
+                      borderColor:
+                        "color-mix(in oklab, var(--color-pollen) 44%, transparent)",
+                      color: "var(--color-pollen)",
+                    }}
+                  >
+                    Path {data.criticalPathOrder! + 1}
+                  </span>
+                ) : data.isOnCriticalPath ? (
+                  <span
+                    className="atlas-microchip"
+                    style={{
+                      borderColor:
+                        "color-mix(in oklab, var(--color-pollen) 44%, transparent)",
+                      color: "var(--color-pollen)",
+                    }}
+                  >
+                    Critical
+                  </span>
+                ) : null}
+              </div>
+            )}
+            {showSlackHeatOverlay && slackColor && (
+              <div className="mt-1 flex items-center gap-1.5">
+                <span
+                  aria-hidden="true"
+                  className="h-2 w-2 rounded-full"
+                  style={{ backgroundColor: slackColor }}
+                />
+                <span className="text-xs text-muted-foreground">
+                  Slack: {slackLabel}
+                </span>
+              </div>
+            )}
             {sizeMode !== "uniform" && (
               <div className="mt-1.5 border-t border-border pt-1.5">
                 <span className="text-xs text-muted-foreground">
-                  {metricLabel}: {metricValue.toFixed(1)}
+                  {metricLabel}:{" "}
+                  {sizeMode === "estimate_days" ||
+                  sizeMode === "remaining_days" ||
+                  sizeMode === "downstream_effort_days"
+                    ? `${Number.isInteger(metricValue) ? metricValue : metricValue.toFixed(1)}d`
+                    : metricValue.toFixed(1)}
                 </span>
               </div>
             )}

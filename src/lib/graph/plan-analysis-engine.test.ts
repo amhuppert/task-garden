@@ -23,6 +23,19 @@ function makePlan(overrides: Partial<TaskGardenPlan> = {}): TaskGardenPlan {
   };
 }
 
+function makeEstimatedWorkItem(
+  item: TaskGardenPlan["work_items"][number],
+  days: number,
+): TaskGardenPlan["work_items"][number] {
+  return {
+    ...item,
+    estimate: {
+      value: days,
+      unit: "days",
+    },
+  };
+}
+
 // A simple linear chain: A → B → C (A must be done before B, B before C)
 const LINEAR_PLAN = makePlan({
   lanes: [{ id: "core", label: "Core" }],
@@ -145,6 +158,130 @@ const SINGLE_PLAN = makePlan({
       reuse_candidates: [],
       links: [],
     },
+  ],
+});
+
+const ESTIMATED_LINEAR_PLAN = makePlan({
+  lanes: [{ id: "core", label: "Core" }],
+  work_items: [
+    makeEstimatedWorkItem(
+      {
+        id: "task-a",
+        title: "Task A",
+        summary: "First",
+        lane: "core",
+        status: "planned",
+        priority: "p1",
+        depends_on: [],
+        tags: [],
+        deliverables: [],
+        reuse_candidates: [],
+        links: [],
+      },
+      2,
+    ),
+    makeEstimatedWorkItem(
+      {
+        id: "task-b",
+        title: "Task B",
+        summary: "Second",
+        lane: "core",
+        status: "planned",
+        priority: "p1",
+        depends_on: ["task-a"],
+        tags: [],
+        deliverables: [],
+        reuse_candidates: [],
+        links: [],
+      },
+      3,
+    ),
+    makeEstimatedWorkItem(
+      {
+        id: "task-c",
+        title: "Task C",
+        summary: "Third",
+        lane: "core",
+        status: "planned",
+        priority: "p1",
+        depends_on: ["task-b"],
+        tags: [],
+        deliverables: [],
+        reuse_candidates: [],
+        links: [],
+      },
+      1,
+    ),
+  ],
+});
+
+const ESTIMATED_BRANCHING_PLAN = makePlan({
+  lanes: [{ id: "core", label: "Core" }],
+  work_items: [
+    makeEstimatedWorkItem(
+      {
+        id: "a",
+        title: "A",
+        summary: "Root",
+        lane: "core",
+        status: "planned",
+        priority: "p1",
+        depends_on: [],
+        tags: [],
+        deliverables: [],
+        reuse_candidates: [],
+        links: [],
+      },
+      2,
+    ),
+    makeEstimatedWorkItem(
+      {
+        id: "b",
+        title: "B",
+        summary: "Fast branch",
+        lane: "core",
+        status: "planned",
+        priority: "p1",
+        depends_on: ["a"],
+        tags: [],
+        deliverables: [],
+        reuse_candidates: [],
+        links: [],
+      },
+      1,
+    ),
+    makeEstimatedWorkItem(
+      {
+        id: "c",
+        title: "C",
+        summary: "Slow branch",
+        lane: "core",
+        status: "planned",
+        priority: "p1",
+        depends_on: ["a"],
+        tags: [],
+        deliverables: [],
+        reuse_candidates: [],
+        links: [],
+      },
+      4,
+    ),
+    makeEstimatedWorkItem(
+      {
+        id: "d",
+        title: "D",
+        summary: "Leaf",
+        lane: "core",
+        status: "planned",
+        priority: "p1",
+        depends_on: ["b", "c"],
+        tags: [],
+        deliverables: [],
+        reuse_candidates: [],
+        links: [],
+      },
+      2,
+    ),
   ],
 });
 
@@ -450,6 +587,34 @@ describe("PlanAnalysisEngine — task 3.2: metrics and longest dependency chain"
       // task-b at level 1, furthest leaf (task-c) at level 2 => span = 1
       expect(snap.analysisById["task-b"].metrics.dependency_span).toBe(1);
     });
+
+    it("estimate_days is zero when an item has no day estimate", () => {
+      const engine = createPlanAnalysisEngine();
+      const snap = engine.build(LINEAR_PLAN);
+      expect(snap.analysisById["task-a"].metrics.estimate_days).toBe(0);
+    });
+
+    it("estimate_days reflects authored day estimates", () => {
+      const engine = createPlanAnalysisEngine();
+      const snap = engine.build(ESTIMATED_LINEAR_PLAN);
+      expect(snap.analysisById["task-b"].metrics.estimate_days).toBe(3);
+    });
+
+    it("remaining_days reflects the weighted chain from a node to the furthest leaf", () => {
+      const engine = createPlanAnalysisEngine();
+      const snap = engine.build(ESTIMATED_LINEAR_PLAN);
+      expect(snap.analysisById["task-a"].metrics.remaining_days).toBe(6);
+      expect(snap.analysisById["task-b"].metrics.remaining_days).toBe(4);
+      expect(snap.analysisById["task-c"].metrics.remaining_days).toBe(1);
+    });
+
+    it("downstream_effort_days sums unique reachable work including the item itself", () => {
+      const engine = createPlanAnalysisEngine();
+      const snap = engine.build(ESTIMATED_BRANCHING_PLAN);
+      expect(snap.analysisById.a.metrics.downstream_effort_days).toBe(9);
+      expect(snap.analysisById.c.metrics.downstream_effort_days).toBe(6);
+      expect(snap.analysisById.d.metrics.downstream_effort_days).toBe(2);
+    });
   });
 
   describe("metricRanges", () => {
@@ -464,6 +629,9 @@ describe("PlanAnalysisEngine — task 3.2: metrics and longest dependency chain"
           "out_degree",
           "betweenness",
           "dependency_span",
+          "estimate_days",
+          "remaining_days",
+          "downstream_effort_days",
         ]),
       );
     });
@@ -557,6 +725,58 @@ describe("PlanAnalysisEngine — task 3.2: metrics and longest dependency chain"
         const item = snap.workItems[chain[i]];
         expect(item.depends_on).toContain(chain[i - 1]);
       }
+    });
+  });
+
+  describe("estimateSummary and schedule analysis", () => {
+    it("tracks estimate coverage and total estimated effort", () => {
+      const engine = createPlanAnalysisEngine();
+      const snap = engine.build(ESTIMATED_LINEAR_PLAN);
+      expect(snap.estimateSummary.totalWorkItemCount).toBe(3);
+      expect(snap.estimateSummary.estimatedItemCount).toBe(3);
+      expect(snap.estimateSummary.totalEstimatedDays).toBe(6);
+      expect(snap.estimateSummary.averageEstimatedDays).toBe(2);
+    });
+
+    it("computes estimated critical path duration from day estimates", () => {
+      const engine = createPlanAnalysisEngine();
+      const snap = engine.build(ESTIMATED_BRANCHING_PLAN);
+      expect(snap.estimateSummary.estimatedCriticalPath.totalDays).toBe(8);
+      expect(snap.estimateSummary.estimatedCriticalPath.workItemIds).toEqual([
+        "a",
+        "c",
+        "d",
+      ]);
+    });
+
+    it("marks zero-slack items as critical path items", () => {
+      const engine = createPlanAnalysisEngine();
+      const snap = engine.build(ESTIMATED_BRANCHING_PLAN);
+      expect(snap.analysisById.a.schedule.isOnCriticalPath).toBe(true);
+      expect(snap.analysisById.c.schedule.isOnCriticalPath).toBe(true);
+      expect(snap.analysisById.d.schedule.isOnCriticalPath).toBe(true);
+      expect(snap.analysisById.b.schedule.isOnCriticalPath).toBe(false);
+    });
+
+    it("computes earliest/latest windows and slack in day units", () => {
+      const engine = createPlanAnalysisEngine();
+      const snap = engine.build(ESTIMATED_BRANCHING_PLAN);
+
+      expect(snap.analysisById.a.schedule.earliestStartDay).toBe(0);
+      expect(snap.analysisById.a.schedule.earliestFinishDay).toBe(2);
+      expect(snap.analysisById.a.schedule.latestStartDay).toBe(0);
+      expect(snap.analysisById.a.schedule.slackDays).toBe(0);
+
+      expect(snap.analysisById.b.schedule.earliestStartDay).toBe(2);
+      expect(snap.analysisById.b.schedule.earliestFinishDay).toBe(3);
+      expect(snap.analysisById.b.schedule.latestStartDay).toBe(5);
+      expect(snap.analysisById.b.schedule.slackDays).toBe(3);
+    });
+
+    it("computes plan parallelism ratio from total effort and critical path duration", () => {
+      const engine = createPlanAnalysisEngine();
+      const snap = engine.build(ESTIMATED_BRANCHING_PLAN);
+      expect(snap.estimateSummary.parallelismRatio).toBeCloseTo(1.125, 6);
     });
   });
 });

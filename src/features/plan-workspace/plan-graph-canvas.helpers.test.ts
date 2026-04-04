@@ -29,12 +29,17 @@ function makeNode(
       status: "planned",
       priority: "p2",
       summary: "",
+      estimate: undefined,
+      isOnCriticalPath: false,
       metricSummary: {
         degree: 2,
         in_degree: 1,
         out_degree: 1,
         betweenness: 0.5,
         dependency_span: 2,
+        estimate_days: 0,
+        remaining_days: 0,
+        downstream_effort_days: 0,
       },
       isSelected: false,
       visibilityRole: "focus",
@@ -155,6 +160,9 @@ describe("computeMetricRanges", () => {
       out_degree: 1,
       betweenness: 0.2,
       dependency_span: 3,
+      estimate_days: 1,
+      remaining_days: 5,
+      downstream_effort_days: 6,
     };
     n2.data.metricSummary = {
       degree: 4,
@@ -162,11 +170,16 @@ describe("computeMetricRanges", () => {
       out_degree: 2,
       betweenness: 0.8,
       dependency_span: 5,
+      estimate_days: 3,
+      remaining_days: 8,
+      downstream_effort_days: 12,
     };
     const ranges = computeMetricRanges([n1, n2]);
     expect(ranges.degree).toEqual({ min: 2, max: 4 });
     expect(ranges.betweenness).toEqual({ min: 0.2, max: 0.8 });
     expect(ranges.dependency_span).toEqual({ min: 3, max: 5 });
+    expect(ranges.estimate_days).toEqual({ min: 1, max: 3 });
+    expect(ranges.remaining_days).toEqual({ min: 5, max: 8 });
   });
 
   it("handles a single node (min === max)", () => {
@@ -177,6 +190,9 @@ describe("computeMetricRanges", () => {
       out_degree: 2,
       betweenness: 0.5,
       dependency_span: 4,
+      estimate_days: 2,
+      remaining_days: 6,
+      downstream_effort_days: 9,
     };
     const ranges = computeMetricRanges([n]);
     expect(ranges.degree).toEqual({ min: 3, max: 3 });

@@ -48,6 +48,7 @@ import {
   type PlanDisplayStateValue,
   selectColorMode,
   selectInsightMode,
+  selectScheduleOverlay,
   selectSizeMode,
   usePlanDisplayStore,
 } from "./plan-display.store";
@@ -69,6 +70,7 @@ import {
 
 function InfoPopoverButton({
   plan,
+  estimateSummary,
   resolver,
   onDocumentPreview,
 }: PlanOverviewHeaderProps) {
@@ -138,6 +140,7 @@ function InfoPopoverButton({
             <div className="p-4">
               <PlanOverviewHeader
                 plan={plan}
+                estimateSummary={estimateSummary}
                 resolver={resolver}
                 onDocumentPreview={onDocumentPreview}
               />
@@ -253,6 +256,7 @@ export function PlanWorkspacePage({ source }: PlanWorkspacePageProps) {
 
   // ── Display store subscriptions ───────────────────────────────────────────
   const colorMode = usePlanDisplayStore(selectColorMode);
+  const scheduleOverlay = usePlanDisplayStore(selectScheduleOverlay);
   const sizeMode = usePlanDisplayStore(selectSizeMode);
   const insightMode = usePlanDisplayStore(selectInsightMode);
   const setInsightMode = usePlanDisplayStore((s) => s.setInsightMode);
@@ -280,8 +284,8 @@ export function PlanWorkspacePage({ source }: PlanWorkspacePageProps) {
   );
 
   const displayState: PlanDisplayStateValue = useMemo(
-    () => ({ colorMode, sizeMode, insightMode }),
-    [colorMode, sizeMode, insightMode],
+    () => ({ colorMode, sizeMode, insightMode, scheduleOverlay }),
+    [colorMode, sizeMode, insightMode, scheduleOverlay],
   );
 
   // Snapshot is only non-null in ready state
@@ -444,6 +448,7 @@ export function PlanWorkspacePage({ source }: PlanWorkspacePageProps) {
             </h1>
             <InfoPopoverButton
               plan={readySnapshot.plan}
+              estimateSummary={readySnapshot.estimateSummary}
               resolver={referenceResolver}
               onDocumentPreview={handleDocumentPreview}
             />

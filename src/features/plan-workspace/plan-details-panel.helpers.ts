@@ -1,4 +1,5 @@
 import type {
+  TaskGardenEstimate,
   TaskGardenPriority,
   TaskGardenStatus,
 } from "../../lib/plan/task-garden-plan.schema";
@@ -57,4 +58,33 @@ export function formatEstimate(estimate: {
     return `${value} ${unit.replace(/s$/, "")}`;
   }
   return `${value} ${unit}`;
+}
+
+function formatNumeric(value: number): string {
+  return Number.isInteger(value) ? `${value}` : value.toFixed(1);
+}
+
+export function formatCompactEstimate(
+  estimate: TaskGardenEstimate | null | undefined,
+): string | null {
+  if (!estimate) return null;
+
+  const value = formatNumeric(estimate.value);
+  switch (estimate.unit) {
+    case "days":
+      return `${value}d`;
+    case "hours":
+      return `${value}h`;
+    case "points":
+      return `${value}pt`;
+  }
+}
+
+export function formatDayCount(days: number): string {
+  const value = formatNumeric(days);
+  return `${value} ${days === 1 ? "day" : "days"}`;
+}
+
+export function formatCompactDayCount(days: number): string {
+  return `${formatNumeric(days)}d`;
 }

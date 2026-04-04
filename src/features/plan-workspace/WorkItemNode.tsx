@@ -1,18 +1,25 @@
 import { Handle, type Node, type NodeProps, Position } from "@xyflow/react";
 import { useContext } from "react";
 import type { FlowNodeData } from "../../lib/graph/flow-projection-service";
+import { formatCompactEstimate } from "./plan-details-panel.helpers";
 import type { ColorEncodingMode, SizeEncodingMode } from "./plan-display.store";
 import {
   selectColorMode,
+  selectScheduleOverlay,
   selectSizeMode,
   usePlanDisplayStore,
 } from "./plan-display.store";
-import { GraphMetricRangesContext } from "./plan-graph-canvas.context";
+import {
+  GraphMetricRangesContext,
+  GraphScheduleOverlayContext,
+} from "./plan-graph-canvas.context";
 import {
   type MetricRanges,
   NODE_RENDER_HEIGHT,
+  getCriticalPathAccentColor,
   getMetricAccentColor,
   getPriorityAccentColor,
+  getSlackHeatColor,
   getStatusAccentColor,
   normalizeMetric,
 } from "./plan-graph-canvas.helpers";
@@ -62,6 +69,9 @@ function getAccentColor(
       return getPriorityAccentColor(data.priority);
     case "lane":
       return data.laneColor;
+    case "estimate_days":
+    case "remaining_days":
+    case "downstream_effort_days":
     case "degree":
     case "betweenness":
     case "dependency_span": {
@@ -102,8 +112,10 @@ function getSizeScale(
 
 export function WorkItemNode({ data }: NodeProps<WorkItemNodeType>) {
   const colorMode = usePlanDisplayStore(selectColorMode);
+  const scheduleOverlay = usePlanDisplayStore(selectScheduleOverlay);
   const sizeMode = usePlanDisplayStore(selectSizeMode);
   const metricRanges = useContext(GraphMetricRangesContext);
+  const { slackRange } = useContext(GraphScheduleOverlayContext);
 
   const isFocus = data.visibilityRole === "focus";
   const accentColor = getAccentColor(colorMode, data, metricRanges);
@@ -117,6 +129,26 @@ export function WorkItemNode({ data }: NodeProps<WorkItemNodeType>) {
           metricRanges[sizeMode].max,
         )
       : null;
+  const compactEstimate = formatCompactEstimate(data.estimate);
+  const hasDayEstimate = data.estimate?.unit === "days";
+  const criticalPathAccent = getCriticalPathAccentColor();
+  const slackNorm =
+    hasDayEstimate && slackRange
+      ? slackRange.min === slackRange.max
+        ? 0.5
+        : normalizeMetric(data.slackDays, slackRange.min, slackRange.max)
+      : null;
+  const slackColor = slackNorm === null ? null : getSlackHeatColor(slackNorm);
+  const showCriticalPathOverlay =
+    scheduleOverlay === "critical_path" && data.criticalPathOrder !== null;
+  const showSlackHeatOverlay =
+    scheduleOverlay === "slack_heatmap" &&
+    hasDayEstimate &&
+    slackColor !== null;
+  const slackValue = Number.isInteger(data.slackDays)
+    ? data.slackDays
+    : data.slackDays.toFixed(1);
+  const slackLabel = `${slackValue}d slack`;
 
   return (
     <div
@@ -143,6 +175,38 @@ export function WorkItemNode({ data }: NodeProps<WorkItemNodeType>) {
         style={{ opacity: 0, pointerEvents: "none" }}
       />
 
+      {showSlackHeatOverlay && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-[2px] rounded-[1.22rem]"
+          style={{
+            border: `1px solid color-mix(in oklab, ${slackColor} 26%, transparent)`,
+            background: `radial-gradient(circle at 100% 0%, color-mix(in oklab, ${slackColor} 18%, transparent), transparent 54%), linear-gradient(90deg, color-mix(in oklab, ${slackColor} 14%, transparent), transparent 34%)`,
+            boxShadow: `inset 0 0 0 1px color-mix(in oklab, ${slackColor} 10%, transparent), 0 18px 34px color-mix(in oklab, ${slackColor} 7%, transparent)`,
+          }}
+        />
+      )}
+
+      {showCriticalPathOverlay && (
+        <>
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-[2px] rounded-[1.22rem]"
+            style={{
+              border: `1px solid color-mix(in oklab, ${criticalPathAccent} 34%, transparent)`,
+              boxShadow: `inset 0 0 0 1px color-mix(in oklab, ${criticalPathAccent} 14%, transparent), 0 18px 34px color-mix(in oklab, ${criticalPathAccent} 10%, transparent)`,
+            }}
+          />
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute left-5 right-5 top-2.5 h-px rounded-full"
+            style={{
+              background: `linear-gradient(90deg, color-mix(in oklab, ${criticalPathAccent} 0%, transparent), ${criticalPathAccent}, color-mix(in oklab, ${criticalPathAccent} 0%, transparent))`,
+            }}
+          />
+        </>
+      )}
+
       {/* Left accent stripe for color encoding */}
       {accentColor && (
         <div
@@ -152,35 +216,88 @@ export function WorkItemNode({ data }: NodeProps<WorkItemNodeType>) {
         />
       )}
 
-      {/* Priority badge — absolutely positioned top-right */}
-      <span
-        style={{ backgroundColor: getPriorityAccentColor(data.priority) }}
-        className="absolute right-2 top-2 inline-flex items-center rounded-full px-1.5 py-0.5 font-mono text-[0.55rem] font-bold leading-none text-primary-foreground"
-      >
-        {PRIORITY_LABELS[data.priority]}
-      </span>
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-mono text-[0.56rem] uppercase tracking-[0.18em] text-muted-foreground">
+            {data.laneLabel}
+          </p>
+          <div
+            className="mt-1 line-clamp-2 text-[0.72rem] font-semibold leading-snug text-foreground"
+            title={data.title}
+          >
+            {data.title}
+          </div>
+        </div>
 
-      {/* Title */}
-      <div
-        className="line-clamp-2 pr-10 text-[0.72rem] font-semibold leading-snug text-foreground"
-        title={data.title}
-      >
-        {data.title}
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          {showCriticalPathOverlay && (
+            <span
+              className="inline-flex h-5 min-w-5 items-center justify-center rounded-full border bg-surface px-1.5 font-mono text-[0.55rem] font-semibold leading-none text-foreground"
+              style={{
+                borderColor: `color-mix(in oklab, ${criticalPathAccent} 44%, transparent)`,
+                boxShadow: `0 10px 20px color-mix(in oklab, ${criticalPathAccent} 10%, transparent)`,
+              }}
+              title={`Critical path step ${data.criticalPathOrder! + 1}`}
+            >
+              {data.criticalPathOrder! + 1}
+            </span>
+          )}
+          {compactEstimate && (
+            <span className="atlas-microchip text-foreground">
+              {compactEstimate}
+            </span>
+          )}
+          <span
+            style={{ backgroundColor: getPriorityAccentColor(data.priority) }}
+            className="inline-flex items-center rounded-full px-1.5 py-0.5 font-mono text-[0.55rem] font-bold leading-none text-primary-foreground"
+          >
+            {PRIORITY_LABELS[data.priority]}
+          </span>
+        </div>
       </div>
 
-      {/* Footer: status dot + lane label + status label */}
-      <div className="mt-1.5 flex min-w-0 items-center gap-1.5">
+      {/* Footer: status, critical-path note, remaining days */}
+      <div className="mt-2 flex min-w-0 items-center gap-1.5">
         <span
           aria-label={STATUS_LABELS[data.status]}
           style={{ backgroundColor: getStatusAccentColor(data.status) }}
           className="h-1.5 w-1.5 shrink-0 rounded-full"
         />
         <span className="truncate font-sans text-[0.6rem] text-muted-foreground">
-          {data.laneLabel}
-        </span>
-        <span className="ml-auto shrink-0 truncate font-sans text-[0.6rem] text-muted-foreground">
           {STATUS_LABELS[data.status]}
         </span>
+        {showSlackHeatOverlay && slackColor && (
+          <span
+            className="atlas-microchip"
+            style={{
+              borderColor: `color-mix(in oklab, ${slackColor} 42%, transparent)`,
+              color: slackColor,
+            }}
+            title={`Slack: ${slackValue}d buffer`}
+          >
+            {slackLabel}
+          </span>
+        )}
+        {data.isOnCriticalPath && !showCriticalPathOverlay && (
+          <span
+            className="atlas-microchip"
+            style={{
+              borderColor:
+                "color-mix(in oklab, var(--color-pollen) 44%, transparent)",
+              color: "var(--color-pollen)",
+            }}
+          >
+            Critical
+          </span>
+        )}
+        {data.metricSummary.remaining_days > 0 && (
+          <span className="ml-auto shrink-0 font-mono text-[0.58rem] text-muted-foreground">
+            {Number.isInteger(data.metricSummary.remaining_days)
+              ? data.metricSummary.remaining_days
+              : data.metricSummary.remaining_days.toFixed(1)}
+            d chain
+          </span>
+        )}
       </div>
 
       {/* Metric bar for size encoding (absolute, no layout impact) */}

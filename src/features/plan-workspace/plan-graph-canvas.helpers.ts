@@ -180,6 +180,20 @@ export function getMetricAccentColor(normalizedValue: number): string {
   return "var(--color-moss)";
 }
 
+export function getCriticalPathAccentColor(): string {
+  return "color-mix(in oklab, var(--color-pollen) 72%, var(--color-moss) 28%)";
+}
+
+export function getSlackHeatColor(normalizedValue: number): string {
+  if (normalizedValue < 0.34) {
+    return "color-mix(in oklab, var(--color-petal) 78%, var(--color-pollen) 22%)";
+  }
+  if (normalizedValue < 0.67) {
+    return "color-mix(in oklab, var(--color-pollen) 78%, var(--color-lichen) 22%)";
+  }
+  return "color-mix(in oklab, var(--color-water) 72%, var(--color-lichen) 28%)";
+}
+
 /**
  * Resolves the CSS color for a legend item dot based on the active encoding mode.
  * Returns null for items where no specific color applies (e.g., 'default' mode).
