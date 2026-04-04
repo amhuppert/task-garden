@@ -173,11 +173,11 @@ export function getLanePaletteColor(laneIndex: number): string {
   return LANE_COLOR_PALETTE[laneIndex % LANE_COLOR_PALETTE.length];
 }
 
-/** Maps a normalized metric value [0,1] to a botanical accent color. */
+/** Maps a normalized metric value [0,1] to a severity accent color (green → yellow → red). */
 export function getMetricAccentColor(normalizedValue: number): string {
-  if (normalizedValue < 0.33) return "var(--color-water)";
+  if (normalizedValue < 0.33) return "var(--color-moss)";
   if (normalizedValue < 0.66) return "var(--color-pollen)";
-  return "var(--color-moss)";
+  return "var(--color-petal)";
 }
 
 export function getCriticalPathAccentColor(): string {

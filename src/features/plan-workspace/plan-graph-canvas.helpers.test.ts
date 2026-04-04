@@ -7,6 +7,7 @@ import {
   computeLaneBands,
   computeMetricRanges,
   getLanePaletteColor,
+  getMetricAccentColor,
   getPriorityAccentColor,
   getStatusAccentColor,
   normalizeMetric,
@@ -248,5 +249,25 @@ describe("getLanePaletteColor", () => {
   });
   it("wraps around when index exceeds palette size", () => {
     expect(getLanePaletteColor(8)).toBe(getLanePaletteColor(0));
+  });
+});
+
+describe("getMetricAccentColor", () => {
+  it("returns green (moss) for low values — low risk", () => {
+    expect(getMetricAccentColor(0)).toBe("var(--color-moss)");
+    expect(getMetricAccentColor(0.1)).toBe("var(--color-moss)");
+    expect(getMetricAccentColor(0.32)).toBe("var(--color-moss)");
+  });
+
+  it("returns yellow (pollen) for mid values — moderate risk", () => {
+    expect(getMetricAccentColor(0.33)).toBe("var(--color-pollen)");
+    expect(getMetricAccentColor(0.5)).toBe("var(--color-pollen)");
+    expect(getMetricAccentColor(0.65)).toBe("var(--color-pollen)");
+  });
+
+  it("returns red (petal) for high values — high risk", () => {
+    expect(getMetricAccentColor(0.66)).toBe("var(--color-petal)");
+    expect(getMetricAccentColor(0.8)).toBe("var(--color-petal)");
+    expect(getMetricAccentColor(1)).toBe("var(--color-petal)");
   });
 });
