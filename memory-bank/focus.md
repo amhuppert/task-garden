@@ -2,99 +2,72 @@
 
 ## Objective
 
-Add the ability to associate arbitrary links with a task (JIRA tickets, GitLab MRs, GitHub PRs, Confluence pages, etc.) without making assumptions about what the links are. Unify the plan-level reference and task-level link interfaces under a single schema shape and shared UI component. Auto-detect brand icons from URLs at render time to improve the visual experience.
+Create a Claude Code plugin named `task-garden` that's distributed alongside the Task Garden app and provides AI resources for working with Vaskard. Initial scope: two skills — one for planning guidance and one for creating a conformant YAML plan file.
 
 ## Detailed Requirements
 
-### Schema unification
+### Plugin Structure
+- Plugin lives at `plugins/task-garden/` in the repo root
+- Standard Claude Code plugin format with `.claude-plugin/plugin.json` manifest
+- Two skills in `skills/` subdirectories, each with a `SKILL.md`
 
-- Plan-level `references` currently uses bare strings (`ReferenceTarget[]`). Change to `{ label, href }[]` — the same shape as task-level `links` (`TaskGardenLink[]`).
-- Task-level `links: { label, href }[]` remains unchanged.
-- No type metadata stored in the schema — icon detection is purely a UI concern derived from the URL at render time.
-- Existing plan YAML files must be migrated to the new reference format.
+### Skill 1: Planning
+- Brainstorming/consulting skill that helps users think through their project plan
+- Guides decomposition into lanes, work items, dependencies, priorities, and tags
+- Focuses on structural reasoning — identifying roots, leaves, dependency chains, and potential bottlenecks before committing to a file
+- Does not produce the YAML file itself; that's the create-plan skill's job
 
-### Icon auto-detection
+### Skill 2: Create Plan File
+- Interactive Q&A workflow that gathers project details and generates a valid Task Garden YAML plan file
+- Must produce output conforming to the `TaskGardenPlanSchema` Zod schema (version: 1)
+- Schema constraints the skill must enforce:
+  - `plan_id`: slug format (lowercase alphanumeric, hyphens, underscores; starts with alphanumeric)
+  - `last_updated`: YYYY-MM-DD date format
+  - `lanes`: at least 1, each with slug `id` and `label`
+  - `work_items`: at least 1, each with slug `id`, `title`, `summary`, `lane` (must reference existing lane), `status` (planned|ready|blocked|in_progress|done|future), `priority` (p0|p1|p2|p3|nice_to_have)
+  - `depends_on`: references must exist, no self-dependencies, no duplicates, no cycles (must form a DAG)
+  - `estimate`: optional, positive number with unit (hours|days|points)
+  - `links.href`: http(s) URLs or repo-relative .md paths (no path traversal)
+  - `references`: same link format as work item links
+- Should include an example YAML plan for Claude to reference
 
-A pure function maps a resolved reference to an icon preset based on URL patterns:
-
-| Preset       | Detection rule                                                                 |
-|--------------|--------------------------------------------------------------------------------|
-| **GitHub**   | Hostname is `github.com`, or hostname contains `github` (self-hosted)          |
-| **GitLab**   | Hostname is `gitlab.com`, or hostname contains `gitlab` (self-hosted)          |
-| **JIRA**     | Hostname matches `*.atlassian.net` without `/wiki/` in path, or hostname contains `jira` (self-hosted) |
-| **Confluence**| Hostname matches `*.atlassian.net` with `/wiki/` in path, or hostname contains `confluence` (self-hosted) |
-| **File**     | Fallback for bundled `.md` documents                                           |
-| **External** | Fallback for any other external URL                                            |
-
-### Icon style
-
-- **Brand presets** (GitHub, GitLab, JIRA, Confluence): actual brand logos, favicon-style SVGs.
-- **Fallbacks** (File, External): simple icons that match the botanical atlas design system — consistent with the existing visual language.
-
-### UI unification
-
-- Merge the two near-identical sub-components (`ResolvedReferenceItem` in `PlanOverviewHeader` and `ResolvedLinkItem` in `PlanDetailsPanel`) into a single shared component.
-- Both the plan overview header and task details panel use this shared component.
-- The shared component delegates icon selection to the detection service.
+### Distribution
+- Plugin is checked into the repo and distributed alongside the app
+- No external dependencies or MCP servers needed for initial scope
 
 ## Key Design Decisions
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| Schema shape for plan references | Unify to `{ label, href }` | One consistent data shape everywhere; plan references gain optional labels |
-| Type metadata in schema | None | Icon detection is a UI concern; keeps the schema agnostic about link targets |
-| JIRA vs Confluence detection | Differentiate by path (`/wiki/` = Confluence) | Both live on `*.atlassian.net`; path gives accurate distinction |
-| Self-hosted instance detection | Heuristic hostname matching | Check for `github`, `gitlab`, `jira`, `confluence` appearing in hostname; broader coverage at acceptable false-positive risk |
-| Icon style for presets | Brand favicon-style SVGs | Recognizable at a glance |
-| Icon style for fallbacks | Simple design-system-matching icons | Blend with the botanical atlas aesthetic |
+| Plugin name | `task-garden` | Matches the repo/project name |
+| Plugin path | `plugins/task-garden/` | Clean separation from app code; `plugins/` is a natural directory for bundled plugins |
+| Skill count | Two separate skills | Planning guidance and file generation are distinct concerns with different interaction patterns |
+| Plan creation workflow | Interactive Q&A → YAML | Lets the user describe their project conversationally; Claude asks clarifying questions and produces the file |
+| Schema reference | Embedded in SKILL.md | Plugins can't import TypeScript; schema rules must be documented as prose/examples in the skill prompt |
 
 ## Implementation Approach
 
-1. **Icon detection service** — Pure function `detectLinkPreset(href, kind) → IconPreset` in `src/lib/plan/`. Hostname + path matching logic. Fully unit-testable with no dependencies.
+1. **Scaffold plugin directory**: Create `plugins/task-garden/.claude-plugin/plugin.json` with name, version, description
+2. **Write planning skill**: `plugins/task-garden/skills/planning/SKILL.md` — structured prompt guiding project decomposition (lanes, work items, dependencies, priorities)
+3. **Write create-plan skill**: `plugins/task-garden/skills/create-plan/SKILL.md` — interactive Q&A prompt with full schema reference, validation rules, and example YAML
+4. **Validate**: Use plugin-validator agent to verify structure and correctness
 
-2. **Icon components** — Small SVG components for each of the 6 presets (GitHub, GitLab, JIRA, Confluence, File, External). Located alongside the shared link component. Sized and colored to match the atlas design system.
-
-3. **Schema update** — Change `TaskGardenPlanSchemaDefinition.references` from `z.array(ReferenceTargetSchema)` to `z.array(TaskGardenLinkSchema)`. Update the existing `task-garden-v1.yaml` plan file.
-
-4. **Shared link component** — Extract a unified `ResolvedLinkItem` component (likely in `src/features/plan-workspace/` or a shared location) that receives a resolved reference + label, uses the icon detection service to pick the right icon, and renders the link chip. Replaces both `ResolvedReferenceItem` and the current `ResolvedLinkItem`.
-
-5. **Update consuming components** — Wire the shared component into `PlanOverviewHeader` (plan references) and `PlanDetailsPanel` (task links). Remove the old duplicated sub-components. Update `PlanOverviewHeader` to pass `label` from the new structured references rather than deriving it.
+Red-green TDD applies where testable (plugin validation checks), but skills are primarily prompt files validated by structural inspection.
 
 ## Relevant Patterns
 
-### Schema & validation
-- Zod schemas in `src/lib/plan/task-garden-plan.schema.ts` with inferred TypeScript types
-- `ReferenceTargetSchema` validates URLs and repo-relative `.md` paths
-- `TaskGardenLinkSchema` is `{ label: string, href: ReferenceTarget }`
-- Cross-record integrity checks in `.check()` callback
+### Plan Schema (source of truth)
+- **Schema file**: `src/lib/plan/task-garden-plan.schema.ts` — Zod schema with `checkIntegrity()` for cross-record validation (duplicate IDs, missing lanes, missing dependencies, self-dependencies, cycles via DFS)
+- **Example plan**: `src/plans/task-garden-v1.yaml` — production example with 3 lanes, 14 work items, estimates, links, and complex dependency chains
+- **Processing pipeline**: `src/lib/plan/plan-processing-pipeline.ts` — three-stage: YAML parse → schema validate → graph analysis
 
-### Reference resolution
-- `ReferenceResolverService` in `src/lib/plan/reference-resolver.ts` resolves targets to `external_url` or `bundled_document`
-- Compile-time document registry via Vite `import.meta.glob`
-- Service interface pattern with factory function + singleton for production use
+### Existing Claude Code Configuration
+- `.claude/commands/kiro/` — existing slash commands for spec-driven workflow (not a plugin, just project-local commands)
+- No existing plugins in the repo; this will be the first
 
-### UI components
-- `ResolvedReferenceItem` in `PlanOverviewHeader.tsx` (plan-level, derives label from target)
-- `ResolvedLinkItem` in `PlanDetailsPanel.tsx` (task-level, receives label as prop)
-- Both use `atlas-chip`-style pill rendering with icon + label
-- `Section` wrapper component for labeled groups in the details panel
-- `deriveReferenceLabel()` in `plan-overview-header.helpers.ts` for fallback label generation
-
-### Design system
-- Botanical Systems Atlas: parchment/cream canvas, moss/sage/lichen accents
-- Typography: Cormorant Garamond (display), Hanken Grotesk (body), IBM Plex Mono (mono)
-- Component classes: `atlas-chip`, `atlas-panel`, `atlas-button-*`, `atlas-kicker`, `atlas-title`
-- CSS custom properties for radii (`--radius-sm`), shadows (`--shadow-atlas`), animations
-- Existing link icons use Unicode glyphs: `↗` (external), `⊞` (document), `⊘` (error)
-
-### Testing
-- Vitest for unit tests, Playwright for e2e
-- Test through public contracts (inputs/outputs), not internals
-- Pure logic requires no mocks; services use dependency injection for testability
-- Tests colocated adjacent to source files
-
-### Architecture
-- Feature-scoped directories under `src/features/<feature>/`
-- Shared domain logic in `src/lib/`
-- Zustand stores per concern (not monolithic)
-- Four-layer data pipeline: authored plan → validated model → derived analysis → UI state
+### Project Conventions
+- Feature-oriented organization with colocated code
+- Slug-based IDs throughout (lowercase, hyphens, underscores)
+- YAGNI — no speculative features or over-engineering
+- Zod for all boundary validation
+- Biome for formatting/linting
