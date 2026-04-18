@@ -1,0 +1,28 @@
+{
+  "name": "task-garden",
+  "owner": {
+    "name": "Alex Huppert",
+    "url": "https://github.com/amhuppert"
+  },
+  "metadata": {
+    "description": "Marketplace for the Task Garden Claude Code plugin",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "task-garden",
+      "source": "./plugins/task-garden",
+      "description": "AI resources for planning and authoring Task Garden YAML project plans",
+      "version": "0.1.0",
+      "author": {
+        "name": "Alex Huppert",
+        "url": "https://github.com/amhuppert"
+      },
+      "homepage": "https://github.com/amhuppert/task-garden",
+      "repository": "https://github.com/amhuppert/task-garden",
+      "license": "MIT",
+      "category": "planning",
+      "tags": ["planning", "task-garden", "yaml", "dag"]
+    }
+  ]
+}

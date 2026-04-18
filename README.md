@@ -54,6 +54,19 @@ bun test
 bun run test:e2e
 ```
 
+## Claude Code Plugin
+
+This repo doubles as a [Claude Code plugin marketplace](https://docs.anthropic.com/claude-code/plugins). The `task-garden` plugin provides skills for planning projects and authoring valid Task Garden YAML plans.
+
+Add the marketplace and install the plugin from inside Claude Code:
+
+```text
+/plugin marketplace add amhuppert/task-garden
+/plugin install task-garden@task-garden
+```
+
+Source: [`plugins/task-garden/`](plugins/task-garden/) · Marketplace manifest: [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json)
+
 ## Stack
 
 React 19, Vite, TypeScript, Zod, YAML, Graphology, React Flow, Zustand, Vitest,

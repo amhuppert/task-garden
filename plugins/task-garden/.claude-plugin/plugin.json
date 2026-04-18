@@ -1,5 +1,12 @@
 {
   "name": "task-garden",
   "version": "0.1.0",
-  "description": "AI resources for planning and creating Task Garden project plans"
+  "description": "AI resources for planning and creating Task Garden project plans",
+  "author": {
+    "name": "Alex Huppert",
+    "url": "https://github.com/amhuppert"
+  },
+  "homepage": "https://github.com/amhuppert/task-garden",
+  "repository": "https://github.com/amhuppert/task-garden",
+  "license": "MIT"
 }
