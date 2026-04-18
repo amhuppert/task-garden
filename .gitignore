@@ -14,3 +14,4 @@ src/plans/**
 !src/plans/bundled-plans.schema.test.ts
 !src/plans/invalid-plan-test.yaml
 !src/plans/task-garden-v1.yaml
+.vscode/explorer-hide-presets.json
