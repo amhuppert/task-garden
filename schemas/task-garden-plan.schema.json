@@ -1,0 +1,241 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/amhuppert/task-garden/schemas/task-garden-plan.schema.json",
+  "title": "Task Garden Plan",
+  "description": "Schema for Task Garden YAML plan files. Generated from the Zod source of truth at src/lib/plan/task-garden-plan.schema.ts.",
+  "type": "object",
+  "properties": {
+    "version": {
+      "description": "Schema version. Must always be 1.",
+      "type": "number",
+      "const": 1
+    },
+    "plan_id": {
+      "description": "Unique slug identifying this plan.",
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_-]*$"
+    },
+    "title": {
+      "description": "Human-readable plan title.",
+      "type": "string",
+      "minLength": 1
+    },
+    "last_updated": {
+      "description": "Date the plan was last edited, in YYYY-MM-DD format.",
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "summary": {
+      "description": "One- or two-sentence description of the plan's goal.",
+      "type": "string",
+      "minLength": 1
+    },
+    "references": {
+      "description": "Top-level documentation references for the whole plan.",
+      "default": [],
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "description": "Display label for the link.",
+            "type": "string",
+            "minLength": 1
+          },
+          "href": {
+            "description": "An http(s) URL or a .md path resolved relative to the plan file's parent directory (no path traversal).",
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": ["label", "href"],
+        "additionalProperties": false
+      }
+    },
+    "lanes": {
+      "description": "Logical groupings of work (e.g., 'backend', 'frontend'). At least one required.",
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "description": "Unique slug identifying this lane. Referenced by work_items.lane.",
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]*$"
+          },
+          "label": {
+            "description": "Display label shown in the UI.",
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "description": "Optional longer description of what this lane covers.",
+            "type": "string",
+            "minLength": 1
+          },
+          "color": {
+            "description": "Optional CSS color string used for visual encoding.",
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": ["id", "label"],
+        "additionalProperties": false
+      }
+    },
+    "work_items": {
+      "description": "Concrete tasks and their dependencies. At least one required. Must form a DAG (no cycles).",
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "description": "Unique slug identifying this work item. Referenced by depends_on entries.",
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]*$"
+          },
+          "title": {
+            "description": "Short human-readable name.",
+            "type": "string",
+            "minLength": 1
+          },
+          "summary": {
+            "description": "What this item delivers and why.",
+            "type": "string",
+            "minLength": 1
+          },
+          "lane": {
+            "description": "ID of the lane this item belongs to. Must reference an existing lane.id.",
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]*$"
+          },
+          "status": {
+            "description": "Lifecycle state. planned = scoped, not started; ready = unblocked, can start; blocked = waiting; in_progress = active; done = complete; future = not yet fully scoped.",
+            "type": "string",
+            "enum": [
+              "planned",
+              "ready",
+              "blocked",
+              "in_progress",
+              "done",
+              "future"
+            ]
+          },
+          "priority": {
+            "description": "Importance. p0 = must-have / blocking; p1 = important; p2 = nice quality improvement; p3 = low priority; nice_to_have = explicit stretch goal.",
+            "type": "string",
+            "enum": ["p0", "p1", "p2", "p3", "nice_to_have"]
+          },
+          "depends_on": {
+            "description": "IDs of work items that must be completed before this one can start. Must reference existing items; no self-references, duplicates, or cycles.",
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]*$"
+            }
+          },
+          "tags": {
+            "description": "Cross-cutting labels (slug format; may contain '/'). Useful for filtering across lanes.",
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_/-]*$"
+            }
+          },
+          "estimate": {
+            "description": "Optional rough sizing for this item.",
+            "type": "object",
+            "properties": {
+              "value": {
+                "description": "Positive numeric estimate.",
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "unit": {
+                "description": "Unit for the estimate.",
+                "type": "string",
+                "enum": ["hours", "days", "points"]
+              }
+            },
+            "required": ["value", "unit"],
+            "additionalProperties": false
+          },
+          "deliverables": {
+            "description": "Concrete outputs produced when this item is done.",
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "reuse_candidates": {
+            "description": "Existing code, libraries, or patterns worth considering when implementing this item.",
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "links": {
+            "description": "External resources or local Markdown docs related to this item.",
+            "default": [],
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "description": "Display label for the link.",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "href": {
+                  "description": "An http(s) URL or a .md path resolved relative to the plan file's parent directory (no path traversal).",
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": ["label", "href"],
+              "additionalProperties": false
+            }
+          },
+          "notes": {
+            "description": "Freeform context that doesn't fit other fields.",
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "summary",
+          "lane",
+          "status",
+          "priority",
+          "depends_on",
+          "tags",
+          "deliverables",
+          "reuse_candidates",
+          "links"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "version",
+    "plan_id",
+    "title",
+    "last_updated",
+    "summary",
+    "references",
+    "lanes",
+    "work_items"
+  ],
+  "additionalProperties": false
+}

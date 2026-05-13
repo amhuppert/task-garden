@@ -57,36 +57,85 @@ export const TaskGardenPrioritySchema = z.enum([
 ]);
 
 export const TaskGardenLaneSchema = z.object({
-  id: SlugSchema,
-  label: z.string().min(1),
-  description: z.string().min(1).optional(),
-  color: z.string().min(1).optional(),
+  id: SlugSchema.describe(
+    "Unique slug identifying this lane. Referenced by work_items.lane.",
+  ),
+  label: z.string().min(1).describe("Display label shown in the UI."),
+  description: z
+    .string()
+    .min(1)
+    .optional()
+    .describe("Optional longer description of what this lane covers."),
+  color: z
+    .string()
+    .min(1)
+    .optional()
+    .describe("Optional CSS color string used for visual encoding."),
 });
 
 export const TaskGardenEstimateSchema = z.object({
-  value: z.number().positive(),
-  unit: z.enum(["hours", "days", "points"]),
+  value: z.number().positive().describe("Positive numeric estimate."),
+  unit: z.enum(["hours", "days", "points"]).describe("Unit for the estimate."),
 });
 
 export const TaskGardenLinkSchema = z.object({
-  label: z.string().min(1),
-  href: ReferenceTargetSchema,
+  label: z.string().min(1).describe("Display label for the link."),
+  href: ReferenceTargetSchema.describe(
+    "An http(s) URL or a .md path resolved relative to the plan file's parent directory (no path traversal).",
+  ),
 });
 
 export const TaskGardenWorkItemSchema = z.object({
-  id: SlugSchema,
-  title: z.string().min(1),
-  summary: z.string().min(1),
-  lane: SlugSchema,
-  status: TaskGardenStatusSchema,
-  priority: TaskGardenPrioritySchema,
-  depends_on: z.array(SlugSchema).default([]),
-  tags: z.array(TagSchema).default([]),
-  estimate: TaskGardenEstimateSchema.optional(),
-  deliverables: z.array(z.string().min(1)).default([]),
-  reuse_candidates: z.array(z.string().min(1)).default([]),
-  links: z.array(TaskGardenLinkSchema).default([]),
-  notes: z.string().min(1).optional(),
+  id: SlugSchema.describe(
+    "Unique slug identifying this work item. Referenced by depends_on entries.",
+  ),
+  title: z.string().min(1).describe("Short human-readable name."),
+  summary: z.string().min(1).describe("What this item delivers and why."),
+  lane: SlugSchema.describe(
+    "ID of the lane this item belongs to. Must reference an existing lane.id.",
+  ),
+  status: TaskGardenStatusSchema.describe(
+    "Lifecycle state. planned = scoped, not started; ready = unblocked, can start; blocked = waiting; in_progress = active; done = complete; future = not yet fully scoped.",
+  ),
+  priority: TaskGardenPrioritySchema.describe(
+    "Importance. p0 = must-have / blocking; p1 = important; p2 = nice quality improvement; p3 = low priority; nice_to_have = explicit stretch goal.",
+  ),
+  depends_on: z
+    .array(SlugSchema)
+    .default([])
+    .describe(
+      "IDs of work items that must be completed before this one can start. Must reference existing items; no self-references, duplicates, or cycles.",
+    ),
+  tags: z
+    .array(TagSchema)
+    .default([])
+    .describe(
+      "Cross-cutting labels (slug format; may contain '/'). Useful for filtering across lanes.",
+    ),
+  estimate: TaskGardenEstimateSchema.optional().describe(
+    "Optional rough sizing for this item.",
+  ),
+  deliverables: z
+    .array(z.string().min(1))
+    .default([])
+    .describe("Concrete outputs produced when this item is done."),
+  reuse_candidates: z
+    .array(z.string().min(1))
+    .default([])
+    .describe(
+      "Existing code, libraries, or patterns worth considering when implementing this item.",
+    ),
+  links: z
+    .array(TaskGardenLinkSchema)
+    .default([])
+    .describe(
+      "External resources or local Markdown docs related to this item.",
+    ),
+  notes: z
+    .string()
+    .min(1)
+    .optional()
+    .describe("Freeform context that doesn't fit other fields."),
 });
 
 // ---------------------------------------------------------------------------
@@ -275,14 +324,32 @@ function checkIntegrity(payload: RawPayload): void {
 
 export const TaskGardenPlanSchemaDefinition = z
   .object({
-    version: z.literal(1),
-    plan_id: SlugSchema,
-    title: z.string().min(1),
-    last_updated: DateOnlySchema,
-    summary: z.string().min(1),
-    references: z.array(TaskGardenLinkSchema).default([]),
-    lanes: z.array(TaskGardenLaneSchema).min(1),
-    work_items: z.array(TaskGardenWorkItemSchema).min(1),
+    version: z.literal(1).describe("Schema version. Must always be 1."),
+    plan_id: SlugSchema.describe("Unique slug identifying this plan."),
+    title: z.string().min(1).describe("Human-readable plan title."),
+    last_updated: DateOnlySchema.describe(
+      "Date the plan was last edited, in YYYY-MM-DD format.",
+    ),
+    summary: z
+      .string()
+      .min(1)
+      .describe("One- or two-sentence description of the plan's goal."),
+    references: z
+      .array(TaskGardenLinkSchema)
+      .default([])
+      .describe("Top-level documentation references for the whole plan."),
+    lanes: z
+      .array(TaskGardenLaneSchema)
+      .min(1)
+      .describe(
+        "Logical groupings of work (e.g., 'backend', 'frontend'). At least one required.",
+      ),
+    work_items: z
+      .array(TaskGardenWorkItemSchema)
+      .min(1)
+      .describe(
+        "Concrete tasks and their dependencies. At least one required. Must form a DAG (no cycles).",
+      ),
   })
   .check((payload) => {
     // The `.check()` payload value is typed as the object output, but we use a
