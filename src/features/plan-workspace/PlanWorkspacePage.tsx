@@ -19,8 +19,6 @@ import {
   type PlanAnalysisSnapshot,
   usePlanProcessing,
 } from "../../lib/plan/plan-processing-pipeline";
-import type { PlanSourceEmission } from "../../lib/plan/plan-source-subscription";
-import { referenceResolver } from "../../lib/plan/reference-resolver";
 import type {
   TaskGardenPriority,
   TaskGardenStatus,
@@ -38,6 +36,7 @@ import type {
   PlanToolbarProjectionSummary,
 } from "./PlanToolbar";
 import { PlanValidationState } from "./PlanValidationState";
+import { DocumentPreviewModal } from "./document-preview/DocumentPreviewModal";
 import {
   selectCanGoBack,
   selectCanGoForward,
@@ -71,7 +70,7 @@ import {
 function InfoPopoverButton({
   plan,
   estimateSummary,
-  resolver,
+  classify,
   onDocumentPreview,
 }: PlanOverviewHeaderProps) {
   const [open, setOpen] = useState(false);
@@ -141,7 +140,7 @@ function InfoPopoverButton({
               <PlanOverviewHeader
                 plan={plan}
                 estimateSummary={estimateSummary}
-                resolver={resolver}
+                classify={classify}
                 onDocumentPreview={onDocumentPreview}
               />
             </div>
@@ -153,66 +152,16 @@ function InfoPopoverButton({
 }
 
 // ---------------------------------------------------------------------------
-// Document preview modal
-// ---------------------------------------------------------------------------
-
-interface DocumentPreviewProps {
-  documentPath: string;
-  rawDocument: string;
-  onClose: () => void;
-}
-
-function DocumentPreviewModal({
-  documentPath,
-  rawDocument,
-  onClose,
-}: DocumentPreviewProps) {
-  return (
-    <dialog
-      open
-      className="fixed inset-0 z-50 flex h-full w-full max-h-none max-w-none items-center justify-center bg-background/80 backdrop-blur-sm m-0 p-0 border-none"
-      aria-modal="true"
-      aria-label={`Document preview: ${documentPath}`}
-    >
-      {/* biome-ignore lint/a11y/useKeyWithClickEvents: modal backdrop click */}
-      <div className="absolute inset-0" onClick={onClose} aria-hidden="true" />
-      <div className="atlas-panel relative mx-4 flex max-h-[84vh] w-full max-w-3xl flex-col overflow-hidden">
-        {/* Header */}
-        <div className="flex shrink-0 items-center justify-between border-b border-border px-6 py-4">
-          <div>
-            <p className="atlas-kicker mb-0.5">Document Preview</p>
-            <p className="font-mono text-xs text-muted-foreground">
-              {documentPath}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close preview"
-            className="rounded-[var(--radius-sm)] border border-border bg-surface px-3 py-1.5 font-mono text-xs text-muted-foreground transition-colors hover:border-border-strong hover:bg-surface-muted"
-          >
-            ✕
-          </button>
-        </div>
-
-        {/* Raw content */}
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
-          <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed text-foreground/90">
-            {rawDocument}
-          </pre>
-        </div>
-      </div>
-    </dialog>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
 
 export interface PlanWorkspacePageProps {
-  /** Current plan source emission, or null while loading. */
-  source: PlanSourceEmission | null;
+  /** Raw YAML source for the current plan. */
+  source: string;
+  /** Monotonic revision counter; bumped on every source change. */
+  revision: number;
+  /** Basename of the plan file, used for display. */
+  planFileName: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -224,14 +173,18 @@ export interface PlanWorkspacePageProps {
  * wires all surfaces together through shared stores, and computes FlowProjection
  * from the processing snapshot + current store state.
  */
-export function PlanWorkspacePage({ source }: PlanWorkspacePageProps) {
-  const processingState = usePlanProcessing(source);
+export function PlanWorkspacePage({
+  source,
+  revision,
+}: PlanWorkspacePageProps) {
+  const processingInput = useMemo(
+    () => ({ source, revision }),
+    [source, revision],
+  );
+  const processingState = usePlanProcessing(processingInput);
 
   // ── Local UI state (unconditional hooks — must come before early returns) ──
-  const [preview, setPreview] = useState<{
-    documentPath: string;
-    rawDocument: string;
-  } | null>(null);
+  const [previewPath, setPreviewPath] = useState<string | null>(null);
   const [rightTab, setRightTab] = useState<"details" | "insights">("details");
   const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(false);
@@ -316,14 +269,11 @@ export function PlanWorkspacePage({ source }: PlanWorkspacePageProps) {
 
   // ── Callbacks ─────────────────────────────────────────────────────────────
 
-  const handleDocumentPreview = useCallback(
-    (documentPath: string, rawDocument: string) => {
-      setPreview({ documentPath, rawDocument });
-    },
-    [],
-  );
+  const handleDocumentPreview = useCallback((documentPath: string) => {
+    setPreviewPath(documentPath);
+  }, []);
 
-  const closePreview = useCallback(() => setPreview(null), []);
+  const closePreview = useCallback(() => setPreviewPath(null), []);
 
   const handleSelectWorkItem = useCallback(
     (id: string) => {
@@ -405,13 +355,7 @@ export function PlanWorkspacePage({ source }: PlanWorkspacePageProps) {
   return (
     <>
       {/* ── Document preview modal ─────────────────────────────────────── */}
-      {preview && (
-        <DocumentPreviewModal
-          documentPath={preview.documentPath}
-          rawDocument={preview.rawDocument}
-          onClose={closePreview}
-        />
-      )}
+      <DocumentPreviewModal documentPath={previewPath} onClose={closePreview} />
 
       {/* ── Workspace ──────────────────────────────────────────────────── */}
       <div className="atlas-page flex h-screen overflow-hidden">
@@ -449,7 +393,6 @@ export function PlanWorkspacePage({ source }: PlanWorkspacePageProps) {
             <InfoPopoverButton
               plan={readySnapshot.plan}
               estimateSummary={readySnapshot.estimateSummary}
-              resolver={referenceResolver}
               onDocumentPreview={handleDocumentPreview}
             />
           </div>
@@ -568,7 +511,6 @@ export function PlanWorkspacePage({ source }: PlanWorkspacePageProps) {
                   <PlanDetailsPanel
                     snapshot={readySnapshot}
                     explorer={explorerState}
-                    resolver={referenceResolver}
                     selectedNodeFilteredOut={
                       readyProjection.summary.selectedNodeFilteredOut
                     }

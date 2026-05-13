@@ -64,14 +64,8 @@ function ValidationIssueList({
   );
 }
 
-function FailureBody({
-  failure,
-  planKey,
-}: {
-  failure: PlanProcessingFailure;
-  planKey: string;
-}) {
-  const description = getFailureDescription(failure, planKey);
+function FailureBody({ failure }: { failure: PlanProcessingFailure }) {
+  const description = getFailureDescription(failure);
 
   return (
     <>
@@ -109,18 +103,12 @@ export function PlanValidationState({ state }: PlanValidationStateProps) {
         />
         <div>
           <p className="text-sm font-medium text-foreground">Loading plan</p>
-          {state.planKey && (
-            <p className="mt-1 font-mono text-xs text-muted-foreground">
-              {state.planKey}
-            </p>
-          )}
         </div>
       </output>
     );
   }
 
   // status === "invalid"
-  const planKey = state.source?.source.planKey ?? "";
   const title = getFailureTitle(state.failure);
 
   return (
@@ -135,17 +123,12 @@ export function PlanValidationState({ state }: PlanValidationStateProps) {
             <h2 className="font-display text-lg font-medium text-foreground">
               {title}
             </h2>
-            {planKey && (
-              <p className="mt-0.5 font-mono text-xs text-muted-foreground">
-                {planKey}
-              </p>
-            )}
           </div>
         </div>
 
         {/* Body */}
         <div className="mt-4">
-          <FailureBody failure={state.failure} planKey={planKey} />
+          <FailureBody failure={state.failure} />
         </div>
       </div>
     </div>

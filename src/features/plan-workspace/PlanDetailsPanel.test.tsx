@@ -1,24 +1,24 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { PlanAnalysisSnapshot } from "../../lib/graph/plan-analysis-engine";
-import type { ReferenceResolverService } from "../../lib/plan/reference-resolver";
+import type { ReferenceClassificationResult } from "../../lib/plan/reference-resolver";
 import { PlanDetailsPanel } from "./PlanDetailsPanel";
 
-const stubResolver: ReferenceResolverService = {
-  resolve(target, label) {
-    if (/^https?:\/\//.test(target)) {
-      return { ok: true, value: { kind: "external_url", label, href: target } };
-    }
-    return {
-      ok: true,
-      value: {
-        kind: "bundled_document",
-        label,
-        documentPath: target,
-        rawDocument: "# Doc",
-      },
-    };
-  },
+const stubClassify = (
+  target: string,
+  label: string,
+): ReferenceClassificationResult => {
+  if (/^https?:\/\//.test(target)) {
+    return { ok: true, value: { kind: "external_url", label, href: target } };
+  }
+  return {
+    ok: true,
+    value: {
+      kind: "document_path",
+      label,
+      documentPath: target,
+    },
+  };
 };
 
 const snapshot: PlanAnalysisSnapshot = {
@@ -117,8 +117,12 @@ describe("PlanDetailsPanel", () => {
     const html = renderToStaticMarkup(
       <PlanDetailsPanel
         snapshot={snapshot}
-        explorer={{ selectedWorkItemId: "item-a" }}
-        resolver={stubResolver}
+        explorer={
+          {
+            selectedWorkItemId: "item-a",
+          } as unknown as Parameters<typeof PlanDetailsPanel>[0]["explorer"]
+        }
+        classify={stubClassify}
         selectedNodeFilteredOut={false}
       />,
     );
@@ -130,8 +134,12 @@ describe("PlanDetailsPanel", () => {
     const html = renderToStaticMarkup(
       <PlanDetailsPanel
         snapshot={snapshot}
-        explorer={{ selectedWorkItemId: "item-a" }}
-        resolver={stubResolver}
+        explorer={
+          {
+            selectedWorkItemId: "item-a",
+          } as unknown as Parameters<typeof PlanDetailsPanel>[0]["explorer"]
+        }
+        classify={stubClassify}
         selectedNodeFilteredOut={false}
       />,
     );

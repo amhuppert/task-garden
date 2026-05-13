@@ -8,9 +8,9 @@ export type IconPreset =
 
 export function detectLinkPreset(
   href: string,
-  kind: "external_url" | "bundled_document",
+  kind: "external_url" | "document_path",
 ): IconPreset {
-  if (kind === "bundled_document") {
+  if (kind === "document_path") {
     return "file";
   }
 

@@ -109,9 +109,9 @@ describe("detectLinkPreset", () => {
     });
   });
 
-  describe("bundled document fallback", () => {
-    it("returns file for bundled_document kind", () => {
-      expect(detectLinkPreset("memory-bank/focus.md", "bundled_document")).toBe(
+  describe("document path fallback", () => {
+    it("returns file for document_path kind", () => {
+      expect(detectLinkPreset("memory-bank/focus.md", "document_path")).toBe(
         "file",
       );
     });

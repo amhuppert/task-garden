@@ -37,6 +37,7 @@ export interface FlowNodeData {
   metricSummary: Readonly<Record<MetricKey, number>>;
   isSelected: boolean;
   visibilityRole: "focus" | "context";
+  [key: string]: unknown;
 }
 
 export interface FlowNode {

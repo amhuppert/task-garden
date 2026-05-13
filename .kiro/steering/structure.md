@@ -28,6 +28,10 @@ This repo is still pre-implementation, so structure guidance here is normative: 
 **Purpose**: Bundled YAML plan files that can be selected at server start  
 **Example**: `task-garden-v1.yaml`
 
+### CLI Server & Dev Adapter
+**Location**: `/cli/` (production CLI server, Bun runtime) and `/vite-plugins/` (dev-mode Connect adapter and Vite plugin)  
+**Purpose**: The Bun CLI that serves the SPA + plan API in production, and the Vite-plugin variant that mounts the same routes during `bun run dev`
+
 ### Project Memory
 **Location**: `/memory-bank/`, `/.kiro/specs/`, `/.kiro/steering/`  
 **Purpose**: Product memory, phase artifacts, and persistent project guidance  

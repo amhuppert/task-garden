@@ -5,8 +5,6 @@ import {
   type PlanAnalysisSnapshot,
   planAnalysisEngine,
 } from "../graph/plan-analysis-engine";
-import type { PlanKey } from "./plan-runtime-config";
-import type { PlanSourceEmission } from "./plan-source-subscription";
 import type { ValidationIssue } from "./task-garden-plan.schema";
 import {
   TaskGardenPlanSchemaService,
@@ -16,24 +14,28 @@ import {
 export type { PlanAnalysisSnapshot };
 
 // ---------------------------------------------------------------------------
-// Processing state types
+// Input + processing state types
 // ---------------------------------------------------------------------------
+
+export interface PlanProcessingInput {
+  source: string;
+  revision: number;
+}
 
 export interface PlanProcessingReady {
   status: "ready";
-  source: PlanSourceEmission;
+  input: PlanProcessingInput;
   snapshot: PlanAnalysisSnapshot;
 }
 
 export interface PlanProcessingInvalid {
   status: "invalid";
-  source: PlanSourceEmission | null;
+  input: PlanProcessingInput;
   failure: PlanProcessingFailure;
 }
 
 export interface PlanProcessingLoading {
   status: "loading";
-  planKey: PlanKey;
 }
 
 export type PlanProcessingState =
@@ -42,7 +44,6 @@ export type PlanProcessingState =
   | PlanProcessingInvalid;
 
 export type PlanProcessingFailure =
-  | { type: "source"; issues: string[] }
   | { type: "parse"; issues: string[] }
   | { type: "validation"; issues: ValidationIssue[] };
 
@@ -51,7 +52,7 @@ export type PlanProcessingFailure =
 // ---------------------------------------------------------------------------
 
 export interface PlanProcessingPipelineService {
-  process(source: PlanSourceEmission): PlanProcessingState;
+  process(input: PlanProcessingInput): PlanProcessingState;
 }
 
 // ---------------------------------------------------------------------------
@@ -67,39 +68,34 @@ export function createPlanProcessingPipeline(
   analysisEngine: PlanAnalysisEngineService,
 ): PlanProcessingPipelineService {
   return {
-    process(source: PlanSourceEmission): PlanProcessingState {
-      const rawDocument = source.source.rawDocument;
-
-      // 1. Parse YAML
+    process(input: PlanProcessingInput): PlanProcessingState {
       let parsed: unknown;
       try {
-        parsed = parseYaml(rawDocument);
+        parsed = parseYaml(input.source);
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Unknown YAML parse error";
         return {
           status: "invalid",
-          source,
+          input,
           failure: { type: "parse", issues: [message] },
         };
       }
 
-      // 2. Validate through schema boundary
       const validationResult = schemaService.parse(parsed);
       if (!validationResult.ok) {
         return {
           status: "invalid",
-          source,
+          input,
           failure: { type: "validation", issues: [...validationResult.error] },
         };
       }
 
-      // 3. Build analysis snapshot from trusted validated data
       const snapshot = analysisEngine.build(validationResult.value);
 
       return {
         status: "ready",
-        source,
+        input,
         snapshot,
       };
     },
@@ -115,41 +111,36 @@ export const planProcessingPipeline: PlanProcessingPipelineService =
 // ---------------------------------------------------------------------------
 
 /**
- * Reactive hook that processes the current source emission into a
- * PlanProcessingState. Reprocesses whenever source.refreshKey changes.
- * Replaces prior ready state immediately when the current source becomes invalid.
+ * Reactive hook that processes the current input into a PlanProcessingState.
+ * Reprocesses whenever input.revision changes. Replaces prior ready state
+ * immediately when the current input becomes invalid.
  */
 export function usePlanProcessing(
-  source: PlanSourceEmission | null,
+  input: PlanProcessingInput | null,
 ): PlanProcessingState {
-  const planKey = source?.source.planKey ?? "";
-
   const [processingState, setProcessingState] = useState<PlanProcessingState>(
     () =>
-      source !== null
-        ? planProcessingPipeline.process(source)
-        : { status: "loading", planKey },
+      input !== null
+        ? planProcessingPipeline.process(input)
+        : { status: "loading" },
   );
 
-  // Track the last seen refreshKey so we only reprocess on actual changes.
-  const lastRefreshKey = useRef<string | null>(source?.refreshKey ?? null);
+  const lastRevision = useRef<number | null>(input?.revision ?? null);
 
   useEffect(() => {
-    if (source === null) {
-      setProcessingState({ status: "loading", planKey: "" });
-      lastRefreshKey.current = null;
+    if (input === null) {
+      setProcessingState({ status: "loading" });
+      lastRevision.current = null;
       return;
     }
 
-    if (source.refreshKey === lastRefreshKey.current) {
+    if (input.revision === lastRevision.current) {
       return;
     }
 
-    lastRefreshKey.current = source.refreshKey;
-    // Process synchronously — replace prior ready state immediately on invalid.
-    const next = planProcessingPipeline.process(source);
-    setProcessingState(next);
-  }, [source]);
+    lastRevision.current = input.revision;
+    setProcessingState(planProcessingPipeline.process(input));
+  }, [input]);
 
   return processingState;
 }

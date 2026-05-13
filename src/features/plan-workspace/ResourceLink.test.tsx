@@ -1,18 +1,18 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type {
-  ReferenceResolutionFailure,
-  ResolvedReference,
+  ReferenceClassification,
+  ReferenceClassificationFailure,
 } from "../../lib/plan/reference-resolver";
 import { ResourceLink } from "./ResourceLink";
 
-type ResolveResult =
-  | { ok: true; value: ResolvedReference }
-  | { ok: false; error: ReferenceResolutionFailure };
+type ClassifyResult =
+  | { ok: true; value: ReferenceClassification }
+  | { ok: false; error: ReferenceClassificationFailure };
 
 describe("ResourceLink", () => {
   describe("success state — external_url", () => {
-    const result: ResolveResult = {
+    const result: ClassifyResult = {
       ok: true,
       value: {
         kind: "external_url",
@@ -57,14 +57,13 @@ describe("ResourceLink", () => {
     });
   });
 
-  describe("success state — bundled_document", () => {
-    const result: ResolveResult = {
+  describe("success state — document_path", () => {
+    const result: ClassifyResult = {
       ok: true,
       value: {
-        kind: "bundled_document",
+        kind: "document_path",
         label: "Focus",
         documentPath: "memory-bank/focus.md",
-        rawDocument: "# Focus\nContent.",
       },
     };
 
@@ -90,7 +89,7 @@ describe("ResourceLink", () => {
       expect(html).toContain("Focus");
     });
 
-    it("uses the file icon preset for bundled documents", () => {
+    it("uses the file icon preset for document_path references", () => {
       const html = renderToStaticMarkup(
         <ResourceLink
           label="Focus"
@@ -103,13 +102,13 @@ describe("ResourceLink", () => {
   });
 
   describe("failure state", () => {
-    const failedResult: ResolveResult = {
+    const failedResult: ClassifyResult = {
       ok: false,
       error: {
-        type: "document_not_registered",
+        type: "unsupported_target_format",
         target: "docs/missing.md",
         message:
-          'Document "docs/missing.md" is not in the bundled document set.',
+          'Reference target "docs/missing.md" is not a supported format.',
       },
     };
 
@@ -160,7 +159,7 @@ describe("ResourceLink", () => {
     });
 
     it("uses the brand icon for a github URL even on failure", () => {
-      const githubFail: ResolveResult = {
+      const githubFail: ClassifyResult = {
         ok: false,
         error: {
           type: "unsupported_target_format",

@@ -23,8 +23,6 @@ export function formatValidationPath(
 /** Returns a short heading title for a given failure type. */
 export function getFailureTitle(failure: PlanProcessingFailure): string {
   switch (failure.type) {
-    case "source":
-      return "Plan source could not be loaded";
     case "parse":
       return "YAML syntax error";
     case "validation":
@@ -33,13 +31,8 @@ export function getFailureTitle(failure: PlanProcessingFailure): string {
 }
 
 /** Returns an actionable description sentence for the failure. */
-export function getFailureDescription(
-  failure: PlanProcessingFailure,
-  planKey: string,
-): string {
+export function getFailureDescription(failure: PlanProcessingFailure): string {
   switch (failure.type) {
-    case "source":
-      return `The plan "${planKey}" could not be resolved. Check that the plan key is correct and the source file exists.`;
     case "parse":
       return "The YAML could not be parsed. Fix the syntax errors below and save the file to reload.";
     case "validation":

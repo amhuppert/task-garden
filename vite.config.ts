@@ -1,8 +1,7 @@
 import { resolve } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-/// <reference types="vitest/config" />
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 
 const isAI = process.env.CLAUDECODE === "1";
 const isCI = process.env.CI === "true";

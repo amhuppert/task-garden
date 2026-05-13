@@ -43,11 +43,6 @@ describe("formatValidationPath", () => {
 // ---------------------------------------------------------------------------
 
 describe("getFailureTitle", () => {
-  it("returns a source error title for source failure", () => {
-    const failure: PlanProcessingFailure = { type: "source", issues: [] };
-    expect(getFailureTitle(failure)).toMatch(/source|plan|load/i);
-  });
-
   it("returns a parse error title for parse failure", () => {
     const failure: PlanProcessingFailure = { type: "parse", issues: [] };
     expect(getFailureTitle(failure)).toMatch(/parse|yaml|syntax/i);
@@ -64,21 +59,12 @@ describe("getFailureTitle", () => {
 // ---------------------------------------------------------------------------
 
 describe("getFailureDescription", () => {
-  it("returns a source description referencing the plan key", () => {
-    const failure: PlanProcessingFailure = {
-      type: "source",
-      issues: ["Plan not found"],
-    };
-    const desc = getFailureDescription(failure, "my-plan");
-    expect(desc).toContain("my-plan");
-  });
-
   it("returns a parse description for parse failure", () => {
     const failure: PlanProcessingFailure = {
       type: "parse",
       issues: ["unexpected token"],
     };
-    const desc = getFailureDescription(failure, "plan-a");
+    const desc = getFailureDescription(failure);
     expect(desc).toMatch(/yaml|fix|edit/i);
   });
 
@@ -87,7 +73,7 @@ describe("getFailureDescription", () => {
       type: "validation",
       issues: [{ path: ["title"], code: "too_small", message: "Required" }],
     };
-    const desc = getFailureDescription(failure, "plan-b");
+    const desc = getFailureDescription(failure);
     expect(desc).toMatch(/fix|error|issue/i);
   });
 });

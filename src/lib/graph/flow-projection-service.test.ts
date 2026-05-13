@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { PlanDisplayStateValue } from "../../features/plan-workspace/plan-display.store";
 import type { PlanExplorerStateValue } from "../../features/plan-workspace/plan-explorer.store";
 import type { TaskGardenPlan } from "../plan/task-garden-plan.schema";
@@ -574,7 +574,7 @@ describe("FlowProjectionService — task 3.4: focus/context (all scope)", () => 
     const explorer = {
       ...defaultExplorer,
       searchQuery: "MATCH",
-      statuses: ["done"] as const[],
+      statuses: ["done"] as const,
     };
     const result = svc.project(snapshot, explorer, defaultDisplay);
     const focusNodes = result.nodes.filter(

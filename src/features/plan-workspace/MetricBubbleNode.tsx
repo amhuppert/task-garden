@@ -13,7 +13,7 @@ import { Handle, type Node, type NodeProps, Position } from "@xyflow/react";
 import { useContext, useState } from "react";
 import type { FlowNodeData } from "../../lib/graph/flow-projection-service";
 import { formatCompactEstimate } from "./plan-details-panel.helpers";
-import type { ColorEncodingMode } from "./plan-display.store";
+import type { ColorEncodingMode, SizeEncodingMode } from "./plan-display.store";
 import {
   selectColorMode,
   selectScheduleOverlay,
@@ -83,7 +83,7 @@ const METRIC_LABELS: Record<string, string> = {
 
 function getBubbleColor(
   colorMode: ColorEncodingMode,
-  sizeMode: string,
+  sizeMode: SizeEncodingMode,
   data: FlowNodeData,
   metricRanges: MetricRanges,
 ): string {
@@ -154,9 +154,10 @@ export function MetricBubbleNode({ data }: NodeProps<MetricBubbleNodeType>) {
 
   // Bubble diameter
   const range = sizeMode !== "uniform" ? metricRanges[sizeMode] : null;
-  const norm = range
-    ? normalizeMetric(data.metricSummary[sizeMode], range.min, range.max)
-    : 0.5;
+  const norm =
+    range && sizeMode !== "uniform"
+      ? normalizeMetric(data.metricSummary[sizeMode], range.min, range.max)
+      : 0.5;
   const diameter = MIN_BUBBLE_SIZE + norm * (MAX_BUBBLE_SIZE - MIN_BUBBLE_SIZE);
 
   const bubbleColor = getBubbleColor(colorMode, sizeMode, data, metricRanges);

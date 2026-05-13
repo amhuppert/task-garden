@@ -56,6 +56,7 @@ interface LaneBandNodeData {
   laneColor: string | null;
   width: number;
   height: number;
+  [key: string]: unknown;
 }
 
 type LaneBandNodeType = Node<LaneBandNodeData, "laneBand">;

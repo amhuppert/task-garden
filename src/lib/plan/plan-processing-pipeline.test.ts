@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { createPlanAnalysisEngine } from "../graph/plan-analysis-engine";
 import {
+  type PlanProcessingInput,
   type PlanProcessingPipelineService,
   createPlanProcessingPipeline,
 } from "./plan-processing-pipeline";
-import type { RegisteredPlanSource } from "./plan-registry";
-import type { PlanSourceEmission } from "./plan-source-subscription";
 import { createTaskGardenPlanSchemaService } from "./task-garden-plan.schema";
 
 // ---------------------------------------------------------------------------
@@ -53,27 +52,8 @@ work_items:
     priority: p1
 `.trim();
 
-function makeSource(raw: string, planKey = "test-plan"): RegisteredPlanSource {
-  return {
-    planKey,
-    sourcePath: `/src/plans/${planKey}.yaml`,
-    displayName: "Test Plan",
-    rawDocument: raw,
-  };
-}
-
-function makeEmission(
-  raw: string,
-  planKey = "test-plan",
-  refreshKey = "v1:schema-v1",
-): PlanSourceEmission {
-  const source = makeSource(raw, planKey);
-  return {
-    source,
-    sourceVersion: "v1",
-    schemaVersion: "schema-v1",
-    refreshKey,
-  };
+function makeInput(source: string, revision = 1): PlanProcessingInput {
+  return { source, revision };
 }
 
 function makePipeline(): PlanProcessingPipelineService {
@@ -91,32 +71,32 @@ describe("PlanProcessingPipeline", () => {
   describe("process() with valid YAML", () => {
     it("returns ready state", () => {
       const pipeline = makePipeline();
-      const emission = makeEmission(VALID_YAML);
-      const result = pipeline.process(emission);
+      const input = makeInput(VALID_YAML);
+      const result = pipeline.process(input);
       expect(result.status).toBe("ready");
     });
 
-    it("ready state carries the source emission", () => {
+    it("ready state carries the input", () => {
       const pipeline = makePipeline();
-      const emission = makeEmission(VALID_YAML);
-      const result = pipeline.process(emission);
+      const input = makeInput(VALID_YAML);
+      const result = pipeline.process(input);
       if (result.status !== "ready") throw new Error("expected ready");
-      expect(result.source).toBe(emission);
+      expect(result.input).toBe(input);
     });
 
     it("ready state carries a snapshot with the validated plan", () => {
       const pipeline = makePipeline();
-      const emission = makeEmission(VALID_YAML);
-      const result = pipeline.process(emission);
+      const input = makeInput(VALID_YAML);
+      const result = pipeline.process(input);
       if (result.status !== "ready") throw new Error("expected ready");
       expect(result.snapshot.plan.plan_id).toBe("test-plan");
     });
 
-    it("is deterministic — same emission produces identical plan_id", () => {
+    it("is deterministic — same input produces identical plan_id", () => {
       const pipeline = makePipeline();
-      const emission = makeEmission(VALID_YAML);
-      const r1 = pipeline.process(emission);
-      const r2 = pipeline.process(emission);
+      const input = makeInput(VALID_YAML);
+      const r1 = pipeline.process(input);
+      const r2 = pipeline.process(input);
       if (r1.status !== "ready" || r2.status !== "ready")
         throw new Error("expected ready");
       expect(r1.snapshot.plan.plan_id).toBe(r2.snapshot.plan.plan_id);
@@ -126,58 +106,58 @@ describe("PlanProcessingPipeline", () => {
   describe("process() with YAML parse errors", () => {
     it("returns invalid state", () => {
       const pipeline = makePipeline();
-      const emission = makeEmission(INVALID_YAML_PARSE);
-      const result = pipeline.process(emission);
+      const input = makeInput(INVALID_YAML_PARSE);
+      const result = pipeline.process(input);
       expect(result.status).toBe("invalid");
     });
 
     it("failure type is 'parse'", () => {
       const pipeline = makePipeline();
-      const emission = makeEmission(INVALID_YAML_PARSE);
-      const result = pipeline.process(emission);
+      const input = makeInput(INVALID_YAML_PARSE);
+      const result = pipeline.process(input);
       if (result.status !== "invalid") throw new Error("expected invalid");
       expect(result.failure.type).toBe("parse");
     });
 
     it("parse failure carries at least one issue message", () => {
       const pipeline = makePipeline();
-      const emission = makeEmission(INVALID_YAML_PARSE);
-      const result = pipeline.process(emission);
+      const input = makeInput(INVALID_YAML_PARSE);
+      const result = pipeline.process(input);
       if (result.status !== "invalid") throw new Error("expected invalid");
       if (result.failure.type !== "parse")
         throw new Error("expected parse failure");
       expect(result.failure.issues.length).toBeGreaterThan(0);
     });
 
-    it("invalid state carries source emission", () => {
+    it("invalid state carries the input", () => {
       const pipeline = makePipeline();
-      const emission = makeEmission(INVALID_YAML_PARSE);
-      const result = pipeline.process(emission);
+      const input = makeInput(INVALID_YAML_PARSE);
+      const result = pipeline.process(input);
       if (result.status !== "invalid") throw new Error("expected invalid");
-      expect(result.source).toBe(emission);
+      expect(result.input).toBe(input);
     });
   });
 
   describe("process() with schema validation errors", () => {
     it("returns invalid state", () => {
       const pipeline = makePipeline();
-      const emission = makeEmission(INVALID_YAML_SCHEMA);
-      const result = pipeline.process(emission);
+      const input = makeInput(INVALID_YAML_SCHEMA);
+      const result = pipeline.process(input);
       expect(result.status).toBe("invalid");
     });
 
     it("failure type is 'validation'", () => {
       const pipeline = makePipeline();
-      const emission = makeEmission(INVALID_YAML_SCHEMA);
-      const result = pipeline.process(emission);
+      const input = makeInput(INVALID_YAML_SCHEMA);
+      const result = pipeline.process(input);
       if (result.status !== "invalid") throw new Error("expected invalid");
       expect(result.failure.type).toBe("validation");
     });
 
     it("validation failure carries ValidationIssue array", () => {
       const pipeline = makePipeline();
-      const emission = makeEmission(INVALID_YAML_SCHEMA);
-      const result = pipeline.process(emission);
+      const input = makeInput(INVALID_YAML_SCHEMA);
+      const result = pipeline.process(input);
       if (result.status !== "invalid") throw new Error("expected invalid");
       if (result.failure.type !== "validation")
         throw new Error("expected validation failure");
@@ -186,33 +166,25 @@ describe("PlanProcessingPipeline", () => {
       expect(result.failure.issues[0]).toHaveProperty("message");
     });
 
-    it("invalid state carries source emission", () => {
+    it("invalid state carries the input", () => {
       const pipeline = makePipeline();
-      const emission = makeEmission(INVALID_YAML_SCHEMA);
-      const result = pipeline.process(emission);
+      const input = makeInput(INVALID_YAML_SCHEMA);
+      const result = pipeline.process(input);
       if (result.status !== "invalid") throw new Error("expected invalid");
-      expect(result.source).toBe(emission);
+      expect(result.input).toBe(input);
     });
   });
 
   describe("processing is deterministic", () => {
-    it("same source text and schema produces same status regardless of call order", () => {
+    it("same source text produces same status regardless of revision", () => {
       const pipeline = makePipeline();
-      const validEmission = makeEmission(
-        VALID_YAML,
-        "test-plan",
-        "v1:schema-v1",
-      );
-      const invalidEmission = makeEmission(
-        INVALID_YAML_SCHEMA,
-        "test-plan",
-        "v2:schema-v1",
-      );
+      const validInput = makeInput(VALID_YAML, 1);
+      const invalidInput = makeInput(INVALID_YAML_SCHEMA, 2);
+      const validInputAgain = makeInput(VALID_YAML, 3);
 
-      // Process valid, then invalid, then valid again
-      const r1 = pipeline.process(validEmission);
-      const r2 = pipeline.process(invalidEmission);
-      const r3 = pipeline.process(validEmission);
+      const r1 = pipeline.process(validInput);
+      const r2 = pipeline.process(invalidInput);
+      const r3 = pipeline.process(validInputAgain);
 
       expect(r1.status).toBe("ready");
       expect(r2.status).toBe("invalid");

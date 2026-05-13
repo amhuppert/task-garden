@@ -1,5 +1,5 @@
 import type { EstimateSummary } from "../../lib/graph/plan-analysis-engine";
-import type { ReferenceResolverService } from "../../lib/plan/reference-resolver";
+import { classifyReference } from "../../lib/plan/reference-resolver";
 import type { TaskGardenPlan } from "../../lib/plan/task-garden-plan.schema";
 import { ResourceLink } from "./ResourceLink";
 import { SectionInfoModal } from "./SectionInfoModal";
@@ -15,10 +15,10 @@ export interface PlanOverviewHeaderProps {
   plan: TaskGardenPlan;
   /** Optional estimate summary for schedule-aware overview stats. */
   estimateSummary?: EstimateSummary;
-  /** Reference resolver — inject for testability, use singleton in production. */
-  resolver: ReferenceResolverService;
-  /** Called when a successfully resolved bundled document is activated. */
-  onDocumentPreview?: (documentPath: string, rawDocument: string) => void;
+  /** Reference classifier — inject for testability, defaults to classifyReference. */
+  classify?: typeof classifyReference;
+  /** Called when a document_path reference is activated. */
+  onDocumentPreview?: (documentPath: string) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -28,7 +28,7 @@ export interface PlanOverviewHeaderProps {
 export function PlanOverviewHeader({
   plan,
   estimateSummary,
-  resolver,
+  classify = classifyReference,
   onDocumentPreview,
 }: PlanOverviewHeaderProps) {
   return (
@@ -148,7 +148,7 @@ export function PlanOverviewHeader({
           <span className="atlas-kicker">Plan References</span>
           <div className="flex flex-wrap gap-2">
             {plan.references.map((ref) => {
-              const result = resolver.resolve(ref.href, ref.label);
+              const result = classify(ref.href, ref.label);
               return (
                 <ResourceLink
                   key={`${ref.label}:${ref.href}`}

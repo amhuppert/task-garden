@@ -1,5 +1,5 @@
 import type { PlanAnalysisSnapshot } from "../../lib/graph/plan-analysis-engine";
-import type { ReferenceResolverService } from "../../lib/plan/reference-resolver";
+import { classifyReference } from "../../lib/plan/reference-resolver";
 import { ResourceLink } from "./ResourceLink";
 import {
   formatCompactDayCount,
@@ -23,8 +23,8 @@ export interface PlanDetailsPanelProps {
   snapshot: PlanAnalysisSnapshot;
   /** Explorer store state — used to derive the selected work item. */
   explorer: PlanExplorerStateValue;
-  /** Reference resolver — inject for testability, use singleton in production. */
-  resolver: ReferenceResolverService;
+  /** Reference classifier — inject for testability, defaults to classifyReference. */
+  classify?: typeof classifyReference;
   /**
    * True when the selected item is shown only as a context node because it
    * doesn't match the active filter set. Sourced from FlowProjection.summary.selectedNodeFilteredOut.
@@ -32,8 +32,8 @@ export interface PlanDetailsPanelProps {
   selectedNodeFilteredOut: boolean;
   /** Called when the user navigates to a dependency or dependent item. */
   onSelectWorkItem?: (id: string) => void;
-  /** Called when a successfully resolved bundled document reference is activated. */
-  onDocumentPreview?: (documentPath: string, rawDocument: string) => void;
+  /** Called when a document_path reference is activated. */
+  onDocumentPreview?: (documentPath: string) => void;
   /** Whether the back button should be enabled. */
   canGoBack?: boolean;
   /** Whether the forward button should be enabled. */
@@ -167,7 +167,7 @@ function Section({
 export function PlanDetailsPanel({
   snapshot,
   explorer,
-  resolver,
+  classify = classifyReference,
   selectedNodeFilteredOut,
   onSelectWorkItem,
   onDocumentPreview,
@@ -530,7 +530,7 @@ export function PlanDetailsPanel({
         <Section label="Links">
           <div className="flex flex-wrap gap-2">
             {item.links.map((link) => {
-              const result = resolver.resolve(link.href, link.label);
+              const result = classify(link.href, link.label);
               return (
                 <ResourceLink
                   key={`${link.label}:${link.href}`}

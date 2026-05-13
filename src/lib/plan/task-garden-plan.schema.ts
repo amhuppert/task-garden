@@ -1,5 +1,5 @@
 import { z } from "zod/v4";
-import type { Result } from "./plan-runtime-config";
+import type { Result } from "./result";
 
 // ---------------------------------------------------------------------------
 // ValidationIssue — our public error contract (not Zod-internal)

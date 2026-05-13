@@ -32,6 +32,8 @@ function makeNode(
       summary: "",
       estimate: undefined,
       isOnCriticalPath: false,
+      criticalPathOrder: null,
+      slackDays: 0,
       metricSummary: {
         degree: 2,
         in_degree: 1,

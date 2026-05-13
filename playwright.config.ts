@@ -3,10 +3,9 @@ import { defineConfig, devices } from "@playwright/test";
 /**
  * Playwright configuration for Task Garden browser tests.
  *
- * Three test projects cover three app boot scenarios:
- *   default      - valid plan (VITE_PLAN_KEY=task-garden-v1) on port 5173
- *   invalid-plan - schema-invalid plan on port 5174
- *   missing-key  - unregistered plan key on port 5175
+ * Two test projects cover two app boot scenarios:
+ *   default      - valid plan (src/plans/task-garden-v1.yaml) on port 5173
+ *   invalid-plan - schema-invalid plan (src/plans/invalid-plan-test.yaml) on port 5174
  *
  * All projects use a 1280×720 desktop viewport so the fixed sidebar layout
  * is always visible without mobile drawer toggling.
@@ -31,7 +30,7 @@ export default defineConfig({
         ...devices["Desktop Chrome"],
         baseURL: "http://localhost:5173",
       },
-      testIgnore: ["**/invalid-plan.spec.ts", "**/missing-key.spec.ts"],
+      testIgnore: ["**/invalid-plan.spec.ts"],
     },
     {
       name: "invalid-plan",
@@ -41,37 +40,18 @@ export default defineConfig({
       },
       testMatch: ["**/invalid-plan.spec.ts"],
     },
-    {
-      name: "missing-key",
-      use: {
-        ...devices["Desktop Chrome"],
-        baseURL: "http://localhost:5175",
-      },
-      testMatch: ["**/missing-key.spec.ts"],
-    },
   ],
 
   webServer: [
     {
-      // Default project: valid plan loaded via .env (VITE_PLAN_KEY=task-garden-v1)
-      command: "bun run dev --port 5173",
+      command: "bun run dev src/plans/task-garden-v1.yaml --port 5173",
       url: "http://localhost:5173",
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },
     {
-      // Invalid plan project: plan parses as valid YAML but fails schema
-      command: "bun run dev --port 5174",
+      command: "bun run dev src/plans/invalid-plan-test.yaml --port 5174",
       url: "http://localhost:5174",
-      env: { VITE_PLAN_KEY: "invalid-plan-test" },
-      reuseExistingServer: !process.env.CI,
-      timeout: 60_000,
-    },
-    {
-      // Missing-key project: plan key not registered in the plan registry
-      command: "bun run dev --port 5175",
-      url: "http://localhost:5175",
-      env: { VITE_PLAN_KEY: "unregistered-plan-key" },
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },

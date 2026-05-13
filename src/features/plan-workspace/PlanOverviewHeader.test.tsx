@@ -1,24 +1,24 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import type { ReferenceResolverService } from "../../lib/plan/reference-resolver";
+import type { ReferenceClassificationResult } from "../../lib/plan/reference-resolver";
 import type { TaskGardenPlan } from "../../lib/plan/task-garden-plan.schema";
 import { PlanOverviewHeader } from "./PlanOverviewHeader";
 
-const stubResolver: ReferenceResolverService = {
-  resolve(target, label) {
-    if (/^https?:\/\//.test(target)) {
-      return { ok: true, value: { kind: "external_url", label, href: target } };
-    }
-    return {
-      ok: true,
-      value: {
-        kind: "bundled_document",
-        label,
-        documentPath: target,
-        rawDocument: "# Doc",
-      },
-    };
-  },
+const stubClassify = (
+  target: string,
+  label: string,
+): ReferenceClassificationResult => {
+  if (/^https?:\/\//.test(target)) {
+    return { ok: true, value: { kind: "external_url", label, href: target } };
+  }
+  return {
+    ok: true,
+    value: {
+      kind: "document_path",
+      label,
+      documentPath: target,
+    },
+  };
 };
 
 const plan: TaskGardenPlan = {
@@ -52,7 +52,7 @@ const plan: TaskGardenPlan = {
 describe("PlanOverviewHeader", () => {
   it("renders authored labels from structured references", () => {
     const html = renderToStaticMarkup(
-      <PlanOverviewHeader plan={plan} resolver={stubResolver} />,
+      <PlanOverviewHeader plan={plan} classify={stubClassify} />,
     );
     expect(html).toContain("Focus");
     expect(html).toContain("GitHub Repo");
@@ -60,7 +60,7 @@ describe("PlanOverviewHeader", () => {
 
   it("renders through the shared ResourceLink markup (has data-icon)", () => {
     const html = renderToStaticMarkup(
-      <PlanOverviewHeader plan={plan} resolver={stubResolver} />,
+      <PlanOverviewHeader plan={plan} classify={stubClassify} />,
     );
     expect(html).toContain('data-icon="file"');
     expect(html).toContain('data-icon="github"');

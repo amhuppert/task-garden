@@ -1,24 +1,24 @@
 import type {
-  ReferenceResolutionFailure,
-  ResolvedReference,
+  ReferenceClassification,
+  ReferenceClassificationFailure,
 } from "../../lib/plan/reference-resolver";
 import { detectLinkPreset } from "../../lib/plan/resource-link-preset";
 import { ResourceLinkIcon } from "./ResourceLinkIcon";
 
-type ResolveResult =
-  | { ok: true; value: ResolvedReference }
-  | { ok: false; error: ReferenceResolutionFailure };
+type ClassifyResult =
+  | { ok: true; value: ReferenceClassification }
+  | { ok: false; error: ReferenceClassificationFailure };
 
 export interface ResourceLinkProps {
   label: string;
   target: string;
-  result: ResolveResult;
-  onDocumentPreview?: (documentPath: string, rawDocument: string) => void;
+  result: ClassifyResult;
+  onDocumentPreview?: (documentPath: string) => void;
 }
 
-function inferKind(target: string): "external_url" | "bundled_document" {
+function inferKind(target: string): "external_url" | "document_path" {
   return /^[a-zA-Z0-9].*\.md$/.test(target) && !target.includes("..")
-    ? "bundled_document"
+    ? "document_path"
     : "external_url";
 }
 
@@ -67,11 +67,10 @@ export function ResourceLink({
     );
   }
 
-  // bundled_document
   return (
     <button
       type="button"
-      onClick={() => onDocumentPreview?.(ref.documentPath, ref.rawDocument)}
+      onClick={() => onDocumentPreview?.(ref.documentPath)}
       className={chipClass}
     >
       <ResourceLinkIcon preset={preset} />

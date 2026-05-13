@@ -415,7 +415,7 @@ export function createPlanAnalysisEngine(): PlanAnalysisEngineService {
       const criticalItemCount = Object.values(analysisById).filter(
         (analysis) => analysis.schedule.isOnCriticalPath,
       ).length;
-      const totalEstimatedDays = Object.values(estimateDaysById).reduce(
+      const totalEstimatedDays = Object.values(estimateDaysById).reduce<number>(
         (sum, value) => sum + (value ?? 0),
         0,
       );
