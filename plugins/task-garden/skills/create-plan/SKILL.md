@@ -1,6 +1,6 @@
 ---
 name: create-plan
-description: This skill should be used when the user wants to create, generate, or write a Task Garden YAML plan file. Use when the user says "create a plan", "generate a plan file", "write a plan YAML", "make a task garden plan", "new plan file", or wants to produce a valid .yaml plan file for Task Garden.
+description: Use to create or update a Task Garden YAML plan file. Use when the user says "create task garden plan", "mark task garden task as complete", or  anything related to Task Garden.
 ---
 
 # Create Task Garden Plan
