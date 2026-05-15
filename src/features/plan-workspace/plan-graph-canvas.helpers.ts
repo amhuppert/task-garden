@@ -1,8 +1,11 @@
+import { type EdgeMarker, MarkerType } from "@xyflow/react";
+import type { CSSProperties } from "react";
 import type { FlowNode } from "../../lib/graph/flow-projection-service";
 import type {
   TaskGardenPriority,
   TaskGardenStatus,
 } from "../../lib/plan/task-garden-plan.schema";
+import type { ScheduleOverlayMode } from "./plan-display.store";
 
 // ---------------------------------------------------------------------------
 // Layout constants — must match FlowProjectionService values
@@ -192,6 +195,94 @@ export function getSlackHeatColor(normalizedValue: number): string {
     return "color-mix(in oklab, var(--color-pollen) 78%, var(--color-lichen) 22%)";
   }
   return "color-mix(in oklab, var(--color-water) 72%, var(--color-lichen) 28%)";
+}
+
+// ---------------------------------------------------------------------------
+// Edge style factory (memoized by key tuple)
+// ---------------------------------------------------------------------------
+
+export interface EdgeStyleKey {
+  scheduleOverlay: ScheduleOverlayMode;
+  isHighlighted: boolean;
+  isContextEdge: boolean;
+  isOnCriticalPath: boolean;
+}
+
+export interface EdgeStylePieces {
+  style: CSSProperties;
+  markerEnd: EdgeMarker;
+  className: string | undefined;
+}
+
+/**
+ * Builds a memoized factory that maps the small key-space of edge style inputs
+ * onto a single shared `style` + `markerEnd` object per combination. Reusing
+ * references across edges and across renders lets React Flow's diff skip work
+ * on edges whose visual state hasn't changed.
+ */
+export function createEdgeStyleFactory(): (
+  key: EdgeStyleKey,
+) => EdgeStylePieces {
+  const cache = new Map<string, EdgeStylePieces>();
+  const criticalPathAccent = getCriticalPathAccentColor();
+
+  return ({
+    scheduleOverlay,
+    isHighlighted,
+    isContextEdge,
+    isOnCriticalPath,
+  }) => {
+    const cacheKey = `${scheduleOverlay}|${isHighlighted ? 1 : 0}|${isContextEdge ? 1 : 0}|${isOnCriticalPath ? 1 : 0}`;
+    const cached = cache.get(cacheKey);
+    if (cached) return cached;
+
+    const shouldEmphasizeCriticalPath =
+      scheduleOverlay === "critical_path" && isOnCriticalPath;
+    const strokeColor = shouldEmphasizeCriticalPath
+      ? criticalPathAccent
+      : isHighlighted
+        ? "var(--color-edge-strong)"
+        : "var(--color-edge)";
+    const strokeWidth = shouldEmphasizeCriticalPath
+      ? 3.2
+      : isHighlighted
+        ? 2
+        : 1;
+    const opacity =
+      scheduleOverlay === "critical_path"
+        ? shouldEmphasizeCriticalPath
+          ? 0.98
+          : isContextEdge
+            ? 0.08
+            : isHighlighted
+              ? 0.28
+              : 0.16
+        : isContextEdge
+          ? 0.38
+          : 1;
+
+    const pieces: EdgeStylePieces = {
+      style: {
+        stroke: strokeColor,
+        strokeWidth,
+        opacity,
+        filter: shouldEmphasizeCriticalPath
+          ? `drop-shadow(0 0 10px color-mix(in oklab, ${criticalPathAccent} 18%, transparent))`
+          : undefined,
+        transition:
+          "opacity 220ms ease, stroke-width 120ms ease, filter 220ms ease",
+      },
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+        color: strokeColor,
+        width: shouldEmphasizeCriticalPath ? 12 : 10,
+        height: shouldEmphasizeCriticalPath ? 12 : 10,
+      },
+      className: shouldEmphasizeCriticalPath ? "critical-path-edge" : undefined,
+    };
+    cache.set(cacheKey, pieces);
+    return pieces;
+  };
 }
 
 /**

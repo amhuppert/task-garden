@@ -73,20 +73,33 @@ export interface ScheduleOverlayLegend {
   fallbackMessage?: string;
 }
 
-export interface FlowProjection {
+export interface FlowProjectionSummary {
+  focusNodeCount: number;
+  contextNodeCount: number;
+  hiddenNodeCount: number;
+  hiddenEdgeCount: number;
+  selectedNodeFilteredOut: boolean;
+}
+
+export interface FlowTopologyProjection {
   nodes: readonly FlowNode[];
   edges: readonly FlowEdge[];
   emptyStateMessage: string | null;
+  visibleIds: ReadonlySet<string>;
+  summary: FlowProjectionSummary;
+}
+
+export interface FlowLegendBundle {
   colorLegend: DisplayLegend;
   sizeLegend: DisplayLegend | null;
   scheduleLegend: ScheduleOverlayLegend | null;
-  summary: {
-    focusNodeCount: number;
-    contextNodeCount: number;
-    hiddenNodeCount: number;
-    hiddenEdgeCount: number;
-    selectedNodeFilteredOut: boolean;
-  };
+}
+
+export interface FlowProjection extends FlowLegendBundle {
+  nodes: readonly FlowNode[];
+  edges: readonly FlowEdge[];
+  emptyStateMessage: string | null;
+  summary: FlowProjectionSummary;
 }
 
 export interface FlowProjectionService {
@@ -95,6 +108,15 @@ export interface FlowProjectionService {
     explorer: PlanExplorerStateValue,
     display: PlanDisplayStateValue,
   ): FlowProjection;
+  projectTopology(
+    snapshot: PlanAnalysisSnapshot,
+    explorer: PlanExplorerStateValue,
+  ): FlowTopologyProjection;
+  buildLegendsForView(
+    snapshot: PlanAnalysisSnapshot,
+    display: PlanDisplayStateValue,
+    visibleIds: ReadonlySet<string>,
+  ): FlowLegendBundle;
 }
 
 // ---------------------------------------------------------------------------
@@ -698,212 +720,226 @@ function buildScheduleLegend(
 export function createFlowProjectionService(): FlowProjectionService {
   const layoutCache: LayoutCache = new Map();
 
-  return {
-    project(snapshot, explorer, display): FlowProjection {
-      const { analysisById, workItems } = snapshot;
-      const allItemIds = Object.keys(workItems);
-      const criticalPathIds =
-        snapshot.estimateSummary.estimatedCriticalPath.workItemIds;
-      const criticalPathOrderById = new Map<string, number>();
-      const criticalPathEdgeIds = new Set<string>();
-      for (let index = 0; index < criticalPathIds.length; index++) {
-        criticalPathOrderById.set(criticalPathIds[index], index);
-        if (index > 0) {
-          criticalPathEdgeIds.add(
-            `${criticalPathIds[index - 1]}→${criticalPathIds[index]}`,
-          );
-        }
-      }
-
-      // ── 1. Effective scope ────────────────────────────────────────────────
-      const effectiveScope: GraphScope =
-        explorer.selectedWorkItemId !== null ? explorer.activeScope : "all";
-
-      // ── 2. Base candidate set ─────────────────────────────────────────────
-      let candidateSet: Set<string>;
-      if (effectiveScope === "all" || explorer.selectedWorkItemId === null) {
-        candidateSet = new Set(allItemIds);
-      } else if (effectiveScope === "upstream") {
-        candidateSet = computeUpstream(
-          explorer.selectedWorkItemId,
-          analysisById,
-        );
-      } else if (effectiveScope === "downstream") {
-        candidateSet = computeDownstream(
-          explorer.selectedWorkItemId,
-          analysisById,
-        );
-      } else {
-        // 'chain'
-        const up = computeUpstream(explorer.selectedWorkItemId, analysisById);
-        const down = computeDownstream(
-          explorer.selectedWorkItemId,
-          analysisById,
-        );
-        candidateSet = new Set([...up, ...down]);
-      }
-
-      // ── 3. Focus set: search + structured filters applied conjunctively ───
-      const focusIds = new Set<string>();
-      for (const candidateId of candidateSet) {
-        const item = workItems[candidateId];
-        if (item && matchesFilters(item, explorer)) {
-          focusIds.add(candidateId);
-        }
-      }
-
-      // ── 4. Context set ────────────────────────────────────────────────────
-      let contextIds: Set<string>;
-      if (effectiveScope === "all") {
-        contextIds = computeContextAll(focusIds, analysisById);
-      } else {
-        contextIds = computeContextScoped(
-          focusIds,
-          candidateSet,
-          effectiveScope as "upstream" | "downstream" | "chain",
-          analysisById,
+  function projectTopology(
+    snapshot: PlanAnalysisSnapshot,
+    explorer: PlanExplorerStateValue,
+  ): FlowTopologyProjection {
+    const { analysisById, workItems } = snapshot;
+    const allItemIds = Object.keys(workItems);
+    const criticalPathIds =
+      snapshot.estimateSummary.estimatedCriticalPath.workItemIds;
+    const criticalPathOrderById = new Map<string, number>();
+    const criticalPathEdgeIds = new Set<string>();
+    for (let index = 0; index < criticalPathIds.length; index++) {
+      criticalPathOrderById.set(criticalPathIds[index], index);
+      if (index > 0) {
+        criticalPathEdgeIds.add(
+          `${criticalPathIds[index - 1]}→${criticalPathIds[index]}`,
         );
       }
+    }
 
-      // Always keep selected item visible as context when it falls outside
-      // active search/filters
-      if (
-        explorer.selectedWorkItemId !== null &&
-        !focusIds.has(explorer.selectedWorkItemId) &&
-        candidateSet.has(explorer.selectedWorkItemId)
-      ) {
-        contextIds.add(explorer.selectedWorkItemId);
-      }
+    // ── 1. Effective scope ────────────────────────────────────────────────
+    const effectiveScope: GraphScope =
+      explorer.selectedWorkItemId !== null ? explorer.activeScope : "all";
 
-      // ── 5. Visibility roles ───────────────────────────────────────────────
-      const visibilityRoles = new Map<string, "focus" | "context">();
-      for (const id of focusIds) visibilityRoles.set(id, "focus");
-      for (const id of contextIds) {
-        if (!focusIds.has(id)) visibilityRoles.set(id, "context");
-      }
-
-      const visibleIds = new Set([...focusIds, ...contextIds]);
-
-      // ── 6. All edges (dependency → dependent direction) ───────────────────
-      const allEdges: Array<{ id: string; source: string; target: string }> =
-        [];
-      for (const itemId of allItemIds) {
-        const analysis = analysisById[itemId];
-        if (!analysis) continue;
-        for (const depId of analysis.dependencyIds) {
-          // depId → itemId: depId is the prerequisite (source), itemId is the dependent (target)
-          allEdges.push({
-            id: `${depId}→${itemId}`,
-            source: depId,
-            target: itemId,
-          });
-        }
-      }
-
-      // ── 7. Visible edges ──────────────────────────────────────────────────
-      const visibleEdges = allEdges.filter(
-        (e) => visibleIds.has(e.source) && visibleIds.has(e.target),
+    // ── 2. Base candidate set ─────────────────────────────────────────────
+    let candidateSet: Set<string>;
+    if (effectiveScope === "all" || explorer.selectedWorkItemId === null) {
+      candidateSet = new Set(allItemIds);
+    } else if (effectiveScope === "upstream") {
+      candidateSet = computeUpstream(explorer.selectedWorkItemId, analysisById);
+    } else if (effectiveScope === "downstream") {
+      candidateSet = computeDownstream(
+        explorer.selectedWorkItemId,
+        analysisById,
       );
+    } else {
+      // 'chain'
+      const up = computeUpstream(explorer.selectedWorkItemId, analysisById);
+      const down = computeDownstream(explorer.selectedWorkItemId, analysisById);
+      candidateSet = new Set([...up, ...down]);
+    }
 
-      // ── 8. Layout (cached by topology signature) ──────────────────────────
-      const visibleNodeIdsSorted = [...visibleIds].sort();
-      const layoutSig = computeLayoutSignature(
-        visibleNodeIdsSorted,
-        visibleEdges,
-      );
-
-      let positions: PositionMap;
-      if (layoutCache.has(layoutSig)) {
-        positions = layoutCache.get(layoutSig)!;
-      } else {
-        positions = computeLayout(visibleNodeIdsSorted, visibleEdges, snapshot);
-        layoutCache.set(layoutSig, positions);
+    // ── 3. Focus set: search + structured filters applied conjunctively ───
+    const focusIds = new Set<string>();
+    for (const candidateId of candidateSet) {
+      const item = workItems[candidateId];
+      if (item && matchesFilters(item, explorer)) {
+        focusIds.add(candidateId);
       }
+    }
 
-      // ── 9. Build FlowNodes ────────────────────────────────────────────────
-      const nodes: FlowNode[] = visibleNodeIdsSorted.map((nodeId) => {
-        const item = workItems[nodeId]!;
-        const analysis = analysisById[nodeId]!;
-        const lane = snapshot.plan.lanes.find((l) => l.id === item.lane);
-        const laneIndex = snapshot.laneOrder.indexOf(item.lane);
-        return {
-          id: nodeId,
-          position: positions.get(nodeId) ?? { x: 0, y: 0 },
-          data: {
-            id: nodeId,
-            title: item.title,
-            laneLabel: lane?.label ?? item.lane,
-            laneColor: lane?.color ?? getLanePaletteColor(laneIndex),
-            status: item.status,
-            priority: item.priority,
-            summary: item.summary,
-            estimate: item.estimate,
-            isOnCriticalPath: analysis.schedule.isOnCriticalPath,
-            criticalPathOrder: criticalPathOrderById.get(nodeId) ?? null,
-            slackDays: analysis.schedule.slackDays,
-            metricSummary: analysis.metrics,
-            isSelected: nodeId === explorer.selectedWorkItemId,
-            visibilityRole: visibilityRoles.get(nodeId) ?? "focus",
-          },
-        };
-      });
-
-      // ── 10. Build FlowEdges ───────────────────────────────────────────────
-      const edges: FlowEdge[] = visibleEdges.map((e) => ({
-        id: e.id,
-        source: e.source,
-        target: e.target,
-        isHighlighted:
-          explorer.selectedWorkItemId !== null &&
-          (e.source === explorer.selectedWorkItemId ||
-            e.target === explorer.selectedWorkItemId),
-        isOnCriticalPath: criticalPathEdgeIds.has(e.id),
-      }));
-
-      // ── 11. Summary ───────────────────────────────────────────────────────
-      const hiddenNodeCount = allItemIds.length - visibleIds.size;
-      const hiddenEdgeCount = allEdges.length - visibleEdges.length;
-      const selectedNodeFilteredOut =
-        explorer.selectedWorkItemId !== null &&
-        !focusIds.has(explorer.selectedWorkItemId);
-
-      // ── 12. Empty state message ───────────────────────────────────────────
-      const hasActiveFilters =
-        explorer.searchQuery !== "" ||
-        explorer.laneIds.length > 0 ||
-        explorer.statuses.length > 0 ||
-        explorer.priorities.length > 0 ||
-        explorer.tags.length > 0;
-
-      const emptyStateMessage =
-        focusIds.size === 0 && hasActiveFilters
-          ? "No work items match the active search or filters."
-          : null;
-
-      // ── 13. Legend ────────────────────────────────────────────────────────
-      const { colorLegend, sizeLegend } = buildLegends(snapshot, display);
-      const scheduleLegend = buildScheduleLegend(
-        snapshot,
-        display.scheduleOverlay,
-        visibleIds,
+    // ── 4. Context set ────────────────────────────────────────────────────
+    let contextIds: Set<string>;
+    if (effectiveScope === "all") {
+      contextIds = computeContextAll(focusIds, analysisById);
+    } else {
+      contextIds = computeContextScoped(
+        focusIds,
+        candidateSet,
+        effectiveScope as "upstream" | "downstream" | "chain",
+        analysisById,
       );
+    }
 
+    // Always keep selected item visible as context when it falls outside
+    // active search/filters
+    if (
+      explorer.selectedWorkItemId !== null &&
+      !focusIds.has(explorer.selectedWorkItemId) &&
+      candidateSet.has(explorer.selectedWorkItemId)
+    ) {
+      contextIds.add(explorer.selectedWorkItemId);
+    }
+
+    // ── 5. Visibility roles ───────────────────────────────────────────────
+    const visibilityRoles = new Map<string, "focus" | "context">();
+    for (const id of focusIds) visibilityRoles.set(id, "focus");
+    for (const id of contextIds) {
+      if (!focusIds.has(id)) visibilityRoles.set(id, "context");
+    }
+
+    const visibleIds = new Set([...focusIds, ...contextIds]);
+
+    // ── 6. All edges (dependency → dependent direction) ───────────────────
+    const allEdges: Array<{ id: string; source: string; target: string }> = [];
+    for (const itemId of allItemIds) {
+      const analysis = analysisById[itemId];
+      if (!analysis) continue;
+      for (const depId of analysis.dependencyIds) {
+        // depId → itemId: depId is the prerequisite (source), itemId is the dependent (target)
+        allEdges.push({
+          id: `${depId}→${itemId}`,
+          source: depId,
+          target: itemId,
+        });
+      }
+    }
+
+    // ── 7. Visible edges ──────────────────────────────────────────────────
+    const visibleEdges = allEdges.filter(
+      (e) => visibleIds.has(e.source) && visibleIds.has(e.target),
+    );
+
+    // ── 8. Layout (cached by topology signature) ──────────────────────────
+    const visibleNodeIdsSorted = [...visibleIds].sort();
+    const layoutSig = computeLayoutSignature(
+      visibleNodeIdsSorted,
+      visibleEdges,
+    );
+
+    let positions: PositionMap;
+    if (layoutCache.has(layoutSig)) {
+      positions = layoutCache.get(layoutSig)!;
+    } else {
+      positions = computeLayout(visibleNodeIdsSorted, visibleEdges, snapshot);
+      layoutCache.set(layoutSig, positions);
+    }
+
+    // ── 9. Build FlowNodes ────────────────────────────────────────────────
+    const nodes: FlowNode[] = visibleNodeIdsSorted.map((nodeId) => {
+      const item = workItems[nodeId]!;
+      const analysis = analysisById[nodeId]!;
+      const lane = snapshot.plan.lanes.find((l) => l.id === item.lane);
+      const laneIndex = snapshot.laneOrder.indexOf(item.lane);
       return {
-        nodes,
-        edges,
-        emptyStateMessage,
-        colorLegend,
-        sizeLegend,
-        scheduleLegend,
-        summary: {
-          focusNodeCount: focusIds.size,
-          contextNodeCount: contextIds.size,
-          hiddenNodeCount,
-          hiddenEdgeCount,
-          selectedNodeFilteredOut,
+        id: nodeId,
+        position: positions.get(nodeId) ?? { x: 0, y: 0 },
+        data: {
+          id: nodeId,
+          title: item.title,
+          laneLabel: lane?.label ?? item.lane,
+          laneColor: lane?.color ?? getLanePaletteColor(laneIndex),
+          status: item.status,
+          priority: item.priority,
+          summary: item.summary,
+          estimate: item.estimate,
+          isOnCriticalPath: analysis.schedule.isOnCriticalPath,
+          criticalPathOrder: criticalPathOrderById.get(nodeId) ?? null,
+          slackDays: analysis.schedule.slackDays,
+          metricSummary: analysis.metrics,
+          isSelected: nodeId === explorer.selectedWorkItemId,
+          visibilityRole: visibilityRoles.get(nodeId) ?? "focus",
         },
       };
+    });
+
+    // ── 10. Build FlowEdges ───────────────────────────────────────────────
+    const edges: FlowEdge[] = visibleEdges.map((e) => ({
+      id: e.id,
+      source: e.source,
+      target: e.target,
+      isHighlighted:
+        explorer.selectedWorkItemId !== null &&
+        (e.source === explorer.selectedWorkItemId ||
+          e.target === explorer.selectedWorkItemId),
+      isOnCriticalPath: criticalPathEdgeIds.has(e.id),
+    }));
+
+    // ── 11. Summary ───────────────────────────────────────────────────────
+    const hiddenNodeCount = allItemIds.length - visibleIds.size;
+    const hiddenEdgeCount = allEdges.length - visibleEdges.length;
+    const selectedNodeFilteredOut =
+      explorer.selectedWorkItemId !== null &&
+      !focusIds.has(explorer.selectedWorkItemId);
+
+    // ── 12. Empty state message ───────────────────────────────────────────
+    const hasActiveFilters =
+      explorer.searchQuery !== "" ||
+      explorer.laneIds.length > 0 ||
+      explorer.statuses.length > 0 ||
+      explorer.priorities.length > 0 ||
+      explorer.tags.length > 0;
+
+    const emptyStateMessage =
+      focusIds.size === 0 && hasActiveFilters
+        ? "No work items match the active search or filters."
+        : null;
+
+    return {
+      nodes,
+      edges,
+      emptyStateMessage,
+      visibleIds,
+      summary: {
+        focusNodeCount: focusIds.size,
+        contextNodeCount: contextIds.size,
+        hiddenNodeCount,
+        hiddenEdgeCount,
+        selectedNodeFilteredOut,
+      },
+    };
+  }
+
+  function buildLegendsForView(
+    snapshot: PlanAnalysisSnapshot,
+    display: PlanDisplayStateValue,
+    visibleIds: ReadonlySet<string>,
+  ): FlowLegendBundle {
+    const { colorLegend, sizeLegend } = buildLegends(snapshot, display);
+    const scheduleLegend = buildScheduleLegend(
+      snapshot,
+      display.scheduleOverlay,
+      visibleIds,
+    );
+    return { colorLegend, sizeLegend, scheduleLegend };
+  }
+
+  return {
+    project(snapshot, explorer, display): FlowProjection {
+      const topo = projectTopology(snapshot, explorer);
+      const legends = buildLegendsForView(snapshot, display, topo.visibleIds);
+      return {
+        nodes: topo.nodes,
+        edges: topo.edges,
+        emptyStateMessage: topo.emptyStateMessage,
+        summary: topo.summary,
+        ...legends,
+      };
     },
+    projectTopology,
+    buildLegendsForView,
   };
 }
 

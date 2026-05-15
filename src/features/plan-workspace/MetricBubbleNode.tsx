@@ -10,17 +10,12 @@ import {
   useInteractions,
 } from "@floating-ui/react";
 import { Handle, type Node, type NodeProps, Position } from "@xyflow/react";
-import { useContext, useState } from "react";
+import { memo, useContext, useState } from "react";
 import type { FlowNodeData } from "../../lib/graph/flow-projection-service";
 import { formatCompactEstimate } from "./plan-details-panel.helpers";
 import type { ColorEncodingMode, SizeEncodingMode } from "./plan-display.store";
 import {
-  selectColorMode,
-  selectScheduleOverlay,
-  selectSizeMode,
-  usePlanDisplayStore,
-} from "./plan-display.store";
-import {
+  GraphDisplayModeContext,
   GraphMetricRangesContext,
   GraphScheduleOverlayContext,
 } from "./plan-graph-canvas.context";
@@ -143,10 +138,10 @@ function getBubbleColor(
 // Component
 // ---------------------------------------------------------------------------
 
-export function MetricBubbleNode({ data }: NodeProps<MetricBubbleNodeType>) {
-  const colorMode = usePlanDisplayStore(selectColorMode);
-  const scheduleOverlay = usePlanDisplayStore(selectScheduleOverlay);
-  const sizeMode = usePlanDisplayStore(selectSizeMode);
+function MetricBubbleNodeImpl({ data }: NodeProps<MetricBubbleNodeType>) {
+  const { colorMode, scheduleOverlay, sizeMode } = useContext(
+    GraphDisplayModeContext,
+  );
   const metricRanges = useContext(GraphMetricRangesContext);
   const { slackRange } = useContext(GraphScheduleOverlayContext);
 
@@ -373,3 +368,5 @@ export function MetricBubbleNode({ data }: NodeProps<MetricBubbleNodeType>) {
     </div>
   );
 }
+
+export const MetricBubbleNode = memo(MetricBubbleNodeImpl);

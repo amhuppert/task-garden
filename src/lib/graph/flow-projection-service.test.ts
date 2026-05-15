@@ -962,3 +962,64 @@ describe("FlowProjectionService — determinism", () => {
     expect(e1).toEqual(e2);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Tests — split API: projectTopology + buildLegendsForView
+// ---------------------------------------------------------------------------
+
+describe("FlowProjectionService — split topology/legends API", () => {
+  it("projectTopology returns nodes, edges, summary, and visibleIds with no legends", () => {
+    const svc = createFlowProjectionService();
+    const snapshot = makeLinearSnapshot();
+    const topo = svc.projectTopology(snapshot, defaultExplorer);
+    expect(topo.nodes.map((n) => n.id).sort()).toEqual(["a", "b", "c"]);
+    expect(topo.edges.map((e) => `${e.source}→${e.target}`).sort()).toEqual([
+      "a→b",
+      "b→c",
+    ]);
+    expect(topo.visibleIds.has("a")).toBe(true);
+    expect(topo.summary.hiddenNodeCount).toBe(0);
+  });
+
+  it("buildLegendsForView returns colorLegend, sizeLegend, scheduleLegend", () => {
+    const svc = createFlowProjectionService();
+    const snapshot = makeLinearSnapshot();
+    const topo = svc.projectTopology(snapshot, defaultExplorer);
+    const legends = svc.buildLegendsForView(
+      snapshot,
+      defaultDisplay,
+      topo.visibleIds,
+    );
+    expect(legends.colorLegend).toBeDefined();
+    expect(legends.sizeLegend).toBeNull();
+    expect(legends.scheduleLegend).toBeNull();
+  });
+
+  it("buildLegendsForView produces a scheduleLegend when overlay is critical_path", () => {
+    const svc = createFlowProjectionService();
+    const snapshot = makeEstimatedBranchingSnapshot();
+    const topo = svc.projectTopology(snapshot, defaultExplorer);
+    const display = {
+      ...defaultDisplay,
+      scheduleOverlay: "critical_path" as const,
+    };
+    const legends = svc.buildLegendsForView(snapshot, display, topo.visibleIds);
+    expect(legends.scheduleLegend).toBeDefined();
+    expect(legends.scheduleLegend!.mode).toBe("critical_path");
+  });
+
+  it("project(snapshot, explorer, display) composes both layers consistently", () => {
+    const svc = createFlowProjectionService();
+    const snapshot = makeLinearSnapshot();
+    const composed = svc.project(snapshot, defaultExplorer, defaultDisplay);
+    const topo = svc.projectTopology(snapshot, defaultExplorer);
+    const legends = svc.buildLegendsForView(
+      snapshot,
+      defaultDisplay,
+      topo.visibleIds,
+    );
+    expect(composed.nodes.length).toBe(topo.nodes.length);
+    expect(composed.edges.length).toBe(topo.edges.length);
+    expect(composed.colorLegend.title).toBe(legends.colorLegend.title);
+  });
+});

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useEffect, useState } from "react";
 import type {
   TaskGardenPriority,
   TaskGardenStatus,
@@ -57,13 +57,13 @@ const PRIORITY_LABELS: Record<TaskGardenPriority, string> = {
   nice_to_have: "Nice to Have",
 };
 
-// ---------------------------------------------------------------------------
-// Tooltip content
-// ---------------------------------------------------------------------------
-
 const METRIC_SIZE_MODES = Object.keys(
   METRIC_SIZE_DESCRIPTIONS,
 ) as MetricSizeMode[];
+
+// ---------------------------------------------------------------------------
+// Info modals (static — never re-render with store changes)
+// ---------------------------------------------------------------------------
 
 function ScopeInfoModal() {
   return (
@@ -161,6 +161,390 @@ function ScheduleOverlayInfoModal() {
 }
 
 // ---------------------------------------------------------------------------
+// Section components — each subscribes only to the store slices it needs so
+// that store updates only re-render the affected section, not the whole toolbar.
+// ---------------------------------------------------------------------------
+
+interface VisibilitySummarySectionProps {
+  hiddenNodeCount: number;
+  selectedNodeFilteredOut: boolean;
+}
+
+const VisibilitySummarySection = memo(function VisibilitySummarySection({
+  hiddenNodeCount,
+  selectedNodeFilteredOut,
+}: VisibilitySummarySectionProps) {
+  if (hiddenNodeCount === 0 && !selectedNodeFilteredOut) return null;
+  return (
+    <div className="flex flex-col gap-2">
+      {hiddenNodeCount > 0 && (
+        <output className="flex items-center gap-2 rounded-[var(--radius-md)] border border-border bg-surface-muted px-3 py-2 text-xs text-muted-foreground">
+          <span
+            className="h-2 w-2 shrink-0 rounded-full bg-pollen"
+            aria-hidden="true"
+          />
+          {hiddenNodeCount} item{hiddenNodeCount !== 1 ? "s" : ""} hidden by
+          filters
+        </output>
+      )}
+      {selectedNodeFilteredOut && (
+        <div
+          role="alert"
+          className="flex items-center gap-2 rounded-[var(--radius-md)] border border-border bg-surface-muted px-3 py-2 text-xs text-petal"
+        >
+          <span
+            className="h-2 w-2 shrink-0 rounded-full bg-petal"
+            aria-hidden="true"
+          />
+          Selected item is hidden by active filters
+        </div>
+      )}
+    </div>
+  );
+});
+
+function SearchSection() {
+  const searchQuery = usePlanExplorerStore(selectSearchQuery);
+  const setSearchQuery = usePlanExplorerStore((s) => s.setSearchQuery);
+
+  // Local input state — typing only re-renders this section. The store is
+  // updated 150ms after the last keystroke so the projection doesn't rebuild
+  // mid-burst. We mirror external changes (e.g. clearFilters) back in.
+  const [searchInput, setSearchInput] = useState(searchQuery);
+  useEffect(() => {
+    setSearchInput((prev) => (prev === searchQuery ? prev : searchQuery));
+  }, [searchQuery]);
+  useEffect(() => {
+    if (searchInput === searchQuery) return;
+    const id = setTimeout(() => setSearchQuery(searchInput), 150);
+    return () => clearTimeout(id);
+  }, [searchInput, searchQuery, setSearchQuery]);
+
+  return (
+    <section>
+      <label>
+        <span className="atlas-kicker mb-2 block">Search</span>
+        <input
+          type="text"
+          className="atlas-field atlas-field-focus"
+          placeholder="Search title, tag, lane…"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+        />
+      </label>
+    </section>
+  );
+}
+
+function ClearFiltersButton() {
+  const hasActiveFilters = usePlanExplorerStore(selectHasActiveFilters);
+  const clearFilters = usePlanExplorerStore((s) => s.clearFilters);
+  if (!hasActiveFilters) return null;
+  return (
+    <button
+      type="button"
+      onClick={clearFilters}
+      className="atlas-button-secondary w-full text-xs"
+    >
+      Clear all filters
+    </button>
+  );
+}
+
+interface LaneFilterSectionProps {
+  lanes: readonly { id: string; label: string }[];
+}
+
+const LaneFilterSection = memo(function LaneFilterSection({
+  lanes,
+}: LaneFilterSectionProps) {
+  const activeLaneIds = usePlanExplorerStore(selectLaneIds);
+  const toggleLaneFilter = usePlanExplorerStore((s) => s.toggleLaneFilter);
+  if (lanes.length === 0) return null;
+  return (
+    <section>
+      <span className="atlas-kicker mb-2 block">Lane</span>
+      <div className="flex flex-wrap gap-1.5">
+        {lanes.map((lane) => (
+          <button
+            key={lane.id}
+            type="button"
+            onClick={() => toggleLaneFilter(lane.id)}
+            className={`atlas-chip hover:border-border-strong${activeLaneIds.includes(lane.id) ? " atlas-chip-active" : ""}`}
+          >
+            {lane.label}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+});
+
+interface StatusFilterSectionProps {
+  availableStatuses: readonly TaskGardenStatus[];
+}
+
+const StatusFilterSection = memo(function StatusFilterSection({
+  availableStatuses,
+}: StatusFilterSectionProps) {
+  const activeStatuses = usePlanExplorerStore(selectStatuses);
+  const toggleStatusFilter = usePlanExplorerStore((s) => s.toggleStatusFilter);
+  if (availableStatuses.length === 0) return null;
+  return (
+    <section>
+      <span className="atlas-kicker mb-2 block">Status</span>
+      <div className="flex flex-wrap gap-1.5">
+        {availableStatuses.map((status) => (
+          <button
+            key={status}
+            type="button"
+            onClick={() => toggleStatusFilter(status)}
+            className={`atlas-chip hover:border-border-strong${activeStatuses.includes(status) ? " atlas-chip-active" : ""}`}
+          >
+            {STATUS_LABELS[status]}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+});
+
+interface PriorityFilterSectionProps {
+  availablePriorities: readonly TaskGardenPriority[];
+}
+
+const PriorityFilterSection = memo(function PriorityFilterSection({
+  availablePriorities,
+}: PriorityFilterSectionProps) {
+  const activePriorities = usePlanExplorerStore(selectPriorities);
+  const togglePriorityFilter = usePlanExplorerStore(
+    (s) => s.togglePriorityFilter,
+  );
+  if (availablePriorities.length === 0) return null;
+  return (
+    <section>
+      <span className="atlas-kicker mb-2 block">Priority</span>
+      <div className="flex flex-wrap gap-1.5">
+        {availablePriorities.map((priority) => (
+          <button
+            key={priority}
+            type="button"
+            onClick={() => togglePriorityFilter(priority)}
+            className={`atlas-chip hover:border-border-strong${activePriorities.includes(priority) ? " atlas-chip-active" : ""}`}
+          >
+            {PRIORITY_LABELS[priority]}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+});
+
+interface TagFilterSectionProps {
+  availableTags: readonly string[];
+}
+
+const TagFilterSection = memo(function TagFilterSection({
+  availableTags,
+}: TagFilterSectionProps) {
+  const activeTags = usePlanExplorerStore(selectTags);
+  const toggleTagFilter = usePlanExplorerStore((s) => s.toggleTagFilter);
+  const [tagsExpanded, setTagsExpanded] = useState(
+    () => availableTags.length <= 5,
+  );
+  if (availableTags.length === 0) return null;
+
+  const visibleTags = (() => {
+    if (tagsExpanded) return availableTags;
+    const active = availableTags.filter((t) => activeTags.includes(t));
+    return active.length > 0 ? active : availableTags.slice(0, 3);
+  })();
+  const hiddenCount = tagsExpanded
+    ? 0
+    : availableTags.length - visibleTags.length;
+
+  return (
+    <section>
+      <button
+        type="button"
+        onClick={() => setTagsExpanded((v) => !v)}
+        className="atlas-kicker mb-2 flex w-full items-center justify-between"
+      >
+        <span>Tags</span>
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 12 12"
+          fill="none"
+          aria-hidden="true"
+          className={`text-muted-foreground transition-transform duration-200${tagsExpanded ? " rotate-180" : ""}`}
+        >
+          <path
+            d="M3 4.5L6 7.5L9 4.5"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+      <div className="flex flex-wrap gap-1.5">
+        {visibleTags.map((tag) => (
+          <button
+            key={tag}
+            type="button"
+            onClick={() => toggleTagFilter(tag)}
+            className={`atlas-chip hover:border-border-strong${activeTags.includes(tag) ? " atlas-chip-active" : ""}`}
+          >
+            {tag}
+          </button>
+        ))}
+        {hiddenCount > 0 && (
+          <span className="text-xs text-muted-foreground self-center">
+            +{hiddenCount} more
+          </span>
+        )}
+      </div>
+    </section>
+  );
+});
+
+function ScopeSection() {
+  const activeScope = usePlanExplorerStore(selectActiveScope);
+  const selectedWorkItemId = usePlanExplorerStore(selectSelectedWorkItemId);
+  const setScope = usePlanExplorerStore((s) => s.setScope);
+  const hasSelection = selectedWorkItemId !== null;
+  return (
+    <section>
+      <div className="mb-2 flex items-center justify-between">
+        <span className="atlas-kicker flex items-center gap-1.5">
+          Scope
+          <ScopeInfoModal />
+        </span>
+        <span className="font-mono text-xs text-muted-foreground">
+          {getScopeLabel(activeScope)}
+        </span>
+      </div>
+      {!hasSelection && (
+        <p className="mb-2 text-xs text-muted-foreground">
+          Select an item to scope the view
+        </p>
+      )}
+      <div className="flex flex-wrap gap-1.5">
+        {SCOPE_OPTIONS.map((scope) => {
+          const isDisabled = !hasSelection && scope !== "all";
+          return (
+            <button
+              key={scope}
+              type="button"
+              onClick={() => setScope(scope)}
+              disabled={isDisabled}
+              aria-pressed={activeScope === scope}
+              className={`atlas-chip hover:border-border-strong disabled:cursor-not-allowed disabled:opacity-40${activeScope === scope ? " atlas-chip-active" : ""}`}
+            >
+              {getScopeLabel(scope)}
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function ColorEncodingSection() {
+  const colorMode = usePlanDisplayStore(selectColorMode);
+  const setColorMode = usePlanDisplayStore((s) => s.setColorMode);
+  return (
+    <section>
+      <div className="mb-2 flex items-center justify-between">
+        <span className="atlas-kicker flex items-center gap-1.5">
+          Color
+          <ColorInfoModal />
+        </span>
+        <span className="font-mono text-xs text-muted-foreground">
+          {getColorModeLabel(colorMode)}
+        </span>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {COLOR_MODE_OPTIONS.map((mode) => (
+          <button
+            key={mode}
+            type="button"
+            onClick={() => setColorMode(mode)}
+            aria-pressed={colorMode === mode}
+            className={`atlas-chip hover:border-border-strong${colorMode === mode ? " atlas-chip-active" : ""}`}
+          >
+            {getColorModeLabel(mode)}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ScheduleOverlaySection() {
+  const scheduleOverlay = usePlanDisplayStore(selectScheduleOverlay);
+  const setScheduleOverlay = usePlanDisplayStore((s) => s.setScheduleOverlay);
+  return (
+    <section>
+      <div className="mb-2 flex items-center justify-between">
+        <span className="atlas-kicker flex items-center gap-1.5">
+          Schedule Overlay
+          <ScheduleOverlayInfoModal />
+        </span>
+        <span className="font-mono text-xs text-muted-foreground">
+          {getScheduleOverlayLabel(scheduleOverlay)}
+        </span>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {SCHEDULE_OVERLAY_OPTIONS.map((mode) => (
+          <button
+            key={mode}
+            type="button"
+            onClick={() => setScheduleOverlay(mode)}
+            aria-pressed={scheduleOverlay === mode}
+            className={`atlas-chip hover:border-border-strong${scheduleOverlay === mode ? " atlas-chip-active" : ""}`}
+          >
+            {getScheduleOverlayLabel(mode)}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function SizeEncodingSection() {
+  const sizeMode = usePlanDisplayStore(selectSizeMode);
+  const setSizeMode = usePlanDisplayStore((s) => s.setSizeMode);
+  return (
+    <section>
+      <div className="mb-2 flex items-center justify-between">
+        <span className="atlas-kicker flex items-center gap-1.5">
+          Node Size
+          <SizeInfoModal />
+        </span>
+        <span className="font-mono text-xs text-muted-foreground">
+          {getSizeModeLabel(sizeMode)}
+        </span>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {SIZE_MODE_OPTIONS.map((mode) => (
+          <button
+            key={mode}
+            type="button"
+            onClick={() => setSizeMode(mode)}
+            aria-pressed={sizeMode === mode}
+            className={`atlas-chip hover:border-border-strong${sizeMode === mode ? " atlas-chip-active" : ""}`}
+          >
+            {getSizeModeLabel(mode)}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
 
@@ -182,367 +566,34 @@ export interface PlanToolbarProps {
 }
 
 // ---------------------------------------------------------------------------
-// Component
+// Container — a thin shell that passes prop slices to each section. The
+// shell itself does not subscribe to any store, so it only re-renders when
+// its parent passes new props (i.e. when the projection or available filters
+// change).
 // ---------------------------------------------------------------------------
 
 export function PlanToolbar({
   availableFilters,
   projectionSummary,
 }: PlanToolbarProps) {
-  const {
-    lanes,
-    statuses: availableStatuses,
-    priorities: availablePriorities,
-    tags: availableTags,
-  } = availableFilters;
-  const { hiddenNodeCount, selectedNodeFilteredOut } = projectionSummary;
-
-  // Explorer store — state
-  const searchQuery = usePlanExplorerStore(selectSearchQuery);
-  const activeScope = usePlanExplorerStore(selectActiveScope);
-  const activeLaneIds = usePlanExplorerStore(selectLaneIds);
-  const activeStatuses = usePlanExplorerStore(selectStatuses);
-  const activePriorities = usePlanExplorerStore(selectPriorities);
-  const activeTags = usePlanExplorerStore(selectTags);
-  const hasActiveFilters = usePlanExplorerStore(selectHasActiveFilters);
-  const selectedWorkItemId = usePlanExplorerStore(selectSelectedWorkItemId);
-
-  // Explorer store — actions
-  const setSearchQuery = usePlanExplorerStore((s) => s.setSearchQuery);
-  const setScope = usePlanExplorerStore((s) => s.setScope);
-  const toggleLaneFilter = usePlanExplorerStore((s) => s.toggleLaneFilter);
-  const toggleStatusFilter = usePlanExplorerStore((s) => s.toggleStatusFilter);
-  const togglePriorityFilter = usePlanExplorerStore(
-    (s) => s.togglePriorityFilter,
-  );
-  const toggleTagFilter = usePlanExplorerStore((s) => s.toggleTagFilter);
-  const clearFilters = usePlanExplorerStore((s) => s.clearFilters);
-
-  // Display store — state
-  const colorMode = usePlanDisplayStore(selectColorMode);
-  const scheduleOverlay = usePlanDisplayStore(selectScheduleOverlay);
-  const sizeMode = usePlanDisplayStore(selectSizeMode);
-
-  // Display store — actions
-  const setColorMode = usePlanDisplayStore((s) => s.setColorMode);
-  const setScheduleOverlay = usePlanDisplayStore((s) => s.setScheduleOverlay);
-  const setSizeMode = usePlanDisplayStore((s) => s.setSizeMode);
-
-  const hasSelection = selectedWorkItemId !== null;
-
-  const [tagsExpanded, setTagsExpanded] = useState(
-    () => availableTags.length <= 5,
-  );
-
   return (
     <div className="flex flex-col gap-5 overflow-y-auto p-4">
-      {/* ------------------------------------------------------------------ */}
-      {/* Visibility summary                                                   */}
-      {/* ------------------------------------------------------------------ */}
-      {(hiddenNodeCount > 0 || selectedNodeFilteredOut) && (
-        <div className="flex flex-col gap-2">
-          {hiddenNodeCount > 0 && (
-            <output className="flex items-center gap-2 rounded-[var(--radius-md)] border border-border bg-surface-muted px-3 py-2 text-xs text-muted-foreground">
-              <span
-                className="h-2 w-2 shrink-0 rounded-full bg-pollen"
-                aria-hidden="true"
-              />
-              {hiddenNodeCount} item{hiddenNodeCount !== 1 ? "s" : ""} hidden by
-              filters
-            </output>
-          )}
-          {selectedNodeFilteredOut && (
-            <div
-              role="alert"
-              className="flex items-center gap-2 rounded-[var(--radius-md)] border border-border bg-surface-muted px-3 py-2 text-xs text-petal"
-            >
-              <span
-                className="h-2 w-2 shrink-0 rounded-full bg-petal"
-                aria-hidden="true"
-              />
-              Selected item is hidden by active filters
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Search                                                               */}
-      {/* ------------------------------------------------------------------ */}
-      <section>
-        <label>
-          <span className="atlas-kicker mb-2 block">Search</span>
-          <input
-            type="text"
-            className="atlas-field atlas-field-focus"
-            placeholder="Search title, tag, lane…"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </label>
-      </section>
-
-      {/* Clear all filters */}
-      {hasActiveFilters && (
-        <button
-          type="button"
-          onClick={clearFilters}
-          className="atlas-button-secondary w-full text-xs"
-        >
-          Clear all filters
-        </button>
-      )}
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Lane filter (derived from plan data)                                */}
-      {/* ------------------------------------------------------------------ */}
-      {lanes.length > 0 && (
-        <section>
-          <span className="atlas-kicker mb-2 block">Lane</span>
-          <div className="flex flex-wrap gap-1.5">
-            {lanes.map((lane) => (
-              <button
-                key={lane.id}
-                type="button"
-                onClick={() => toggleLaneFilter(lane.id)}
-                className={`atlas-chip hover:border-border-strong${activeLaneIds.includes(lane.id) ? " atlas-chip-active" : ""}`}
-              >
-                {lane.label}
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Status filter (derived from plan data)                              */}
-      {/* ------------------------------------------------------------------ */}
-      {availableStatuses.length > 0 && (
-        <section>
-          <span className="atlas-kicker mb-2 block">Status</span>
-          <div className="flex flex-wrap gap-1.5">
-            {availableStatuses.map((status) => (
-              <button
-                key={status}
-                type="button"
-                onClick={() => toggleStatusFilter(status)}
-                className={`atlas-chip hover:border-border-strong${activeStatuses.includes(status) ? " atlas-chip-active" : ""}`}
-              >
-                {STATUS_LABELS[status]}
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Priority filter (derived from plan data)                            */}
-      {/* ------------------------------------------------------------------ */}
-      {availablePriorities.length > 0 && (
-        <section>
-          <span className="atlas-kicker mb-2 block">Priority</span>
-          <div className="flex flex-wrap gap-1.5">
-            {availablePriorities.map((priority) => (
-              <button
-                key={priority}
-                type="button"
-                onClick={() => togglePriorityFilter(priority)}
-                className={`atlas-chip hover:border-border-strong${activePriorities.includes(priority) ? " atlas-chip-active" : ""}`}
-              >
-                {PRIORITY_LABELS[priority]}
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Tag filter (derived from plan data)                                 */}
-      {/* ------------------------------------------------------------------ */}
-      {availableTags.length > 0 && (
-        <section>
-          <button
-            type="button"
-            onClick={() => setTagsExpanded((v) => !v)}
-            className="atlas-kicker mb-2 flex w-full items-center justify-between"
-          >
-            <span>Tags</span>
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 12 12"
-              fill="none"
-              aria-hidden="true"
-              className={`text-muted-foreground transition-transform duration-200${tagsExpanded ? " rotate-180" : ""}`}
-            >
-              <path
-                d="M3 4.5L6 7.5L9 4.5"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
-          <div className="flex flex-wrap gap-1.5">
-            {(() => {
-              if (tagsExpanded) return availableTags;
-              const active = availableTags.filter((t) =>
-                activeTags.includes(t),
-              );
-              const visible =
-                active.length > 0 ? active : availableTags.slice(0, 3);
-              return visible;
-            })().map((tag) => (
-              <button
-                key={tag}
-                type="button"
-                onClick={() => toggleTagFilter(tag)}
-                className={`atlas-chip hover:border-border-strong${activeTags.includes(tag) ? " atlas-chip-active" : ""}`}
-              >
-                {tag}
-              </button>
-            ))}
-            {!tagsExpanded &&
-              (() => {
-                const active = availableTags.filter((t) =>
-                  activeTags.includes(t),
-                );
-                const visibleCount =
-                  active.length > 0
-                    ? active.length
-                    : Math.min(3, availableTags.length);
-                const hidden = availableTags.length - visibleCount;
-                return hidden > 0 ? (
-                  <span className="text-xs text-muted-foreground self-center">
-                    +{hidden} more
-                  </span>
-                ) : null;
-              })()}
-          </div>
-        </section>
-      )}
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Scope controls                                                       */}
-      {/* ------------------------------------------------------------------ */}
-      <section>
-        <div className="mb-2 flex items-center justify-between">
-          <span className="atlas-kicker flex items-center gap-1.5">
-            Scope
-            <ScopeInfoModal />
-          </span>
-          <span className="font-mono text-xs text-muted-foreground">
-            {getScopeLabel(activeScope)}
-          </span>
-        </div>
-        {!hasSelection && (
-          <p className="mb-2 text-xs text-muted-foreground">
-            Select an item to scope the view
-          </p>
-        )}
-        <div className="flex flex-wrap gap-1.5">
-          {SCOPE_OPTIONS.map((scope) => {
-            const isDisabled = !hasSelection && scope !== "all";
-            return (
-              <button
-                key={scope}
-                type="button"
-                onClick={() => setScope(scope)}
-                disabled={isDisabled}
-                aria-pressed={activeScope === scope}
-                className={`atlas-chip hover:border-border-strong disabled:cursor-not-allowed disabled:opacity-40${activeScope === scope ? " atlas-chip-active" : ""}`}
-              >
-                {getScopeLabel(scope)}
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Color encoding                                                       */}
-      {/* ------------------------------------------------------------------ */}
-      <section>
-        <div className="mb-2 flex items-center justify-between">
-          <span className="atlas-kicker flex items-center gap-1.5">
-            Color
-            <ColorInfoModal />
-          </span>
-          <span className="font-mono text-xs text-muted-foreground">
-            {getColorModeLabel(colorMode)}
-          </span>
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          {COLOR_MODE_OPTIONS.map((mode) => (
-            <button
-              key={mode}
-              type="button"
-              onClick={() => setColorMode(mode)}
-              aria-pressed={colorMode === mode}
-              className={`atlas-chip hover:border-border-strong${colorMode === mode ? " atlas-chip-active" : ""}`}
-            >
-              {getColorModeLabel(mode)}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Schedule overlay                                                     */}
-      {/* ------------------------------------------------------------------ */}
-      <section>
-        <div className="mb-2 flex items-center justify-between">
-          <span className="atlas-kicker flex items-center gap-1.5">
-            Schedule Overlay
-            <ScheduleOverlayInfoModal />
-          </span>
-          <span className="font-mono text-xs text-muted-foreground">
-            {getScheduleOverlayLabel(scheduleOverlay)}
-          </span>
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          {SCHEDULE_OVERLAY_OPTIONS.map((mode) => (
-            <button
-              key={mode}
-              type="button"
-              onClick={() => setScheduleOverlay(mode)}
-              aria-pressed={scheduleOverlay === mode}
-              className={`atlas-chip hover:border-border-strong${scheduleOverlay === mode ? " atlas-chip-active" : ""}`}
-            >
-              {getScheduleOverlayLabel(mode)}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Size encoding                                                        */}
-      {/* ------------------------------------------------------------------ */}
-      <section>
-        <div className="mb-2 flex items-center justify-between">
-          <span className="atlas-kicker flex items-center gap-1.5">
-            Node Size
-            <SizeInfoModal />
-          </span>
-          <span className="font-mono text-xs text-muted-foreground">
-            {getSizeModeLabel(sizeMode)}
-          </span>
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          {SIZE_MODE_OPTIONS.map((mode) => (
-            <button
-              key={mode}
-              type="button"
-              onClick={() => setSizeMode(mode)}
-              aria-pressed={sizeMode === mode}
-              className={`atlas-chip hover:border-border-strong${sizeMode === mode ? " atlas-chip-active" : ""}`}
-            >
-              {getSizeModeLabel(mode)}
-            </button>
-          ))}
-        </div>
-      </section>
+      <VisibilitySummarySection
+        hiddenNodeCount={projectionSummary.hiddenNodeCount}
+        selectedNodeFilteredOut={projectionSummary.selectedNodeFilteredOut}
+      />
+      <SearchSection />
+      <ClearFiltersButton />
+      <LaneFilterSection lanes={availableFilters.lanes} />
+      <StatusFilterSection availableStatuses={availableFilters.statuses} />
+      <PriorityFilterSection
+        availablePriorities={availableFilters.priorities}
+      />
+      <TagFilterSection availableTags={availableFilters.tags} />
+      <ScopeSection />
+      <ColorEncodingSection />
+      <ScheduleOverlaySection />
+      <SizeEncodingSection />
     </div>
   );
 }

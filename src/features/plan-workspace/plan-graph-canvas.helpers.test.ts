@@ -6,6 +6,7 @@ import {
   NODE_RENDER_WIDTH,
   computeLaneBands,
   computeMetricRanges,
+  createEdgeStyleFactory,
   getLanePaletteColor,
   getMetricAccentColor,
   getPriorityAccentColor,
@@ -271,5 +272,65 @@ describe("getMetricAccentColor", () => {
     expect(getMetricAccentColor(0.66)).toBe("var(--color-petal)");
     expect(getMetricAccentColor(0.8)).toBe("var(--color-petal)");
     expect(getMetricAccentColor(1)).toBe("var(--color-petal)");
+  });
+});
+
+describe("createEdgeStyleFactory", () => {
+  it("returns identical references for identical key inputs (memoizes styles)", () => {
+    const factory = createEdgeStyleFactory();
+    const a = factory({
+      scheduleOverlay: "none",
+      isHighlighted: false,
+      isContextEdge: false,
+      isOnCriticalPath: false,
+    });
+    const b = factory({
+      scheduleOverlay: "none",
+      isHighlighted: false,
+      isContextEdge: false,
+      isOnCriticalPath: false,
+    });
+    expect(a.style).toBe(b.style);
+    expect(a.markerEnd).toBe(b.markerEnd);
+  });
+
+  it("returns distinct references when scheduleOverlay differs", () => {
+    const factory = createEdgeStyleFactory();
+    const a = factory({
+      scheduleOverlay: "none",
+      isHighlighted: false,
+      isContextEdge: false,
+      isOnCriticalPath: false,
+    });
+    const b = factory({
+      scheduleOverlay: "critical_path",
+      isHighlighted: false,
+      isContextEdge: false,
+      isOnCriticalPath: false,
+    });
+    expect(a.style).not.toBe(b.style);
+  });
+
+  it("applies critical-path emphasis when overlay is critical_path and edge is on the path", () => {
+    const factory = createEdgeStyleFactory();
+    const cp = factory({
+      scheduleOverlay: "critical_path",
+      isHighlighted: false,
+      isContextEdge: false,
+      isOnCriticalPath: true,
+    });
+    expect(cp.style.strokeWidth).toBe(3.2);
+    expect(cp.className).toBe("critical-path-edge");
+  });
+
+  it("dims context edges when no overlay is active", () => {
+    const factory = createEdgeStyleFactory();
+    const ctx = factory({
+      scheduleOverlay: "none",
+      isHighlighted: false,
+      isContextEdge: true,
+      isOnCriticalPath: false,
+    });
+    expect(ctx.style.opacity).toBe(0.38);
   });
 });

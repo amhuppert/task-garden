@@ -20,11 +20,7 @@ beforeAll(() => {
   );
   writeFileSync(path.join(root, "assets", "style.css"), "body{}", "utf8");
   writeFileSync(path.join(root, "favicon.ico"), "icobytes", "utf8");
-  writeFileSync(
-    path.join(root, "site.webmanifest"),
-    '{"name":"x"}',
-    "utf8",
-  );
+  writeFileSync(path.join(root, "site.webmanifest"), '{"name":"x"}', "utf8");
 });
 afterAll(() => {
   rmSync(root, { recursive: true, force: true });

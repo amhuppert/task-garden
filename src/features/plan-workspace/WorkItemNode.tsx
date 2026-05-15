@@ -1,15 +1,10 @@
 import { Handle, type Node, type NodeProps, Position } from "@xyflow/react";
-import { useContext } from "react";
+import { memo, useContext } from "react";
 import type { FlowNodeData } from "../../lib/graph/flow-projection-service";
 import { formatCompactEstimate } from "./plan-details-panel.helpers";
 import type { ColorEncodingMode, SizeEncodingMode } from "./plan-display.store";
 import {
-  selectColorMode,
-  selectScheduleOverlay,
-  selectSizeMode,
-  usePlanDisplayStore,
-} from "./plan-display.store";
-import {
+  GraphDisplayModeContext,
   GraphMetricRangesContext,
   GraphScheduleOverlayContext,
 } from "./plan-graph-canvas.context";
@@ -110,10 +105,10 @@ function getSizeScale(
 // Component
 // ---------------------------------------------------------------------------
 
-export function WorkItemNode({ data }: NodeProps<WorkItemNodeType>) {
-  const colorMode = usePlanDisplayStore(selectColorMode);
-  const scheduleOverlay = usePlanDisplayStore(selectScheduleOverlay);
-  const sizeMode = usePlanDisplayStore(selectSizeMode);
+function WorkItemNodeImpl({ data }: NodeProps<WorkItemNodeType>) {
+  const { colorMode, scheduleOverlay, sizeMode } = useContext(
+    GraphDisplayModeContext,
+  );
   const metricRanges = useContext(GraphMetricRangesContext);
   const { slackRange } = useContext(GraphScheduleOverlayContext);
 
@@ -318,3 +313,5 @@ export function WorkItemNode({ data }: NodeProps<WorkItemNodeType>) {
     </div>
   );
 }
+
+export const WorkItemNode = memo(WorkItemNodeImpl);

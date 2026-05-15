@@ -245,11 +245,33 @@ export function PlanWorkspacePage({
   const snapshot: PlanAnalysisSnapshot | null =
     processingState.status === "ready" ? processingState.snapshot : null;
 
-  // FlowProjection — null when not ready
-  const projection: FlowProjection | null = useMemo(() => {
+  // Topology — depends only on snapshot + explorer state (no display state)
+  const topology = useMemo(() => {
     if (!snapshot) return null;
-    return flowProjectionService.project(snapshot, explorerState, displayState);
-  }, [snapshot, explorerState, displayState]);
+    return flowProjectionService.projectTopology(snapshot, explorerState);
+  }, [snapshot, explorerState]);
+
+  // Legends — depend on snapshot + display state + visible IDs from topology
+  const legends = useMemo(() => {
+    if (!snapshot || !topology) return null;
+    return flowProjectionService.buildLegendsForView(
+      snapshot,
+      displayState,
+      topology.visibleIds,
+    );
+  }, [snapshot, displayState, topology]);
+
+  // Compose topology and legends into a single FlowProjection for downstream consumers
+  const projection: FlowProjection | null = useMemo(() => {
+    if (!topology || !legends) return null;
+    return {
+      nodes: topology.nodes,
+      edges: topology.edges,
+      emptyStateMessage: topology.emptyStateMessage,
+      summary: topology.summary,
+      ...legends,
+    };
+  }, [topology, legends]);
 
   // Available filter options derived from plan data
   const availableFilters: PlanToolbarAvailableFilters = useMemo(() => {
