@@ -28,6 +28,7 @@ const CONTENT_TYPES: Record<string, string> = {
   ".mjs": "application/javascript; charset=utf-8",
   ".css": "text/css; charset=utf-8",
   ".json": "application/json; charset=utf-8",
+  ".webmanifest": "application/manifest+json; charset=utf-8",
   ".svg": "image/svg+xml",
   ".png": "image/png",
   ".jpg": "image/jpeg",
@@ -94,6 +95,30 @@ export async function handleStaticRequest(
     }
     const r = await readFileResponse(filePath);
     return r ?? new Response("Not Found", { status: 404 });
+  }
+
+  // Serve top-level static files (favicon.ico, site.webmanifest, etc.)
+  // when the request maps to a real file at the SPA root. Falls through
+  // to index.html for unmatched paths so client-side routing still works.
+  if (pathname !== "/" && !pathname.endsWith("/")) {
+    const rel = pathname.slice("/".length);
+    const filePath = path.resolve(root, rel);
+    const relCheck = path.relative(root, filePath);
+    if (
+      !relCheck.startsWith("..") &&
+      !path.isAbsolute(relCheck) &&
+      path.dirname(relCheck) === "."
+    ) {
+      try {
+        const s = await stat(filePath);
+        if (s.isFile()) {
+          const r = await readFileResponse(filePath);
+          if (r) return r;
+        }
+      } catch {
+        // fall through to SPA fallback
+      }
+    }
   }
 
   const r = await readFileResponse(indexPath);

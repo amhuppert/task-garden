@@ -19,6 +19,12 @@ beforeAll(() => {
     "utf8",
   );
   writeFileSync(path.join(root, "assets", "style.css"), "body{}", "utf8");
+  writeFileSync(path.join(root, "favicon.ico"), "icobytes", "utf8");
+  writeFileSync(
+    path.join(root, "site.webmanifest"),
+    '{"name":"x"}',
+    "utf8",
+  );
 });
 afterAll(() => {
   rmSync(root, { recursive: true, force: true });
@@ -79,6 +85,27 @@ describe("handleStaticRequest", () => {
     );
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type") ?? "").toMatch(/css/);
+  });
+
+  it("serves a top-level favicon.ico with image content-type", async () => {
+    const res = await handleStaticRequest(
+      new Request("http://localhost/favicon.ico"),
+      root,
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type") ?? "").toMatch(/image\/x-icon/);
+    expect(await res.text()).toBe("icobytes");
+  });
+
+  it("serves a top-level site.webmanifest with manifest content-type", async () => {
+    const res = await handleStaticRequest(
+      new Request("http://localhost/site.webmanifest"),
+      root,
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type") ?? "").toMatch(
+      /application\/manifest\+json/,
+    );
   });
 
   it("falls back to index.html for unknown route (SPA fallback)", async () => {
