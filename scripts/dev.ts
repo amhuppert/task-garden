@@ -3,7 +3,7 @@ import path from "node:path";
 import { parseArgs } from "node:util";
 import { taskGardenPlanServerPlugin } from "../vite-plugins/taskgarden-plan-server";
 
-const DEFAULT_PLAN_PATH = "src/plans/task-garden-v1.yaml";
+const DEFAULT_PLAN_PATH = "src/plans/task-garden-v1.taskgarden.yaml";
 
 async function main(argv: string[]): Promise<void> {
   const { values, positionals } = parseArgs({

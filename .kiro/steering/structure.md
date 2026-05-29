@@ -26,7 +26,7 @@ This repo is still pre-implementation, so structure guidance here is normative: 
 ### Authored Plans
 **Location**: `/src/plans/`  
 **Purpose**: Bundled YAML plan files that can be selected at server start  
-**Example**: `task-garden-v1.yaml`
+**Example**: `task-garden-v1.taskgarden.yaml`
 
 ### CLI Server & Dev Adapter
 **Location**: `/cli/` (production CLI server, Bun runtime) and `/vite-plugins/` (dev-mode Connect adapter and Vite plugin)  

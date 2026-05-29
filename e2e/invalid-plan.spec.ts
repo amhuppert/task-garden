@@ -7,7 +7,7 @@ import { expect, test } from "@playwright/test";
  * Verifies that when the selected plan YAML fails schema validation the app
  * shows actionable validation feedback and does NOT render a stale graph.
  *
- * The `invalid-plan-test` fixture (src/plans/invalid-plan-test.yaml) is a
+ * The `invalid-plan-test` fixture (src/plans/invalid-plan-test.taskgarden.yaml) is a
  * YAML file that parses successfully but references a lane that doesn't exist.
  */
 

@@ -4,7 +4,7 @@ import { expect, test } from "@playwright/test";
  * Lane visibility tests (default project: VITE_PLAN_KEY=task-garden-v1).
  *
  * Requirement coverage: 5.1, 5.4, 7.5
- * task-garden-v1.yaml has three lanes: input, domain, ui.
+ * task-garden-v1.taskgarden.yaml has three lanes: input, domain, ui.
  * Verifies that lane bands are rendered and distinct in the graph, and
  * that work items in each lane are visible in the graph canvas.
  */

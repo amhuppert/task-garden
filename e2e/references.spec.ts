@@ -4,14 +4,14 @@ import { expect, test } from "@playwright/test";
  * Reference-following tests (default project: VITE_PLAN_KEY=task-garden-v1).
  *
  * Requirement coverage: 2.2, 8.1, 8.4
- * task-garden-v1.yaml has plan-level references:
+ * task-garden-v1.taskgarden.yaml has plan-level references:
  *   - memory-bank/focus.md        (bundled document → preview button)
  *   - memory-bank/schema-proposal.md (bundled document → preview button)
  *
  * A work item (plan-schema) has a link:
  *   - label: Schema Proposal, href: memory-bank/schema-proposal.md (bundled document)
  *
- * NOTE: task-garden-v1.yaml has only bundled-document references. External URL
+ * NOTE: task-garden-v1.taskgarden.yaml has only bundled-document references. External URL
  * references would be tested if the plan contained https:// links.
  */
 

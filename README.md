@@ -40,7 +40,7 @@ taskgarden path/to/plan.yaml
 For development against the bundled sample plan:
 
 ```bash
-bun run dev src/plans/task-garden-v1.yaml --port 5173
+bun run dev src/plans/task-garden-v1.taskgarden.yaml --port 5173
 ```
 
 ### CLI Flags
@@ -62,7 +62,7 @@ demand by the CLI.
 Useful references in the repo:
 
 - Schema: `src/lib/plan/task-garden-plan.schema.ts`
-- Example plan: `src/plans/task-garden-v1.yaml`
+- Example plan: `src/plans/task-garden-v1.taskgarden.yaml`
 
 ### Symlinks
 

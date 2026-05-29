@@ -4,8 +4,8 @@ import { defineConfig, devices } from "@playwright/test";
  * Playwright configuration for Task Garden browser tests.
  *
  * Two test projects cover two app boot scenarios:
- *   default      - valid plan (src/plans/task-garden-v1.yaml) on port 5173
- *   invalid-plan - schema-invalid plan (src/plans/invalid-plan-test.yaml) on port 5174
+ *   default      - valid plan (src/plans/task-garden-v1.taskgarden.yaml) on port 5173
+ *   invalid-plan - schema-invalid plan (src/plans/invalid-plan-test.taskgarden.yaml) on port 5174
  *
  * All projects use a 1280×720 desktop viewport so the fixed sidebar layout
  * is always visible without mobile drawer toggling.
@@ -44,13 +44,13 @@ export default defineConfig({
 
   webServer: [
     {
-      command: "bun run dev src/plans/task-garden-v1.yaml --port 5173",
+      command: "bun run dev src/plans/task-garden-v1.taskgarden.yaml --port 5173",
       url: "http://localhost:5173",
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },
     {
-      command: "bun run dev src/plans/invalid-plan-test.yaml --port 5174",
+      command: "bun run dev src/plans/invalid-plan-test.taskgarden.yaml --port 5174",
       url: "http://localhost:5174",
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
