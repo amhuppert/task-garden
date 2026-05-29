@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Colors · Semantic</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  html,body{margin:0;background:var(--color-background);}
+  .card{box-sizing:border-box;width:700px;padding:24px 28px;background:linear-gradient(180deg,var(--color-panel),var(--color-panel-strong));border:1px solid var(--color-border);border-radius:var(--radius-lg);box-shadow:var(--shadow-specimen);}
+  table{width:100%;border-collapse:collapse;font-family:var(--font-sans);}
+  td{padding:7px 8px;border-bottom:1px dashed color-mix(in oklab,var(--color-border-strong) 40%,transparent);vertical-align:middle;font-size:12px;}
+  tr:last-child td{border-bottom:none;}
+  .sw{width:44px;height:22px;border-radius:6px;border:1px solid color-mix(in oklab,var(--color-border-strong) 35%,transparent);}
+  .tok{font-family:var(--font-mono);font-size:10px;color:var(--color-muted-foreground);}
+  .role{font-weight:600;color:var(--color-foreground);}
+  h3{font-family:var(--font-display);font-size:18px;font-weight:600;margin:0 0 10px 0;color:var(--color-foreground);letter-spacing:-.02em;}
+</style>
+</head>
+<body>
+<div class="card">
+  <h3>Semantic aliases</h3>
+  <table>
+    <tr><td><div class="sw" style="background:var(--color-primary);"></div></td><td class="role">Primary</td><td class="tok">--color-primary → moss</td><td class="tok">active selection, CTAs</td></tr>
+    <tr><td><div class="sw" style="background:var(--color-accent);"></div></td><td class="role">Accent</td><td class="tok">--color-accent → lichen</td><td class="tok">soft highlights</td></tr>
+    <tr><td><div class="sw" style="background:var(--color-muted);"></div></td><td class="role">Muted</td><td class="tok">--color-muted</td><td class="tok">muted surfaces, chips</td></tr>
+    <tr><td><div class="sw" style="background:var(--color-destructive);"></div></td><td class="role">Destructive</td><td class="tok">--destructive → petal</td><td class="tok">blocked, warnings</td></tr>
+    <tr><td><div class="sw" style="background:var(--color-ring);"></div></td><td class="role">Ring</td><td class="tok">--color-ring → moss</td><td class="tok">focus outlines</td></tr>
+    <tr><td><div class="sw" style="background:var(--color-border);"></div></td><td class="role">Border</td><td class="tok">--color-border</td><td class="tok">ruled strokes, dividers</td></tr>
+  </table>
+</div>
+</body>
+</html>

@@ -1,12 +1,22 @@
 import { resolveDocument } from "./document-resolver";
+import { type EditRouteCtx, handleEditRequest } from "./edit-routes";
+import type { AsyncMutex } from "./mutex";
 import type { PlanState, PlanStateSnapshot } from "./plan-state";
+import type { PlanWriter } from "./plan-writer";
 import { handleStaticRequest } from "./static-assets";
 
 export type RouteCtx = {
   planState: PlanState;
   planDir: string;
+  planAbsPath: string;
   staticAssetsRoot: string;
   hostAllowList: ReadonlySet<string>;
+  planWriter: PlanWriter;
+  mutexFor: (planAbsPath: string) => AsyncMutex;
+  writeFile: (path: string, data: string) => Promise<unknown>;
+  readFile: (path: string) => Promise<string>;
+  rename: (oldPath: string, newPath: string) => Promise<unknown>;
+  now: () => number;
 };
 
 const SECURITY_HEADERS = { "x-content-type-options": "nosniff" } as const;
@@ -110,6 +120,19 @@ export async function handleRequest(
   const pathname = url.pathname;
 
   if (pathname === "/api/plan") {
+    if (req.method === "PATCH") {
+      const editCtx: EditRouteCtx = {
+        planAbsPath: ctx.planAbsPath,
+        planState: ctx.planState,
+        planWriter: ctx.planWriter,
+        mutexFor: ctx.mutexFor,
+        writeFile: ctx.writeFile,
+        readFile: ctx.readFile,
+        rename: ctx.rename,
+        now: ctx.now,
+      };
+      return handleEditRequest(req, editCtx);
+    }
     return jsonResponse(ctx.planState.get());
   }
 

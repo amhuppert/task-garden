@@ -44,13 +44,15 @@ export default defineConfig({
 
   webServer: [
     {
-      command: "bun run dev src/plans/task-garden-v1.taskgarden.yaml --port 5173",
+      command:
+        "bun run dev src/plans/task-garden-v1.taskgarden.yaml --port 5173",
       url: "http://localhost:5173",
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },
     {
-      command: "bun run dev src/plans/invalid-plan-test.taskgarden.yaml --port 5174",
+      command:
+        "bun run dev src/plans/invalid-plan-test.taskgarden.yaml --port 5174",
       url: "http://localhost:5174",
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,

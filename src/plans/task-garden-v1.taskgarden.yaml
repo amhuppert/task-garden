@@ -3,8 +3,9 @@ plan_id: task-garden-v1
 title: Task Garden V1
 last_updated: 2026-04-01
 summary: >
-  Initial implementation plan for Task Garden, a single-user read-only planning tool
-  for visualizing project work items and their dependencies as an interactive graph.
+  Initial implementation plan for Task Garden, a single-user read-only planning
+  tool for visualizing project work items and their dependencies as an
+  interactive graph.
 references:
   - label: Focus
     href: memory-bank/focus.md
@@ -25,10 +26,10 @@ lanes:
 work_items:
   - id: plan-runtime-config
     title: Plan Runtime Config
-    summary: Resolve VITE_PLAN_KEY from the environment and fail fast when absent.
+    summary: Resolve VITE_PLAN_KEY from the environment and fail fast when absent....
     lane: input
     status: done
-    priority: p0
+    priority: p2
     estimate:
       value: 1
       unit: days
@@ -50,7 +51,7 @@ work_items:
     status: done
     priority: p0
     estimate:
-      value: 1
+      value: 2
       unit: days
     depends_on: []
     tags:
@@ -67,7 +68,8 @@ work_items:
 
   - id: plan-source-subscription
     title: Plan Source Subscription
-    summary: Reactive hook that emits the current plan source and schema version, re-emitting on HMR changes.
+    summary: Reactive hook that emits the current plan source and schema version,
+      re-emitting on HMR changes...
     lane: input
     status: done
     priority: p0
@@ -89,7 +91,8 @@ work_items:
 
   - id: plan-schema
     title: Task Garden Plan Schema
-    summary: Zod schema validating the authored YAML contract including lane and dependency integrity.
+    summary: Zod schema validating the authored YAML contract including lane and
+      dependency integrity.
     lane: domain
     status: planned
     priority: p0
@@ -104,11 +107,13 @@ work_items:
     links:
       - label: Schema Proposal
         href: memory-bank/schema-proposal.md
-    notes: Use superRefine for cross-record integrity checks (cycles, missing lanes, duplicate IDs).
+    notes: Use superRefine for cross-record integrity checks (cycles, missing lanes,
+      duplicate IDs).
 
   - id: processing-pipeline
     title: Plan Processing Pipeline
-    summary: Convert source emissions into a ready snapshot or invalid state, replacing stale output on failure.
+    summary: Convert source emissions into a ready snapshot or invalid state,
+      replacing stale output on failure.
     lane: input
     status: planned
     priority: p0
@@ -132,7 +137,8 @@ work_items:
 
   - id: reference-resolver
     title: Reference Resolver
-    summary: Resolve plan references and work-item links to external URLs or bundled document paths.
+    summary: Resolve plan references and work-item links to external URLs or bundled
+      document paths.
     lane: domain
     status: planned
     priority: p1
@@ -147,7 +153,8 @@ work_items:
 
   - id: graph-analysis
     title: Plan Analysis Engine
-    summary: Build canonical Graphology DAG and derive topological order, roots, leaves, metrics, and longest chain.
+    summary: Build canonical Graphology DAG and derive topological order, roots,
+      leaves, metrics, and longest chain.
     lane: domain
     status: planned
     priority: p0
@@ -166,11 +173,13 @@ work_items:
         href: https://github.com/graphology/graphology/tree/master/src/dag
       - label: "TG-71 Graph engine"
         href: https://mycompany.atlassian.net/browse/TG-71
-    notes: Use graphology-dag for topological sort. Avoid calling it critical-path without duration data.
+    notes: Use graphology-dag for topological sort. Avoid calling it critical-path
+      without duration data.
 
   - id: flow-projection
     title: Flow Projection Service
-    summary: Derive React Flow nodes, edges, legends, and filtered visible subsets from analysis and UI state.
+    summary: Derive React Flow nodes, edges, legends, and filtered visible subsets
+      from analysis and UI state.
     lane: domain
     status: planned
     priority: p0
@@ -185,7 +194,8 @@ work_items:
 
   - id: workspace-page
     title: Plan Workspace Page
-    summary: Own processing-state switching and compose the full workspace layout from all surfaces.
+    summary: Own processing-state switching and compose the full workspace layout
+      from all surfaces.
     lane: ui
     status: planned
     priority: p0
@@ -201,7 +211,8 @@ work_items:
 
   - id: graph-canvas
     title: Plan Graph Canvas
-    summary: Render the lane-aware dependency graph with viewport navigation and selection interactions.
+    summary: Render the lane-aware dependency graph with viewport navigation and
+      selection interactions....
     lane: ui
     status: planned
     priority: p0
@@ -224,7 +235,8 @@ work_items:
 
   - id: details-panel
     title: Plan Details Panel
-    summary: Show neutral and selected-item detail states with core fields, relationships, and optional metadata.
+    summary: Show neutral and selected-item detail states with core fields,
+      relationships, and optional metadata.
     lane: ui
     status: planned
     priority: p1
@@ -245,7 +257,8 @@ work_items:
 
   - id: insights-panel
     title: Plan Insights Panel
-    summary: Show topological ordering, longest dependency chain, roots, leaves, metrics, and encoding legends.
+    summary: Show topological ordering, longest dependency chain, roots, leaves,
+      metrics, and encoding legends.
     lane: ui
     status: planned
     priority: p1
@@ -261,9 +274,10 @@ work_items:
 
   - id: control-rail
     title: Plan Toolbar
-    summary: Search, lane/status/priority/tag filters, scope controls, and encoding mode controls.
+    summary: Search, lane/status/priority/tag filters, scope controls, and encoding
+      mode controls.
     lane: ui
-    status: planned
+    status: in_progress
     priority: p1
     estimate:
       value: 1.5

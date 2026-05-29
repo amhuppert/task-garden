@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Panels</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  html,body{margin:0;background:var(--color-background);}
+  .frame{box-sizing:border-box;width:700px;padding:22px;display:grid;grid-template-columns:1fr 1fr;gap:18px;background-image:linear-gradient(to right,var(--color-grid) 1px,transparent 1px),linear-gradient(to bottom,var(--color-grid) 1px,transparent 1px);background-size:32px 32px;}
+  .p{padding:18px 20px;}
+  .lbl{font-family:var(--font-mono);font-size:9px;color:var(--color-muted-foreground);text-transform:uppercase;letter-spacing:.2em;margin-bottom:10px;}
+  h4{font-family:var(--font-display);font-weight:600;font-size:22px;letter-spacing:-.03em;color:var(--color-foreground);line-height:1;margin:0 0 8px;}
+  p{font-size:12px;color:var(--color-muted-foreground);line-height:1.45;}
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="atlas-panel p">
+    <div class="lbl">atlas-panel</div>
+    <h4>Translucent paper</h4>
+    <p>Default translucent surface with bark-tinted shadow. Most tool surfaces use this layer.</p>
+  </div>
+  <div class="atlas-panel-strong p">
+    <div class="lbl">atlas-panel-strong</div>
+    <h4>Primary container</h4>
+    <p>Reserved for the graph canvas and primary details surface. Heavier border, softer float shadow.</p>
+  </div>
+</div>
+</body>
+</html>

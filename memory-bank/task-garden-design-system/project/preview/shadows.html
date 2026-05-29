@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Shadows</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  html,body{margin:0;background:var(--color-background);}
+  .card{box-sizing:border-box;width:700px;padding:30px 28px;background:linear-gradient(180deg,var(--color-panel),var(--color-panel-strong));border:1px solid var(--color-border);border-radius:var(--radius-lg);}
+  h3{font-family:var(--font-display);font-size:18px;font-weight:600;margin:0 0 18px 0;letter-spacing:-.02em;color:var(--color-foreground);}
+  .row{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;}
+  .s{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:16px;height:90px;display:flex;flex-direction:column;justify-content:flex-end;}
+  .name{font-family:var(--font-sans);font-size:12px;font-weight:600;color:var(--color-foreground);}
+  .tok{font-family:var(--font-mono);font-size:10px;color:var(--color-muted-foreground);text-transform:uppercase;letter-spacing:.14em;}
+</style>
+</head>
+<body>
+<div class="card">
+  <h3>Elevation · bark-tinted</h3>
+  <div class="row">
+    <div class="s" style="box-shadow:var(--shadow-specimen);"><div class="name">Specimen</div><div class="tok">--shadow-specimen</div></div>
+    <div class="s" style="box-shadow:var(--shadow-atlas);"><div class="name">Atlas</div><div class="tok">--shadow-atlas</div></div>
+    <div class="s" style="box-shadow:var(--shadow-float);"><div class="name">Float</div><div class="tok">--shadow-float</div></div>
+  </div>
+</div>
+</body>
+</html>

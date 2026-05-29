@@ -97,6 +97,51 @@ export function computeLaneBands(nodes: readonly FlowNode[]): LaneBandData[] {
 }
 
 // ---------------------------------------------------------------------------
+// Ghost lane-add geometry
+// ---------------------------------------------------------------------------
+
+export interface GhostLaneAddRect {
+  laneLabel: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface GhostLaneAddOptions {
+  width?: number;
+  height?: number;
+  gap?: number;
+}
+
+/**
+ * Computes the ghost "+ Add to lane" rectangle for a single lane, positioned
+ * directly beneath the lane's own deepest visible work item — never the
+ * shared/global band bottom — so it cannot overlap the last node in the
+ * deepest lane.
+ */
+export function computeGhostLaneAddRect(
+  laneLabel: string,
+  nodes: readonly FlowNode[],
+  options: GhostLaneAddOptions = {},
+): GhostLaneAddRect | null {
+  const { width = 180, height = 56, gap = 12 } = options;
+  const laneNodes = nodes.filter((n) => n.data.laneLabel === laneLabel);
+  if (laneNodes.length === 0) return null;
+
+  let laneMaxY = Number.NEGATIVE_INFINITY;
+  let centerXSum = 0;
+  for (const node of laneNodes) {
+    if (node.position.y > laneMaxY) laneMaxY = node.position.y;
+    centerXSum += node.position.x + NODE_RENDER_WIDTH / 2;
+  }
+  const centerX = centerXSum / laneNodes.length;
+  const x = centerX - width / 2;
+  const y = laneMaxY + NODE_RENDER_HEIGHT + gap;
+  return { laneLabel, x, y, width, height };
+}
+
+// ---------------------------------------------------------------------------
 // Metric helpers
 // ---------------------------------------------------------------------------
 

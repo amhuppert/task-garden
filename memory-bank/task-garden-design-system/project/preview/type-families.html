@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Type · Families</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  html,body{margin:0;background:var(--color-background);}
+  .card{box-sizing:border-box;width:700px;padding:28px;background:linear-gradient(180deg,var(--color-panel),var(--color-panel-strong));border:1px solid var(--color-border);border-radius:var(--radius-lg);box-shadow:var(--shadow-specimen);display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;}
+  .col{padding:14px 16px;border:1px solid color-mix(in oklab,var(--color-border) 80%,transparent);border-radius:var(--radius-md);background:color-mix(in oklab,var(--color-surface) 70%,transparent);}
+  .label{font-family:var(--font-mono);font-size:.58rem;color:var(--color-muted-foreground);text-transform:uppercase;letter-spacing:.2em;margin-bottom:8px;}
+  .name{font-size:14px;font-weight:600;color:var(--color-foreground);margin-bottom:12px;}
+  .big{color:var(--color-foreground);}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="col">
+    <div class="label">Display</div><div class="name">Cormorant Garamond</div>
+    <div class="big" style="font-family:var(--font-display);font-size:38px;line-height:1;font-weight:600;letter-spacing:-.035em;">Aa Bb</div>
+    <div style="font-family:var(--font-display);font-size:13px;margin-top:8px;color:var(--color-muted-foreground);font-style:italic;">titles · hero · plan</div>
+  </div>
+  <div class="col">
+    <div class="label">Sans · UI</div><div class="name">Hanken Grotesk</div>
+    <div class="big" style="font-family:var(--font-sans);font-size:38px;line-height:1;font-weight:500;">Aa Bb</div>
+    <div style="font-family:var(--font-sans);font-size:13px;margin-top:8px;color:var(--color-muted-foreground);">controls · chips · prose</div>
+  </div>
+  <div class="col">
+    <div class="label">Mono</div><div class="name">IBM Plex Mono</div>
+    <div class="big" style="font-family:var(--font-mono);font-size:34px;line-height:1;font-weight:500;">Aa Bb</div>
+    <div style="font-family:var(--font-mono);font-size:12px;margin-top:10px;color:var(--color-muted-foreground);">ids · metrics · labels</div>
+  </div>
+</div>
+</body>
+</html>

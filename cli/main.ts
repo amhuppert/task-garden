@@ -1,10 +1,12 @@
 import { existsSync, readFileSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { startPlanWatcher } from "./file-watcher";
+import { type AsyncMutex, createMutex } from "./mutex";
 import { createPlanState } from "./plan-state";
+import { planWriter } from "./plan-writer";
 import { startServer } from "./server";
 import { assertSpaBuilt, resolveStaticAssetsRoot } from "./static-assets";
 
@@ -146,10 +148,32 @@ export async function main(
   const watcherStart = deps.startPlanWatcher ?? startPlanWatcher;
   const watcher = watcherStart(planAbsPath, planState);
 
+  const mutexMap = new Map<string, AsyncMutex>();
+  const mutexFor = (key: string): AsyncMutex => {
+    let mutex = mutexMap.get(key);
+    if (!mutex) {
+      mutex = createMutex();
+      mutexMap.set(key, mutex);
+    }
+    return mutex;
+  };
+
   let server: { url: string; stop: () => void };
   try {
     const serverStart = deps.startServer ?? startServer;
-    server = serverStart({ port, planState, planDir, staticAssetsRoot });
+    server = serverStart({
+      port,
+      planState,
+      planDir,
+      planAbsPath,
+      staticAssetsRoot,
+      planWriter,
+      mutexFor,
+      writeFile: (p, data) => writeFile(p, data, "utf8"),
+      readFile: (p) => readFile(p, "utf8"),
+      rename,
+      now: () => Date.now(),
+    });
   } catch (err) {
     await watcher.close();
     const code = (err as { code?: string }).code;

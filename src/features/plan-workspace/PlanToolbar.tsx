@@ -1,9 +1,24 @@
+import {
+  FloatingFocusManager,
+  FloatingPortal,
+  autoUpdate,
+  flip,
+  offset,
+  shift,
+  useClick,
+  useDismiss,
+  useFloating,
+  useInteractions,
+} from "@floating-ui/react";
 import { memo, useEffect, useState } from "react";
 import type {
+  TaskGardenLane,
   TaskGardenPriority,
   TaskGardenStatus,
 } from "../../lib/plan/task-garden-plan.schema";
 import { SectionInfoModal } from "./SectionInfoModal";
+import { LaneInlineEditor } from "./editing/LaneInlineEditor";
+import { PencilGlyph } from "./editing/glyphs";
 import {
   selectColorMode,
   selectScheduleOverlay,
@@ -251,12 +266,79 @@ function ClearFiltersButton() {
   );
 }
 
+interface LaneChipProps {
+  lane: TaskGardenLane;
+  active: boolean;
+  onToggle: () => void;
+  baseRevision: number;
+}
+
+function LaneChip({ lane, active, onToggle, baseRevision }: LaneChipProps) {
+  const [editorOpen, setEditorOpen] = useState(false);
+  const { refs, floatingStyles, context } = useFloating({
+    open: editorOpen,
+    onOpenChange: setEditorOpen,
+    placement: "bottom-start",
+    whileElementsMounted: autoUpdate,
+    middleware: [offset(6), flip(), shift({ padding: 8 })],
+  });
+  const click = useClick(context);
+  const dismiss = useDismiss(context);
+  const { getReferenceProps, getFloatingProps } = useInteractions([
+    click,
+    dismiss,
+  ]);
+
+  return (
+    <span className="group relative inline-flex items-center">
+      <button
+        type="button"
+        onClick={onToggle}
+        className={`atlas-chip hover:border-border-strong${active ? " atlas-chip-active" : ""}`}
+      >
+        {lane.label}
+      </button>
+      <button
+        ref={refs.setReference}
+        type="button"
+        aria-label={`Edit lane ${lane.label}`}
+        data-testid={`lane-edit-${lane.id}`}
+        className="ml-0.5 inline-flex items-center rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100 focus:opacity-100"
+        {...getReferenceProps()}
+      >
+        <PencilGlyph size={10} />
+      </button>
+      {editorOpen && (
+        <FloatingPortal>
+          <FloatingFocusManager context={context} modal={false}>
+            <div
+              ref={refs.setFloating}
+              style={floatingStyles}
+              className="atlas-panel z-50 w-64"
+              aria-label={`Edit lane ${lane.label}`}
+              {...getFloatingProps()}
+            >
+              <LaneInlineEditor
+                laneId={lane.id}
+                committedLane={lane}
+                baseRevision={baseRevision}
+              />
+            </div>
+          </FloatingFocusManager>
+        </FloatingPortal>
+      )}
+    </span>
+  );
+}
+
 interface LaneFilterSectionProps {
-  lanes: readonly { id: string; label: string }[];
+  lanes: readonly TaskGardenLane[];
+  baseRevision: number;
 }
 
 const LaneFilterSection = memo(function LaneFilterSection({
   lanes,
+  baseRevision,
 }: LaneFilterSectionProps) {
   const activeLaneIds = usePlanExplorerStore(selectLaneIds);
   const toggleLaneFilter = usePlanExplorerStore((s) => s.toggleLaneFilter);
@@ -266,14 +348,13 @@ const LaneFilterSection = memo(function LaneFilterSection({
       <span className="atlas-kicker mb-2 block">Lane</span>
       <div className="flex flex-wrap gap-1.5">
         {lanes.map((lane) => (
-          <button
+          <LaneChip
             key={lane.id}
-            type="button"
-            onClick={() => toggleLaneFilter(lane.id)}
-            className={`atlas-chip hover:border-border-strong${activeLaneIds.includes(lane.id) ? " atlas-chip-active" : ""}`}
-          >
-            {lane.label}
-          </button>
+            lane={lane}
+            active={activeLaneIds.includes(lane.id)}
+            onToggle={() => toggleLaneFilter(lane.id)}
+            baseRevision={baseRevision}
+          />
         ))}
       </div>
     </section>
@@ -549,7 +630,7 @@ function SizeEncodingSection() {
 // ---------------------------------------------------------------------------
 
 export interface PlanToolbarAvailableFilters {
-  lanes: readonly { id: string; label: string }[];
+  lanes: readonly TaskGardenLane[];
   statuses: readonly TaskGardenStatus[];
   priorities: readonly TaskGardenPriority[];
   tags: readonly string[];
@@ -563,6 +644,9 @@ export interface PlanToolbarProjectionSummary {
 export interface PlanToolbarProps {
   availableFilters: PlanToolbarAvailableFilters;
   projectionSummary: PlanToolbarProjectionSummary;
+  baseRevision: number;
+  /** Opens the new-item form (toolbar entry point). */
+  onNewItem: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -575,16 +659,29 @@ export interface PlanToolbarProps {
 export function PlanToolbar({
   availableFilters,
   projectionSummary,
+  baseRevision,
+  onNewItem,
 }: PlanToolbarProps) {
   return (
     <div className="flex flex-col gap-5 overflow-y-auto p-4">
+      <button
+        type="button"
+        onClick={onNewItem}
+        data-testid="toolbar-new-item"
+        className="atlas-button-primary w-full text-xs"
+      >
+        + New item <span className="ml-1 font-mono opacity-70">N</span>
+      </button>
       <VisibilitySummarySection
         hiddenNodeCount={projectionSummary.hiddenNodeCount}
         selectedNodeFilteredOut={projectionSummary.selectedNodeFilteredOut}
       />
       <SearchSection />
       <ClearFiltersButton />
-      <LaneFilterSection lanes={availableFilters.lanes} />
+      <LaneFilterSection
+        lanes={availableFilters.lanes}
+        baseRevision={baseRevision}
+      />
       <StatusFilterSection availableStatuses={availableFilters.statuses} />
       <PriorityFilterSection
         availablePriorities={availableFilters.priorities}

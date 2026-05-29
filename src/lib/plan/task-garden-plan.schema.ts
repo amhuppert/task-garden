@@ -16,8 +16,8 @@ export interface ValidationIssue {
 // ---------------------------------------------------------------------------
 
 const DateOnlySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
-const SlugSchema = z.string().regex(/^[a-z0-9][a-z0-9_-]*$/);
-const TagSchema = z.string().regex(/^[a-z0-9][a-z0-9_/-]*$/);
+export const SlugSchema = z.string().regex(/^[a-z0-9][a-z0-9_-]*$/);
+export const TagSchema = z.string().regex(/^[a-z0-9][a-z0-9_/-]*$/);
 
 // A reference target is either an http/https URL or a repo-relative .md path.
 // Repo-relative paths must start with an alphanumeric character (not "/" or ".")

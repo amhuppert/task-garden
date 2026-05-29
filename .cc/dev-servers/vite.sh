@@ -25,4 +25,4 @@ case $? in
 esac
 
 echo "CC_PORT=$PORT"
-exec bunx vite --port "$PORT"
+exec bun run scripts/dev.ts --port "$PORT"

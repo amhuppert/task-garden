@@ -17,8 +17,10 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
 } from "react";
 import type { FlowProjection } from "../../lib/graph/flow-projection-service";
+import type { TaskGardenLane } from "../../lib/plan/task-garden-plan.schema";
 import {
   MetricBubbleNode,
   type MetricBubbleNodeType,
@@ -39,6 +41,7 @@ import {
   GraphScheduleOverlayContext,
 } from "./plan-graph-canvas.context";
 import {
+  computeGhostLaneAddRect,
   computeLaneBands,
   computeMetricRanges,
   createEdgeStyleFactory,
@@ -88,6 +91,39 @@ function LaneBandNode({ data }: NodeProps<LaneBandNodeType>) {
 }
 
 // ---------------------------------------------------------------------------
+// Ghost lane-add node — "+ Add to {lane}" affordance positioned beneath each
+// lane's last work item. Selecting it opens the new-item form prefilled with
+// the lane.
+// ---------------------------------------------------------------------------
+
+interface GhostLaneAddNodeData {
+  laneId: string;
+  laneLabel: string;
+  onAdd: (laneId: string) => void;
+  [key: string]: unknown;
+}
+
+type GhostLaneAddNodeType = Node<GhostLaneAddNodeData, "ghostLaneAdd">;
+
+function GhostLaneAddNode({ data }: NodeProps<GhostLaneAddNodeType>) {
+  return (
+    <button
+      type="button"
+      data-testid={`ghost-lane-add-${data.laneId}`}
+      onClick={(e) => {
+        e.stopPropagation();
+        data.onAdd(data.laneId);
+      }}
+      className="flex h-full w-full items-center justify-center rounded-[var(--radius-md)] border border-dashed border-border bg-surface/40 text-xs font-medium text-muted-foreground transition-colors hover:border-moss hover:bg-surface hover:text-foreground"
+      style={{ minHeight: 56 }}
+      aria-label={`Add work item to ${data.laneLabel}`}
+    >
+      + Add to {data.laneLabel}
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // NodeTypes registry
 // ---------------------------------------------------------------------------
 
@@ -95,6 +131,7 @@ const nodeTypes: NodeTypes = {
   workItem: WorkItemNode as unknown as ComponentType<NodeProps>,
   metricBubble: MetricBubbleNode as unknown as ComponentType<NodeProps>,
   laneBand: LaneBandNode as ComponentType<NodeProps>,
+  ghostLaneAdd: GhostLaneAddNode as ComponentType<NodeProps>,
 };
 
 // ---------------------------------------------------------------------------
@@ -250,6 +287,10 @@ export interface PlanGraphCanvasProps {
   onSelectWorkItem: (id: string) => void;
   /** Called when the graph background is clicked (deselect). */
   onClearSelection: () => void;
+  /** All lanes in the plan — used to render a ghost-add affordance per lane. */
+  lanes: readonly TaskGardenLane[];
+  /** Called when a lane's ghost-add affordance is clicked. */
+  onAddInLane: (laneId: string) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -281,11 +322,13 @@ function ViewportController({
     setCenter(x, y, { duration: 400, zoom: getZoom() });
   }, [selectedWorkItemId, nodes, setCenter, getZoom, skipAutoPanRef]);
 
-  // Zoom-to-fit: when the set of visible node IDs changes (filter changes)
+  // Zoom-to-fit: when the set of visible node IDs changes (filter changes).
+  // Decorative nodes (lane bands, hover-driven ghost-add affordances) are
+  // excluded so transient hover state doesn't trigger a fitView.
   const topologySignature = useMemo(
     () =>
       nodes
-        .filter((n) => n.type !== "laneBand")
+        .filter((n) => n.type !== "laneBand" && n.type !== "ghostLaneAdd")
         .map((n) => n.id)
         .sort()
         .join(","),
@@ -322,8 +365,11 @@ export function PlanGraphCanvas({
   selectedWorkItemId,
   onSelectWorkItem,
   onClearSelection,
+  lanes,
+  onAddInLane,
 }: PlanGraphCanvasProps) {
   const skipAutoPanRef = useRef(false);
+  const canvasRef = useRef<HTMLDivElement>(null);
   const clearFilters = usePlanExplorerStore((s) => s.clearFilters);
   const colorMode = usePlanDisplayStore(selectColorMode);
   const scheduleOverlay = usePlanDisplayStore(selectScheduleOverlay);
@@ -422,9 +468,48 @@ export function PlanGraphCanvas({
     });
   }, [projection.nodes, sizeMode, metricRanges]);
 
+  // Hover state — ghost-add affordances only render for the lane currently
+  // under the pointer, so they remain discoverable without crowding the graph
+  // when lanes are dense.
+  const [hoveredLaneLabel, setHoveredLaneLabel] = useState<string | null>(null);
+
+  // Ghost lane-add node — positioned directly beneath the hovered lane's own
+  // last visible work item (never the shared/global band bottom), so it can't
+  // overlap the deepest lane's last item.
+  const ghostLaneAddNodes = useMemo((): GhostLaneAddNodeType[] => {
+    if (lanes.length === 0 || hoveredLaneLabel === null) return [];
+    const labelToId = new Map(lanes.map((l) => [l.label, l.id] as const));
+    const laneId = labelToId.get(hoveredLaneLabel);
+    if (!laneId) return [];
+    const rect = computeGhostLaneAddRect(hoveredLaneLabel, projection.nodes);
+    if (!rect) return [];
+    return [
+      {
+        id: `ghost-lane-add::${laneId}`,
+        type: "ghostLaneAdd" as const,
+        position: { x: rect.x, y: rect.y },
+        data: {
+          laneId,
+          laneLabel: hoveredLaneLabel,
+          onAdd: onAddInLane,
+        },
+        draggable: false,
+        selectable: false,
+        focusable: false,
+        width: rect.width,
+        height: rect.height,
+        zIndex: 2,
+      },
+    ];
+  }, [lanes, hoveredLaneLabel, projection.nodes, onAddInLane]);
+
   const rfNodes: Node[] = useMemo(
-    () => [...(laneBandNodes as Node[]), ...(workItemNodes as Node[])],
-    [laneBandNodes, workItemNodes],
+    () => [
+      ...(laneBandNodes as Node[]),
+      ...(workItemNodes as Node[]),
+      ...(ghostLaneAddNodes as Node[]),
+    ],
+    [laneBandNodes, workItemNodes, ghostLaneAddNodes],
   );
 
   // Styled edges with botanical tokens + focus/context opacity. Style objects
@@ -456,6 +541,7 @@ export function PlanGraphCanvas({
 
   const onNodeClick = useCallback(
     (_: unknown, node: Node) => {
+      if (node.type === "ghostLaneAdd" || node.type === "laneBand") return;
       skipAutoPanRef.current = true;
       onSelectWorkItem(node.id);
     },
@@ -465,6 +551,19 @@ export function PlanGraphCanvas({
   const onPaneClick = useCallback(() => {
     onClearSelection();
   }, [onClearSelection]);
+
+  // Ghost-add affordance is anchored to the lane itself, not individual tasks.
+  // Hovering a task does not reveal it (would be disruptive and unrelated to
+  // the task under the pointer).
+  const onNodeMouseEnter = useCallback((_: unknown, node: Node) => {
+    if (node.type !== "laneBand") return;
+    const laneLabel = (node.data as { laneLabel?: unknown })?.laneLabel;
+    if (typeof laneLabel === "string") setHoveredLaneLabel(laneLabel);
+  }, []);
+
+  const onCanvasMouseLeave = useCallback(() => {
+    setHoveredLaneLabel(null);
+  }, []);
 
   // Empty state when all items are filtered out
   if (projection.emptyStateMessage) {
@@ -482,12 +581,17 @@ export function PlanGraphCanvas({
     <GraphMetricRangesContext.Provider value={metricRanges}>
       <GraphScheduleOverlayContext.Provider value={{ slackRange }}>
         <GraphDisplayModeContext.Provider value={displayMode}>
-          <div className="relative h-full w-full">
+          <div
+            ref={canvasRef}
+            className="relative h-full w-full"
+            onMouseLeave={onCanvasMouseLeave}
+          >
             <ReactFlow
               nodes={rfNodes}
               edges={rfEdges}
               nodeTypes={nodeTypes}
               onNodeClick={onNodeClick}
+              onNodeMouseEnter={onNodeMouseEnter}
               onPaneClick={onPaneClick}
               nodesDraggable={false}
               nodesConnectable={false}

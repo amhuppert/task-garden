@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Colors · Status</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  html,body{margin:0;background:var(--color-background);}
+  .card{box-sizing:border-box;width:700px;padding:24px 28px;background:linear-gradient(180deg,var(--color-panel),var(--color-panel-strong));border:1px solid var(--color-border);border-radius:var(--radius-lg);box-shadow:var(--shadow-specimen);}
+  .row{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;}
+  .sw{border-radius:var(--radius-md);padding:10px 12px;height:86px;display:flex;flex-direction:column;justify-content:space-between;border:1px solid color-mix(in oklab,var(--color-border) 80%,transparent);background:color-mix(in oklab,var(--color-surface) 85%,transparent);}
+  .dot{width:12px;height:12px;border-radius:50%;}
+  .name{font-family:var(--font-sans);font-size:12px;font-weight:600;color:var(--color-foreground);}
+  .tok{font-family:var(--font-mono);font-size:9px;color:var(--color-muted-foreground);text-transform:uppercase;letter-spacing:.14em;}
+  h3{font-family:var(--font-display);font-size:18px;font-weight:600;margin:0 0 12px 0;color:var(--color-foreground);letter-spacing:-.02em;}
+</style>
+</head>
+<body>
+<div class="card">
+  <h3>Status encoding</h3>
+  <div class="row">
+    <div class="sw"><span class="dot" style="background:var(--color-status-planned);"></span><div><div class="name">Planned</div><div class="tok">planned</div></div></div>
+    <div class="sw"><span class="dot" style="background:var(--color-status-ready);"></span><div><div class="name">Ready</div><div class="tok">ready</div></div></div>
+    <div class="sw"><span class="dot" style="background:var(--color-status-in-progress);"></span><div><div class="name">In Progress</div><div class="tok">in_progress</div></div></div>
+    <div class="sw"><span class="dot" style="background:var(--color-status-blocked);"></span><div><div class="name">Blocked</div><div class="tok">blocked</div></div></div>
+    <div class="sw"><span class="dot" style="background:var(--color-status-done);"></span><div><div class="name">Done</div><div class="tok">done</div></div></div>
+    <div class="sw"><span class="dot" style="background:var(--color-status-future);"></span><div><div class="name">Future</div><div class="tok">future</div></div></div>
+  </div>
+</div>
+</body>
+</html>

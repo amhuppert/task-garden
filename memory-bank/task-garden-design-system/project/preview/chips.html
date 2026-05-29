@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Chips</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  html,body{margin:0;background:var(--color-background);}
+  .card{box-sizing:border-box;width:700px;padding:22px 28px;background:linear-gradient(180deg,var(--color-panel),var(--color-panel-strong));border:1px solid var(--color-border);border-radius:var(--radius-lg);box-shadow:var(--shadow-specimen);}
+  .lbl{font-family:var(--font-mono);font-size:.62rem;color:var(--color-muted-foreground);text-transform:uppercase;letter-spacing:.2em;margin:10px 0 8px 0;}
+  .row{display:flex;flex-wrap:wrap;gap:8px;}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="lbl">Chip · resting</div>
+  <div class="row">
+    <button class="atlas-chip">API</button>
+    <button class="atlas-chip">Domain</button>
+    <button class="atlas-chip">P0</button>
+    <button class="atlas-chip">Ready</button>
+    <button class="atlas-chip">Feature</button>
+  </div>
+  <div class="lbl">Chip · active</div>
+  <div class="row">
+    <button class="atlas-chip atlas-chip-active">Blocked</button>
+    <button class="atlas-chip atlas-chip-active">UI</button>
+    <button class="atlas-chip atlas-chip-active">P0</button>
+  </div>
+  <div class="lbl">Microchip · mono</div>
+  <div class="row">
+    <span class="atlas-microchip">3D · EST</span>
+    <span class="atlas-microchip" style="color:var(--color-pollen);border-color:color-mix(in oklab,var(--color-pollen) 44%, transparent);">CRITICAL</span>
+    <span class="atlas-microchip">B 0.42</span>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Field · search</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  html,body{margin:0;background:var(--color-background);}
+  .card{box-sizing:border-box;width:700px;padding:22px 28px;background:linear-gradient(180deg,var(--color-panel),var(--color-panel-strong));border:1px solid var(--color-border);border-radius:var(--radius-lg);box-shadow:var(--shadow-specimen);display:flex;flex-direction:column;gap:14px;}
+  .lbl{font-family:var(--font-mono);font-size:.62rem;color:var(--color-muted-foreground);text-transform:uppercase;letter-spacing:.2em;margin-bottom:6px;}
+</style>
+</head>
+<body>
+<div class="card">
+  <div>
+    <div class="lbl">Search the plan</div>
+    <input class="atlas-field" placeholder="Search title, tag, lane…" value="auth" />
+  </div>
+  <div>
+    <div class="lbl">Focus state</div>
+    <input class="atlas-field" placeholder="Placeholder…" style="outline:2px solid var(--color-ring);outline-offset:2px;" value="plan-schema" />
+  </div>
+</div>
+</body>
+</html>

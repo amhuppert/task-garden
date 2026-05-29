@@ -1,0 +1,356 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* Typography */
+  --font-display: "Cormorant Garamond", "Iowan Old Style", "Palatino Linotype",
+    "Book Antiqua", serif;
+  --font-sans: "Hanken Grotesk", "Trebuchet MS", sans-serif;
+  --font-mono: "IBM Plex Mono", "SFMono-Regular", monospace;
+
+  /* Core canvas */
+  --color-background: oklch(0.97 0.018 95);
+  --color-foreground: oklch(0.26 0.03 110);
+  --color-surface: oklch(0.982 0.012 98);
+  --color-surface-strong: oklch(0.94 0.018 89);
+  --color-surface-muted: oklch(0.92 0.013 93);
+  --color-panel: oklch(0.985 0.009 98 / 0.84);
+  --color-panel-strong: oklch(0.942 0.016 93 / 0.94);
+
+  /* Structural strokes */
+  --color-border: oklch(0.81 0.028 92);
+  --color-border-strong: oklch(0.7 0.04 95);
+  --color-grid: oklch(0.74 0.022 95 / 0.28);
+  --color-ring: oklch(0.56 0.104 142);
+  --color-ring-offset: oklch(0.97 0.018 95);
+
+  /* Botanical accents */
+  --color-moss: oklch(0.56 0.104 142);
+  --color-moss-deep: oklch(0.43 0.083 146);
+  --color-sage: oklch(0.74 0.058 145);
+  --color-lichen: oklch(0.86 0.05 122);
+  --color-bark: oklch(0.49 0.05 55);
+  --color-iron: oklch(0.47 0.02 240);
+  --color-water: oklch(0.74 0.055 215);
+  --color-petal: oklch(0.7 0.095 28);
+  --color-pollen: oklch(0.82 0.11 88);
+
+  /* Semantic aliases */
+  --color-primary: var(--color-moss);
+  --color-primary-foreground: oklch(0.985 0.01 98);
+  --color-secondary: var(--color-surface-strong);
+  --color-secondary-foreground: var(--color-foreground);
+  --color-muted: var(--color-surface-muted);
+  --color-muted-foreground: oklch(0.49 0.02 95);
+  --color-accent: var(--color-lichen);
+  --color-accent-foreground: oklch(0.28 0.03 120);
+  --color-destructive: var(--color-petal);
+  --color-destructive-foreground: oklch(0.985 0.01 98);
+  --color-card: var(--color-panel);
+  --color-card-foreground: var(--color-foreground);
+
+  /* Graph semantics */
+  --color-node-default: oklch(0.986 0.014 96);
+  --color-node-stroke: oklch(0.75 0.034 96);
+  --color-edge: oklch(0.44 0.024 225 / 0.42);
+  --color-edge-strong: oklch(0.56 0.104 142 / 0.82);
+  --color-lane-fill: oklch(0.95 0.019 97 / 0.7);
+  --color-lane-stroke: oklch(0.79 0.03 95 / 0.5);
+
+  /* Status tokens */
+  --color-status-planned: oklch(0.72 0.045 215);
+  --color-status-ready: oklch(0.69 0.082 155);
+  --color-status-blocked: oklch(0.67 0.11 30);
+  --color-status-in-progress: oklch(0.76 0.087 90);
+  --color-status-done: oklch(0.58 0.114 152);
+  --color-status-future: oklch(0.69 0.018 250);
+
+  /* Radii */
+  --radius-sm: 0.55rem;
+  --radius-md: 0.9rem;
+  --radius-lg: 1.25rem;
+  --radius-xl: 1.7rem;
+  --radius-2xl: 2.4rem;
+
+  /* Shadows */
+  --shadow-atlas: 0 20px 70px
+    color-mix(in oklab, var(--color-bark) 18%, transparent);
+  --shadow-specimen: 0 18px 34px
+    color-mix(in oklab, var(--color-bark) 10%, transparent);
+  --shadow-float: 0 28px 90px
+    color-mix(in oklab, var(--color-moss-deep) 14%, transparent);
+
+  /* Motion */
+  --animate-seed-rise: seed-rise 620ms cubic-bezier(0.18, 0.8, 0.24, 1);
+  --animate-dew-fade: dew-fade 360ms ease-out;
+  --animate-canopy-pulse: canopy-pulse 2.8s ease-in-out infinite;
+  --animate-atlas-drift: atlas-drift 14s linear infinite;
+
+  @keyframes seed-rise {
+    from {
+      opacity: 0;
+      transform: translateY(18px) scale(0.98);
+      filter: blur(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      filter: blur(0);
+    }
+  }
+
+  @keyframes dew-fade {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes canopy-pulse {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0
+        color-mix(in oklab, var(--color-lichen) 0%, transparent);
+    }
+    50% {
+      box-shadow: 0 0 0 8px
+        color-mix(in oklab, var(--color-lichen) 28%, transparent);
+    }
+  }
+
+  @keyframes atlas-drift {
+    from {
+      background-position: 0 0, 0 0, 0 0;
+    }
+    to {
+      background-position: 120px 70px, -80px 50px, 0 0;
+    }
+  }
+}
+
+.dark {
+  --color-background: oklch(0.21 0.02 120);
+  --color-foreground: oklch(0.92 0.016 94);
+  --color-surface: oklch(0.25 0.018 130);
+  --color-surface-strong: oklch(0.29 0.018 130);
+  --color-surface-muted: oklch(0.3 0.015 130);
+  --color-panel: oklch(0.24 0.018 130 / 0.82);
+  --color-panel-strong: oklch(0.28 0.018 130 / 0.92);
+
+  --color-border: oklch(0.39 0.028 128);
+  --color-border-strong: oklch(0.52 0.05 132);
+  --color-grid: oklch(0.64 0.032 132 / 0.18);
+  --color-ring: oklch(0.73 0.088 145);
+  --color-ring-offset: oklch(0.21 0.02 120);
+
+  --color-moss: oklch(0.73 0.088 145);
+  --color-moss-deep: oklch(0.59 0.075 148);
+  --color-sage: oklch(0.64 0.052 145);
+  --color-lichen: oklch(0.74 0.046 118);
+  --color-bark: oklch(0.64 0.03 55);
+  --color-iron: oklch(0.74 0.016 245);
+  --color-water: oklch(0.71 0.05 225);
+  --color-petal: oklch(0.69 0.1 30);
+  --color-pollen: oklch(0.79 0.088 90);
+
+  --color-primary: var(--color-lichen);
+  --color-primary-foreground: oklch(0.18 0.012 120);
+  --color-secondary: var(--color-surface-strong);
+  --color-secondary-foreground: var(--color-foreground);
+  --color-muted: var(--color-surface-muted);
+  --color-muted-foreground: oklch(0.76 0.014 108);
+  --color-accent: color-mix(
+    in oklab,
+    var(--color-lichen) 26%,
+    var(--color-surface)
+  );
+  --color-accent-foreground: var(--color-foreground);
+  --color-card: var(--color-panel);
+  --color-card-foreground: var(--color-foreground);
+
+  --color-node-default: oklch(0.27 0.018 130);
+  --color-node-stroke: oklch(0.45 0.034 132);
+  --color-edge: oklch(0.82 0.012 220 / 0.24);
+  --color-edge-strong: oklch(0.74 0.046 118 / 0.86);
+  --color-lane-fill: oklch(0.27 0.018 132 / 0.56);
+  --color-lane-stroke: oklch(0.5 0.03 136 / 0.42);
+
+  --shadow-atlas: 0 24px 90px color-mix(in oklab, black 34%, transparent);
+  --shadow-specimen: 0 18px 44px color-mix(in oklab, black 28%, transparent);
+  --shadow-float: 0 30px 120px color-mix(in oklab, black 42%, transparent);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
+    background-image: radial-gradient(
+        circle at 20% 12%,
+        color-mix(in oklab, var(--color-lichen) 28%, transparent) 0,
+        transparent 26%
+      ),
+      radial-gradient(
+        circle at 85% 10%,
+        color-mix(in oklab, var(--color-water) 16%, transparent) 0,
+        transparent 22%
+      ),
+      linear-gradient(
+        to bottom,
+        color-mix(in oklab, var(--color-surface) 85%, transparent),
+        color-mix(in oklab, var(--color-background) 100%, transparent)
+      );
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.035em;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-moss) 25%, transparent);
+  }
+}
+
+@utility atlas-page {
+  @apply min-h-screen bg-background text-foreground;
+  background-image: linear-gradient(
+      to right,
+      var(--color-grid) 1px,
+      transparent 1px
+    ), linear-gradient(to bottom, var(--color-grid) 1px, transparent 1px),
+    radial-gradient(
+      circle at 24% 16%,
+      color-mix(in oklab, var(--color-lichen) 24%, transparent),
+      transparent 24%
+    );
+  background-size: 32px 32px, 32px 32px, 100% 100%;
+  animation: var(--animate-atlas-drift);
+}
+
+@utility atlas-panel {
+  @apply rounded-[var(--radius-xl)] border border-border bg-card text-card-foreground;
+  box-shadow: var(--shadow-atlas);
+  backdrop-filter: blur(18px);
+}
+
+@utility atlas-panel-strong {
+  @apply rounded-[var(--radius-2xl)] border border-border-strong;
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--color-panel) 100%, transparent),
+    color-mix(in oklab, var(--color-panel-strong) 100%, transparent)
+  );
+  box-shadow: var(--shadow-float);
+}
+
+@utility atlas-field {
+  @apply h-11 w-full rounded-[var(--radius-md)] border border-border bg-surface px-4 text-sm text-foreground placeholder:text-muted-foreground;
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 44%, transparent);
+}
+
+@utility atlas-field-focus {
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
+  --tw-ring-offset-color: var(--color-ring-offset);
+}
+
+@utility atlas-chip {
+  @apply inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[0.72rem] font-semibold uppercase tracking-[0.18em];
+  border-color: color-mix(in oklab, var(--color-border-strong) 55%, transparent);
+  background: color-mix(in oklab, var(--color-surface) 72%, transparent);
+  color: var(--color-muted-foreground);
+}
+
+@utility atlas-chip-active {
+  color: var(--color-primary-foreground);
+  border-color: color-mix(in oklab, var(--color-moss) 46%, transparent);
+  background: linear-gradient(
+    135deg,
+    color-mix(in oklab, var(--color-moss) 76%, transparent),
+    color-mix(in oklab, var(--color-moss-deep) 74%, transparent)
+  );
+}
+
+@utility atlas-button {
+  @apply inline-flex items-center justify-center gap-2 rounded-[var(--radius-md)] px-4 py-2.5 text-sm font-semibold transition duration-200;
+}
+
+@utility atlas-button-primary {
+  @apply atlas-button text-primary-foreground;
+  background: linear-gradient(
+    135deg,
+    var(--color-moss),
+    color-mix(in oklab, var(--color-moss-deep) 82%, var(--color-bark))
+  );
+  box-shadow: var(--shadow-specimen);
+}
+
+@utility atlas-button-secondary {
+  @apply atlas-button border border-border bg-surface text-foreground;
+}
+
+@utility atlas-node {
+  @apply relative rounded-[1.4rem] border px-4 py-3 text-left;
+  border-color: color-mix(in oklab, var(--color-node-stroke) 72%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--color-node-default) 100%, transparent),
+    color-mix(in oklab, var(--color-surface) 88%, transparent)
+  );
+  box-shadow: var(--shadow-specimen);
+}
+
+@utility atlas-node-selected {
+  border-color: color-mix(in oklab, var(--color-moss) 68%, transparent);
+  box-shadow: var(--shadow-specimen), 0 0 0 4px
+    color-mix(in oklab, var(--color-lichen) 26%, transparent);
+}
+
+@utility atlas-kicker {
+  @apply text-[0.68rem] font-bold uppercase tracking-[0.22em];
+  color: var(--color-muted-foreground);
+}
+
+@utility atlas-title {
+  font-family: var(--font-display);
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+}
+
+@utility atlas-noise {
+  position: relative;
+}
+
+@utility atlas-noise::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.06;
+  mix-blend-mode: multiply;
+  background-image: radial-gradient(
+      circle at 20% 30%,
+      currentColor 0.7px,
+      transparent 0.9px
+    ), radial-gradient(circle at 80% 60%, currentColor 0.7px, transparent 1px);
+  background-size: 14px 14px, 17px 17px;
+}

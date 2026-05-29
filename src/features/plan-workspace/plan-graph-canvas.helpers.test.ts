@@ -4,6 +4,7 @@ import {
   LANE_BAND_PADDING,
   NODE_RENDER_HEIGHT,
   NODE_RENDER_WIDTH,
+  computeGhostLaneAddRect,
   computeLaneBands,
   computeMetricRanges,
   createEdgeStyleFactory,
@@ -332,5 +333,52 @@ describe("createEdgeStyleFactory", () => {
       isOnCriticalPath: false,
     });
     expect(ctx.style.opacity).toBe(0.38);
+  });
+});
+
+describe("computeGhostLaneAddRect", () => {
+  it("returns null when no nodes exist in the lane", () => {
+    const nodes = [makeNode("a", "Frontend", 40, 0)];
+    expect(computeGhostLaneAddRect("Backend", nodes)).toBeNull();
+  });
+
+  it("positions the ghost directly beneath the lane's own deepest node (not the global max)", () => {
+    // Frontend has a shallow last node; Backend is deeper. The ghost for
+    // Frontend must sit just below Frontend's last node, not Backend's.
+    const nodes = [
+      makeNode("a", "Frontend", 40, 0),
+      makeNode("b", "Frontend", 40, 140),
+      makeNode("c", "Backend", 320, 0),
+      makeNode("d", "Backend", 320, 280),
+      makeNode("e", "Backend", 320, 560),
+    ];
+    const front = computeGhostLaneAddRect("Frontend", nodes);
+    expect(front).not.toBeNull();
+    // Frontend's deepest node is at y=140; ghost y = 140 + NODE_RENDER_HEIGHT + gap(12)
+    expect(front?.y).toBe(140 + NODE_RENDER_HEIGHT + 12);
+
+    const back = computeGhostLaneAddRect("Backend", nodes);
+    expect(back?.y).toBe(560 + NODE_RENDER_HEIGHT + 12);
+  });
+
+  it("centers the ghost on the lane's column", () => {
+    const nodes = [
+      makeNode("a", "Frontend", 100, 0),
+      makeNode("b", "Frontend", 100, 140),
+    ];
+    const ghost = computeGhostLaneAddRect("Frontend", nodes);
+    // Lane center = 100 + NODE_RENDER_WIDTH/2; ghost x = center - width/2
+    expect(ghost?.x).toBe(100 + NODE_RENDER_WIDTH / 2 - 180 / 2);
+  });
+
+  it("does not overlap the deepest lane's last work item", () => {
+    const nodes = [
+      makeNode("deep", "Deep", 0, 600),
+      makeNode("shallow", "Shallow", 300, 0),
+    ];
+    const deep = computeGhostLaneAddRect("Deep", nodes);
+    // The deepest node sits at y=600 with NODE_RENDER_HEIGHT, so its bottom
+    // is at 600 + NODE_RENDER_HEIGHT. The ghost must be at-or-below that.
+    expect(deep?.y).toBeGreaterThanOrEqual(600 + NODE_RENDER_HEIGHT);
   });
 });

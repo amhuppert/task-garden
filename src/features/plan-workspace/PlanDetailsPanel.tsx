@@ -1,10 +1,25 @@
+import type { PlanPatch } from "../../../cli/shared/patch-schema";
 import type { PlanAnalysisSnapshot } from "../../lib/graph/plan-analysis-engine";
+import type {
+  EditApiResult,
+  PatchPlanOptions,
+} from "../../lib/plan/edit-api-client";
 import { classifyReference } from "../../lib/plan/reference-resolver";
 import { ResourceLink } from "./ResourceLink";
+import { DependencyEditorCell } from "./editing/DependencyEditorCell";
+import { EditableTitleCell } from "./editing/EditableTitleCell";
+import { EstimateStepperCell } from "./editing/EstimateStepperCell";
+import { LanePickerCell } from "./editing/LanePickerCell";
+import { LinksEditorCell } from "./editing/LinksEditorCell";
+import { NotesEditorCell } from "./editing/NotesEditorCell";
+import { PriorityPickerCell } from "./editing/PriorityPickerCell";
+import { StatusPickerCell } from "./editing/StatusPickerCell";
+import { StringListEditorCell } from "./editing/StringListEditorCell";
+import { SummaryEditorCell } from "./editing/SummaryEditorCell";
+import { TagEditorCell } from "./editing/TagEditorCell";
 import {
   formatCompactDayCount,
   formatDayCount,
-  formatEstimate,
   getPriorityLabel,
   getStatusLabel,
 } from "./plan-details-panel.helpers";
@@ -23,6 +38,11 @@ export interface PlanDetailsPanelProps {
   snapshot: PlanAnalysisSnapshot;
   /** Explorer store state — used to derive the selected work item. */
   explorer: PlanExplorerStateValue;
+  /**
+   * Revision of the snapshot being rendered. Forwarded to editable cells so
+   * dispatched patches carry an accurate baseRevision for optimistic-concurrency.
+   */
+  baseRevision: number;
   /** Reference classifier — inject for testability, defaults to classifyReference. */
   classify?: typeof classifyReference;
   /**
@@ -34,6 +54,11 @@ export interface PlanDetailsPanelProps {
   onSelectWorkItem?: (id: string) => void;
   /** Called when a document_path reference is activated. */
   onDocumentPreview?: (documentPath: string) => void;
+  /**
+   * Opens the new-item form prefilled with depends_on = [selected work item id],
+   * so the new item is created as a dependent of the current one.
+   */
+  onBranchNewDependent?: () => void;
   /** Whether the back button should be enabled. */
   canGoBack?: boolean;
   /** Whether the forward button should be enabled. */
@@ -42,6 +67,15 @@ export interface PlanDetailsPanelProps {
   onGoBack?: () => void;
   /** Navigate to the next work item in history. */
   onGoForward?: () => void;
+  /**
+   * Override the PATCH transport used by all editable cells. Used in tests to
+   * inject a mock and assert behavioural integration of the panel + cells.
+   * In production this is omitted and each cell falls back to the default client.
+   */
+  patchPlan?: (
+    patch: PlanPatch,
+    opts: PatchPlanOptions,
+  ) => Promise<EditApiResult>;
 }
 
 // ---------------------------------------------------------------------------
@@ -167,14 +201,17 @@ function Section({
 export function PlanDetailsPanel({
   snapshot,
   explorer,
+  baseRevision,
   classify = classifyReference,
   selectedNodeFilteredOut,
   onSelectWorkItem,
   onDocumentPreview,
+  onBranchNewDependent,
   canGoBack = false,
   canGoForward = false,
   onGoBack,
   onGoForward,
+  patchPlan,
 }: PlanDetailsPanelProps) {
   const { selectedWorkItemId } = explorer;
 
@@ -190,10 +227,7 @@ export function PlanDetailsPanel({
     return <NeutralState />;
   }
 
-  const lane = snapshot.plan.lanes.find((l) => l.id === item.lane);
-
-  const statusColor = getStatusAccentColor(item.status);
-  const priorityColor = getPriorityAccentColor(item.priority);
+  const allWorkItems = Object.values(snapshot.workItems);
   const hasScheduleEstimate = analysis.schedule.estimateDays !== null;
 
   return (
@@ -264,87 +298,71 @@ export function PlanDetailsPanel({
             </button>
           </nav>
         </div>
-        <h2 className="atlas-title text-xl leading-tight text-foreground">
-          {item.title}
-        </h2>
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          {item.summary}
-        </p>
+        <EditableTitleCell
+          workItemId={item.id}
+          committedValue={item.title}
+          baseRevision={baseRevision}
+          patchPlan={patchPlan}
+        />
+        <SummaryEditorCell
+          workItemId={item.id}
+          committedValue={item.summary}
+          baseRevision={baseRevision}
+          patchPlan={patchPlan}
+        />
       </div>
 
       {/* ------------------------------------------------------------------ */}
-      {/* Metadata chips: lane, status, priority                              */}
+      {/* Editable metadata: lane, status, priority                           */}
       {/* ------------------------------------------------------------------ */}
-      <div className="flex flex-wrap gap-2">
-        {/* Lane */}
-        {lane && (
-          <span
-            className="atlas-chip"
-            style={
-              lane.color
-                ? { borderColor: lane.color, color: lane.color }
-                : undefined
-            }
-          >
-            {lane.label}
-          </span>
-        )}
-
-        {/* Status */}
-        <span
-          className="atlas-chip"
-          style={{
-            borderColor: `color-mix(in oklab, ${statusColor} 46%, transparent)`,
-            color: statusColor,
-          }}
-        >
-          {getStatusLabel(item.status)}
-        </span>
-
-        {/* Priority */}
-        <span
-          className="atlas-chip"
-          style={{
-            borderColor: `color-mix(in oklab, ${priorityColor} 46%, transparent)`,
-            color: priorityColor,
-          }}
-        >
-          {getPriorityLabel(item.priority)}
-        </span>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <LanePickerCell
+          workItemId={item.id}
+          committedValue={item.lane}
+          baseRevision={baseRevision}
+          lanes={snapshot.plan.lanes}
+          patchPlan={patchPlan}
+        />
+        <StatusPickerCell
+          workItemId={item.id}
+          committedValue={item.status}
+          baseRevision={baseRevision}
+          patchPlan={patchPlan}
+        />
+        <PriorityPickerCell
+          workItemId={item.id}
+          committedValue={item.priority}
+          baseRevision={baseRevision}
+          patchPlan={patchPlan}
+        />
       </div>
 
       {/* ------------------------------------------------------------------ */}
-      {/* Tags                                                                */}
+      {/* Tags (editable)                                                     */}
       {/* ------------------------------------------------------------------ */}
-      {item.tags.length > 0 && (
-        <Section label="Tags">
-          <div className="flex flex-wrap gap-1.5">
-            {item.tags.map((tag) => (
-              <span key={tag} className="atlas-chip">
-                {tag}
-              </span>
-            ))}
-          </div>
-        </Section>
-      )}
+      <TagEditorCell
+        workItemId={item.id}
+        committedValue={item.tags}
+        baseRevision={baseRevision}
+        patchPlan={patchPlan}
+      />
 
       {/* ------------------------------------------------------------------ */}
-      {/* Schedule                                                            */}
+      {/* Estimate (editable)                                                 */}
       {/* ------------------------------------------------------------------ */}
-      {(item.estimate || hasScheduleEstimate) && (
+      <EstimateStepperCell
+        workItemId={item.id}
+        committedValue={item.estimate ?? null}
+        baseRevision={baseRevision}
+        patchPlan={patchPlan}
+      />
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Schedule (computed)                                                 */}
+      {/* ------------------------------------------------------------------ */}
+      {hasScheduleEstimate && (
         <Section label="Schedule">
           <div className="atlas-metric-grid">
-            {item.estimate && (
-              <div className="atlas-stat-card">
-                <span className="atlas-kicker text-[0.58rem]">
-                  Authored Estimate
-                </span>
-                <span className="mt-1 block font-mono text-base text-foreground">
-                  {formatEstimate(item.estimate)}
-                </span>
-              </div>
-            )}
-
             {hasScheduleEstimate && (
               <>
                 <div className="atlas-stat-card">
@@ -415,10 +433,19 @@ export function PlanDetailsPanel({
       )}
 
       {/* ------------------------------------------------------------------ */}
-      {/* Dependencies                                                        */}
+      {/* Dependencies (editable upstream links + navigable refs)             */}
       {/* ------------------------------------------------------------------ */}
+      <DependencyEditorCell
+        workItemId={item.id}
+        committedValue={item.depends_on}
+        baseRevision={baseRevision}
+        mode="upstream"
+        allWorkItems={allWorkItems}
+        snapshot={snapshot}
+        patchPlan={patchPlan}
+      />
       {analysis.dependencyIds.length > 0 && (
-        <Section label={`Dependencies (${analysis.dependencyIds.length})`}>
+        <Section label={`Open dependency (${analysis.dependencyIds.length})`}>
           <ul className="flex flex-col gap-1.5">
             {analysis.dependencyIds.map((depId) => {
               const dep = snapshot.workItems[depId];
@@ -440,10 +467,20 @@ export function PlanDetailsPanel({
       )}
 
       {/* ------------------------------------------------------------------ */}
-      {/* Dependents                                                          */}
+      {/* Dependents (derived list + branch-new-dependent affordance)         */}
       {/* ------------------------------------------------------------------ */}
+      <DependencyEditorCell
+        workItemId={item.id}
+        committedValue={analysis.dependentIds}
+        baseRevision={baseRevision}
+        mode="dependents"
+        allWorkItems={allWorkItems}
+        snapshot={snapshot}
+        patchPlan={patchPlan}
+        onBranchNewDependent={onBranchNewDependent}
+      />
       {analysis.dependentIds.length > 0 && (
-        <Section label={`Dependents (${analysis.dependentIds.length})`}>
+        <Section label={`Open dependent (${analysis.dependentIds.length})`}>
           <ul className="flex flex-col gap-1.5">
             {analysis.dependentIds.map((depId) => {
               const dep = snapshot.workItems[depId];
@@ -465,69 +502,52 @@ export function PlanDetailsPanel({
       )}
 
       {/* ------------------------------------------------------------------ */}
-      {/* Deliverables                                                        */}
+      {/* Deliverables (editable)                                             */}
       {/* ------------------------------------------------------------------ */}
-      {item.deliverables.length > 0 && (
-        <Section label="Deliverables">
-          <ul className="flex flex-col gap-1 pl-1">
-            {item.deliverables.map((d) => (
-              <li
-                key={d}
-                className="flex items-start gap-2 text-sm text-foreground"
-              >
-                <span
-                  className="mt-0.5 shrink-0 text-muted-foreground"
-                  aria-hidden="true"
-                >
-                  ·
-                </span>
-                {d}
-              </li>
-            ))}
-          </ul>
-        </Section>
-      )}
+      <StringListEditorCell
+        workItemId={item.id}
+        committedValue={item.deliverables}
+        baseRevision={baseRevision}
+        field="deliverables"
+        patchPlan={patchPlan}
+      />
 
       {/* ------------------------------------------------------------------ */}
-      {/* Reuse Candidates                                                    */}
+      {/* Reuse Candidates (editable)                                         */}
       {/* ------------------------------------------------------------------ */}
-      {item.reuse_candidates.length > 0 && (
-        <Section label="Reuse Candidates">
-          <ul className="flex flex-col gap-1 pl-1">
-            {item.reuse_candidates.map((rc) => (
-              <li
-                key={rc}
-                className="flex items-start gap-2 text-sm text-foreground"
-              >
-                <span
-                  className="mt-0.5 shrink-0 text-muted-foreground"
-                  aria-hidden="true"
-                >
-                  ↺
-                </span>
-                {rc}
-              </li>
-            ))}
-          </ul>
-        </Section>
-      )}
+      <StringListEditorCell
+        workItemId={item.id}
+        committedValue={item.reuse_candidates}
+        baseRevision={baseRevision}
+        field="reuse_candidates"
+        patchPlan={patchPlan}
+      />
 
       {/* ------------------------------------------------------------------ */}
-      {/* Notes                                                               */}
+      {/* Notes (editable)                                                    */}
       {/* ------------------------------------------------------------------ */}
-      {item.notes && (
-        <Section label="Notes">
-          <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap">
-            {item.notes}
-          </p>
-        </Section>
-      )}
+      <NotesEditorCell
+        workItemId={item.id}
+        committedValue={item.notes ?? null}
+        baseRevision={baseRevision}
+        patchPlan={patchPlan}
+      />
 
       {/* ------------------------------------------------------------------ */}
-      {/* Links (resolved)                                                    */}
+      {/* Links (editable)                                                    */}
+      {/* ------------------------------------------------------------------ */}
+      <LinksEditorCell
+        workItemId={item.id}
+        committedValue={item.links}
+        baseRevision={baseRevision}
+        patchPlan={patchPlan}
+      />
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Links (resolved navigation preview)                                 */}
       {/* ------------------------------------------------------------------ */}
       {item.links.length > 0 && (
-        <Section label="Links">
+        <Section label="Open link">
           <div className="flex flex-wrap gap-2">
             {item.links.map((link) => {
               const result = classify(link.href, link.label);

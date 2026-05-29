@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Lane band</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+html,body{margin:0;background:var(--color-background);}
+.card{box-sizing:border-box;width:700px;padding:18px 20px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-lg);box-shadow:var(--shadow-specimen);background-image:linear-gradient(to right,var(--color-grid) 1px,transparent 1px),linear-gradient(to bottom,var(--color-grid) 1px,transparent 1px);background-size:32px 32px,32px 32px;}
+.lanes{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+.lane{padding:14px 12px 16px;border:1px dashed color-mix(in oklab,var(--color-lane-stroke) 90%,transparent);border-radius:var(--radius-md);background:var(--color-lane-fill);min-height:160px;position:relative;}
+.label{font-family:var(--font-display);font-size:18px;font-weight:600;letter-spacing:-.02em;color:var(--color-foreground);}
+.k{font-family:var(--font-mono);font-size:9px;color:var(--color-muted-foreground);text-transform:uppercase;letter-spacing:.2em;margin-bottom:4px;}
+.minin{margin-top:10px;display:flex;flex-direction:column;gap:8px;}
+.card-in{padding:8px 10px;background:var(--color-node-default);border:1px solid color-mix(in oklab,var(--color-node-stroke) 70%,transparent);border-radius:12px;font-family:var(--font-sans);font-size:11px;font-weight:600;color:var(--color-foreground);box-shadow:var(--shadow-specimen);}
+.sub{font-family:var(--font-mono);font-size:8px;color:var(--color-muted-foreground);text-transform:uppercase;letter-spacing:.16em;font-weight:500;}
+</style>
+</head>
+<body>
+<div class="card">
+<div class="lanes">
+  <div class="lane">
+    <div class="k">Lane</div><div class="label">Input</div>
+    <div class="minin">
+      <div class="card-in"><div class="sub">runtime</div>Plan Runtime Config</div>
+      <div class="card-in"><div class="sub">registry</div>Plan Registry</div>
+    </div>
+  </div>
+  <div class="lane" style="background:color-mix(in oklab,var(--color-lichen) 24%,var(--color-lane-fill));">
+    <div class="k">Lane</div><div class="label">Domain</div>
+    <div class="minin">
+      <div class="card-in"><div class="sub">schema</div>Plan Schema Validation</div>
+      <div class="card-in"><div class="sub">graph</div>Analysis Engine</div>
+    </div>
+  </div>
+  <div class="lane" style="background:color-mix(in oklab,var(--color-water) 18%,var(--color-lane-fill));">
+    <div class="k">Lane</div><div class="label">UI</div>
+    <div class="minin">
+      <div class="card-in"><div class="sub">canvas</div>Plan Graph Canvas</div>
+      <div class="card-in"><div class="sub">panel</div>Details Panel</div>
+    </div>
+  </div>
+</div>
+</div>
+</body>
+</html>

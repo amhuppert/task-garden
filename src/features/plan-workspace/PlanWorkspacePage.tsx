@@ -37,6 +37,14 @@ import type {
 } from "./PlanToolbar";
 import { PlanValidationState } from "./PlanValidationState";
 import { DocumentPreviewModal } from "./document-preview/DocumentPreviewModal";
+import { NewItemForm } from "./editing/NewItemForm";
+import { PlanOverviewEditor } from "./editing/PlanOverviewEditor";
+import { ValidationToast } from "./editing/ValidationToast";
+import { WriteThroughStatusFooter } from "./editing/WriteThroughStatusFooter";
+import {
+  type NewItemFormPrefill,
+  useEditingHotkeys,
+} from "./editing/editing-keyboard";
 import {
   selectCanGoBack,
   selectCanGoForward,
@@ -67,12 +75,17 @@ import {
 // Info popover button
 // ---------------------------------------------------------------------------
 
+interface InfoPopoverButtonProps extends PlanOverviewHeaderProps {
+  baseRevision: number;
+}
+
 function InfoPopoverButton({
   plan,
   estimateSummary,
   classify,
   onDocumentPreview,
-}: PlanOverviewHeaderProps) {
+  baseRevision,
+}: InfoPopoverButtonProps) {
   const [open, setOpen] = useState(false);
 
   const { refs, floatingStyles, context } = useFloating({
@@ -136,12 +149,14 @@ function InfoPopoverButton({
             className="atlas-panel z-50 max-w-[360px] overflow-y-auto"
             {...getFloatingProps()}
           >
-            <div className="p-4">
+            <div className="flex flex-col gap-4 p-4">
+              <PlanOverviewEditor plan={plan} baseRevision={baseRevision} />
               <PlanOverviewHeader
                 plan={plan}
                 estimateSummary={estimateSummary}
                 classify={classify}
                 onDocumentPreview={onDocumentPreview}
+                hideEditableSections
               />
             </div>
           </div>
@@ -188,6 +203,17 @@ export function PlanWorkspacePage({
   const [rightTab, setRightTab] = useState<"details" | "insights">("details");
   const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(false);
+  const [newItemFormState, setNewItemFormState] = useState<{
+    open: boolean;
+    prefill?: NewItemFormPrefill;
+  }>({ open: false });
+
+  const openNewItemForm = useCallback((prefill?: NewItemFormPrefill) => {
+    setNewItemFormState({ open: true, prefill });
+  }, []);
+  const closeNewItemForm = useCallback(() => {
+    setNewItemFormState({ open: false });
+  }, []);
 
   // ── Explorer store subscriptions ──────────────────────────────────────────
   const selectedWorkItemId = usePlanExplorerStore(selectSelectedWorkItemId);
@@ -280,7 +306,7 @@ export function PlanWorkspacePage({
     }
     const items = Object.values(snapshot.workItems);
     return {
-      lanes: snapshot.plan.lanes.map((l) => ({ id: l.id, label: l.label })),
+      lanes: snapshot.plan.lanes,
       statuses: [...new Set(items.map((i) => i.status))] as TaskGardenStatus[],
       priorities: [
         ...new Set(items.map((i) => i.priority)),
@@ -339,6 +365,28 @@ export function PlanWorkspacePage({
     { enabled: canGoForward, preventDefault: true },
     [handleGoForward, canGoForward],
   );
+
+  const activeLaneScope = laneIds.length === 1 ? laneIds[0] : null;
+  const firstLaneId = snapshot?.plan.lanes[0]?.id ?? null;
+  const openDetailsAndFocusTitle = useCallback(() => {
+    setRightTab("details");
+    setRightOpen(true);
+    // Defer focus until the details panel paints the editable title.
+    requestAnimationFrame(() => {
+      const el = document.querySelector<HTMLElement>(
+        '[data-testid="editable-title"]',
+      );
+      el?.focus();
+    });
+  }, []);
+
+  useEditingHotkeys({
+    openNewItemForm,
+    selectedWorkItemId,
+    activeLaneScope,
+    firstLaneId,
+    openDetailsAndFocusTitle,
+  });
 
   const handleSetInsightMode = useCallback(
     (mode: InsightMode) => {
@@ -416,6 +464,7 @@ export function PlanWorkspacePage({
               plan={readySnapshot.plan}
               estimateSummary={readySnapshot.estimateSummary}
               onDocumentPreview={handleDocumentPreview}
+              baseRevision={processingState.input.revision}
             />
           </div>
 
@@ -424,6 +473,11 @@ export function PlanWorkspacePage({
             <PlanToolbar
               availableFilters={availableFilters}
               projectionSummary={projectionSummary}
+              baseRevision={processingState.input.revision}
+              onNewItem={() => {
+                const lane = activeLaneScope ?? firstLaneId ?? undefined;
+                openNewItemForm(lane ? { lane } : undefined);
+              }}
             />
           </div>
         </aside>
@@ -479,6 +533,8 @@ export function PlanWorkspacePage({
                   selectedWorkItemId={selectedWorkItemId}
                   onSelectWorkItem={handleSelectWorkItem}
                   onClearSelection={handleClearSelection}
+                  lanes={readySnapshot.plan.lanes}
+                  onAddInLane={(laneId) => openNewItemForm({ lane: laneId })}
                 />
               </div>
             </main>
@@ -533,11 +589,18 @@ export function PlanWorkspacePage({
                   <PlanDetailsPanel
                     snapshot={readySnapshot}
                     explorer={explorerState}
+                    baseRevision={processingState.input.revision}
                     selectedNodeFilteredOut={
                       readyProjection.summary.selectedNodeFilteredOut
                     }
                     onSelectWorkItem={handleSelectWorkItem}
                     onDocumentPreview={handleDocumentPreview}
+                    onBranchNewDependent={
+                      selectedWorkItemId
+                        ? () =>
+                            openNewItemForm({ dependsOn: [selectedWorkItemId] })
+                        : undefined
+                    }
                     canGoBack={canGoBack}
                     canGoForward={canGoForward}
                     onGoBack={handleGoBack}
@@ -554,10 +617,27 @@ export function PlanWorkspacePage({
                   />
                 )}
               </div>
+
+              {/* Write-through footer — always mounted so phase transitions are visible */}
+              <div className="shrink-0 border-t border-border bg-panel">
+                <WriteThroughStatusFooter />
+              </div>
             </aside>
           </div>
         </div>
       </div>
+
+      {/* Page-level validation toast (rendered via FloatingPortal internally) */}
+      <ValidationToast />
+
+      {/* New work item form — opened via toolbar, ghost-node, or N/⇧N hotkeys */}
+      <NewItemForm
+        open={newItemFormState.open}
+        onClose={closeNewItemForm}
+        prefill={newItemFormState.prefill}
+        lanes={readySnapshot.plan.lanes}
+        baseRevision={processingState.input.revision}
+      />
     </>
   );
 }

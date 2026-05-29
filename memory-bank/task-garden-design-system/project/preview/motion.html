@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Motion</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+html,body{margin:0;background:var(--color-background);}
+.card{box-sizing:border-box;width:700px;padding:22px 28px;background:linear-gradient(180deg,var(--color-panel),var(--color-panel-strong));border:1px solid var(--color-border);border-radius:var(--radius-lg);box-shadow:var(--shadow-specimen);}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:8px;}
+.b{padding:14px 16px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-md);}
+.name{font-family:var(--font-sans);font-weight:600;font-size:13px;color:var(--color-foreground);}
+.tok{font-family:var(--font-mono);font-size:10px;color:var(--color-muted-foreground);text-transform:uppercase;letter-spacing:.16em;margin-top:4px;}
+.desc{font-family:var(--font-sans);font-size:11px;color:var(--color-muted-foreground);margin-top:8px;line-height:1.45;}
+h3{font-family:var(--font-display);font-size:18px;font-weight:600;margin:0 0 12px 0;letter-spacing:-.02em;color:var(--color-foreground);}
+.chip{display:inline-flex;padding:6px 10px;margin-right:6px;font-family:var(--font-mono);font-size:10px;background:var(--color-surface-strong);border-radius:6px;color:var(--color-foreground);}
+</style>
+</head>
+<body>
+<div class="card">
+<h3>Motion · settling paper &amp; drifting light</h3>
+<div class="row">
+  <div class="b"><div class="name">Seed rise</div><div class="tok">620ms · (0.18,0.8,0.24,1)</div><div class="desc">Panels and details settle up with a brief blur-to-sharp.</div></div>
+  <div class="b"><div class="name">Dew fade</div><div class="tok">360ms · ease-out</div><div class="desc">Small elements appear via tiny translate + opacity.</div></div>
+  <div class="b"><div class="name">Canopy pulse</div><div class="tok">2.8s · infinite</div><div class="desc">Selected node halos with a lichen ring, then decays.</div></div>
+  <div class="b"><div class="name">Atlas drift</div><div class="tok">14s · linear · infinite</div><div class="desc">Atlas grid layer drifts slowly behind the canvas.</div></div>
+</div>
+<div style="margin-top:14px;">
+  <span class="chip">no springs</span><span class="chip">no neon</span><span class="chip">no bounce</span>
+</div>
+</div>
+</body>
+</html>

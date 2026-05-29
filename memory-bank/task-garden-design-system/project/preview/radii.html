@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Radii</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  html,body{margin:0;background:var(--color-background);}
+  .card{box-sizing:border-box;width:700px;padding:24px 28px;background:linear-gradient(180deg,var(--color-panel),var(--color-panel-strong));border:1px solid var(--color-border);border-radius:var(--radius-lg);box-shadow:var(--shadow-specimen);}
+  h3{font-family:var(--font-display);font-size:18px;font-weight:600;margin:0 0 14px 0;letter-spacing:-.02em;color:var(--color-foreground);}
+  .row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;align-items:end;}
+  .shape{width:100%;aspect-ratio:1/1;background:color-mix(in oklab,var(--color-moss) 18%, var(--color-surface));border:1px solid color-mix(in oklab,var(--color-border-strong) 55%,transparent);}
+  .lbl{text-align:center;margin-top:8px;}
+  .name{font-family:var(--font-sans);font-size:12px;font-weight:600;color:var(--color-foreground);}
+  .tok{font-family:var(--font-mono);font-size:10px;color:var(--color-muted-foreground);}
+</style>
+</head>
+<body>
+<div class="card">
+  <h3>Corner radii</h3>
+  <div class="row">
+    <div><div class="shape" style="border-radius:var(--radius-sm);"></div><div class="lbl"><div class="name">sm · 8.8</div><div class="tok">--radius-sm</div></div></div>
+    <div><div class="shape" style="border-radius:var(--radius-md);"></div><div class="lbl"><div class="name">md · 14.4</div><div class="tok">--radius-md</div></div></div>
+    <div><div class="shape" style="border-radius:var(--radius-lg);"></div><div class="lbl"><div class="name">lg · 20</div><div class="tok">--radius-lg</div></div></div>
+    <div><div class="shape" style="border-radius:var(--radius-xl);"></div><div class="lbl"><div class="name">xl · 27</div><div class="tok">--radius-xl</div></div></div>
+    <div><div class="shape" style="border-radius:var(--radius-2xl);"></div><div class="lbl"><div class="name">2xl · 38</div><div class="tok">--radius-2xl</div></div></div>
+  </div>
+</div>
+</body>
+</html>

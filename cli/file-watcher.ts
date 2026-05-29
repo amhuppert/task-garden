@@ -37,7 +37,7 @@ export function startPlanWatcher(
   const reload = async () => {
     try {
       const text = await readFile(absPath, "utf8");
-      planState.setSource(text);
+      planState.setSourceFromWatcher(text);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       planState.setError(message, true);

@@ -1,6 +1,8 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
+import { startPlanWatcher } from "../cli/file-watcher";
+import { createPlanState } from "../cli/plan-state";
 import { taskGardenPlanServerPlugin } from "../vite-plugins/taskgarden-plan-server";
 
 const DEFAULT_PLAN_PATH = "src/plans/task-garden-v1.taskgarden.yaml";
@@ -32,10 +34,31 @@ async function main(argv: string[]): Promise<void> {
     parsedPort = n;
   }
 
+  // Create plan state and start the file watcher BEFORE vite.createServer.
+  // Vite plugin lifecycle inside bun does not deliver timer or fs.watch
+  // callbacks (timers stay registered but never fire). Starting the watcher
+  // in the bun event loop before vite initializes works correctly.
+  const planState = createPlanState(planAbsPath);
+  try {
+    const text = readFileSync(planAbsPath, "utf8");
+    planState.setSource(text);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    process.stderr.write(
+      `[task-garden] failed to read plan file: ${message}\n`,
+    );
+    planState.setError(message, false);
+  }
+  const planWatcherHandle = startPlanWatcher(planAbsPath, planState);
+
   const vite = await import("vite");
   const server = await vite.createServer({
-    plugins: [taskGardenPlanServerPlugin({ planAbsPath })],
+    plugins: [taskGardenPlanServerPlugin({ planAbsPath, planState })],
     server: { port: parsedPort },
+  });
+
+  server.httpServer?.on("close", () => {
+    void planWatcherHandle.close();
   });
 
   await server.listen();

@@ -26,4 +26,4 @@ Task Garden is intentionally narrow:
 - It combines authored planning metadata with derived graph analysis instead of forcing the user to compute structure mentally
 - It keeps project structure flexible through plan-defined lanes rather than hardcoded team or subsystem categories
 
-V1 is a read-only visualizer. It should make plans easier to understand and compare, not serve as a plan editor.
+V1 was a read-only visualizer. V2 enables inline editing of every authored field. Edits commit per-field on blur and round-trip through the local CLI, which re-validates the entire plan with Zod before atomically rewriting `plan.taskgarden.yaml`. The YAML file remains the single source of truth — Task Garden does not introduce a database or editor-only format. Users may still edit the YAML directly in an external editor; the watcher surfaces those changes back into the UI through the existing read pipeline.

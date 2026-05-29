@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Type · Display</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  html,body{margin:0;background:var(--color-background);}
+  .card{box-sizing:border-box;width:700px;padding:24px 28px;background:linear-gradient(180deg,var(--color-panel),var(--color-panel-strong));border:1px solid var(--color-border);border-radius:var(--radius-lg);box-shadow:var(--shadow-specimen);}
+  .row{display:flex;align-items:baseline;gap:20px;padding:10px 0;border-bottom:1px dashed color-mix(in oklab,var(--color-border-strong) 40%,transparent);}
+  .row:last-child{border-bottom:none;}
+  .meta{min-width:170px;font-family:var(--font-mono);font-size:.62rem;color:var(--color-muted-foreground);text-transform:uppercase;letter-spacing:.18em;}
+  .specimen{font-family:var(--font-display);color:var(--color-foreground);letter-spacing:-.035em;}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="row"><span class="meta">Display XL · 64 / 700</span><span class="specimen" style="font-size:56px;line-height:.95;font-weight:700;letter-spacing:-.04em;">Task Garden</span></div>
+  <div class="row"><span class="meta">Display LG · 44 / 600</span><span class="specimen" style="font-size:40px;line-height:1;font-weight:600;">Cultivated Plans</span></div>
+  <div class="row"><span class="meta">Display MD · 32 / 600</span><span class="specimen" style="font-size:28px;line-height:1;font-weight:600;">Atlas of Work</span></div>
+  <div class="row"><span class="meta">Display SM · 22 / 600</span><span class="specimen" style="font-size:20px;line-height:1.1;font-weight:600;">Stabilize Auth Contract</span></div>
+</div>
+</body>
+</html>

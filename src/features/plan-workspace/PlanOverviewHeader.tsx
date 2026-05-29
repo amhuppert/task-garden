@@ -19,6 +19,11 @@ export interface PlanOverviewHeaderProps {
   classify?: typeof classifyReference;
   /** Called when a document_path reference is activated. */
   onDocumentPreview?: (documentPath: string) => void;
+  /**
+   * When true, suppress the title/summary/last_updated/references sections so
+   * they don't double up with PlanOverviewEditor in the popover.
+   */
+  hideEditableSections?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -30,25 +35,28 @@ export function PlanOverviewHeader({
   estimateSummary,
   classify = classifyReference,
   onDocumentPreview,
+  hideEditableSections = false,
 }: PlanOverviewHeaderProps) {
   return (
     <header className="flex flex-col gap-6 border-b border-border pb-6">
       {/* ------------------------------------------------------------------ */}
       {/* Plan identity                                                        */}
       {/* ------------------------------------------------------------------ */}
-      <div className="flex flex-col gap-2">
-        <h1 className="atlas-title text-3xl leading-tight text-foreground">
-          {plan.title}
-        </h1>
-        {plan.summary && (
-          <p className="text-sm leading-relaxed text-muted-foreground">
-            {plan.summary}
+      {!hideEditableSections && (
+        <div className="flex flex-col gap-2">
+          <h1 className="atlas-title text-3xl leading-tight text-foreground">
+            {plan.title}
+          </h1>
+          {plan.summary && (
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              {plan.summary}
+            </p>
+          )}
+          <p className="atlas-kicker mt-1">
+            Updated {formatLastUpdated(plan.last_updated)}
           </p>
-        )}
-        <p className="atlas-kicker mt-1">
-          Updated {formatLastUpdated(plan.last_updated)}
-        </p>
-      </div>
+        </div>
+      )}
 
       {estimateSummary && estimateSummary.estimatedItemCount > 0 && (
         <div className="flex flex-col gap-2">
@@ -143,7 +151,7 @@ export function PlanOverviewHeader({
       {/* ------------------------------------------------------------------ */}
       {/* References (only when the plan has references)                      */}
       {/* ------------------------------------------------------------------ */}
-      {plan.references.length > 0 && (
+      {!hideEditableSections && plan.references.length > 0 && (
         <div className="flex flex-col gap-2">
           <span className="atlas-kicker">Plan References</span>
           <div className="flex flex-wrap gap-2">

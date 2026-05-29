@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Spacing</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  html,body{margin:0;background:var(--color-background);}
+  .card{box-sizing:border-box;width:700px;padding:24px 28px;background:linear-gradient(180deg,var(--color-panel),var(--color-panel-strong));border:1px solid var(--color-border);border-radius:var(--radius-lg);box-shadow:var(--shadow-specimen);}
+  h3{font-family:var(--font-display);font-size:18px;font-weight:600;margin:0 0 14px 0;letter-spacing:-.02em;color:var(--color-foreground);}
+  .row{display:flex;align-items:center;gap:14px;padding:6px 0;border-bottom:1px dashed color-mix(in oklab,var(--color-border-strong) 38%,transparent);}
+  .row:last-child{border-bottom:none;}
+  .tok{font-family:var(--font-mono);font-size:10px;color:var(--color-muted-foreground);width:80px;text-transform:uppercase;letter-spacing:.14em;}
+  .name{font-family:var(--font-sans);font-size:12px;color:var(--color-foreground);width:70px;}
+  .bar{height:10px;background:linear-gradient(90deg,var(--color-moss),var(--color-sage));border-radius:4px;}
+</style>
+</head>
+<body>
+<div class="card">
+  <h3>Spacing scale</h3>
+  <div class="row"><span class="tok">--space-1</span><span class="name">0.25rem</span><div class="bar" style="width:4px;"></div></div>
+  <div class="row"><span class="tok">--space-2</span><span class="name">0.5rem</span><div class="bar" style="width:8px;"></div></div>
+  <div class="row"><span class="tok">--space-3</span><span class="name">0.75rem</span><div class="bar" style="width:12px;"></div></div>
+  <div class="row"><span class="tok">--space-4</span><span class="name">1rem</span><div class="bar" style="width:16px;"></div></div>
+  <div class="row"><span class="tok">--space-5</span><span class="name">1.25rem</span><div class="bar" style="width:20px;"></div></div>
+  <div class="row"><span class="tok">--space-6</span><span class="name">1.5rem</span><div class="bar" style="width:24px;"></div></div>
+  <div class="row"><span class="tok">--space-8</span><span class="name">2rem</span><div class="bar" style="width:32px;"></div></div>
+  <div class="row"><span class="tok">--space-10</span><span class="name">2.5rem</span><div class="bar" style="width:40px;"></div></div>
+  <div class="row"><span class="tok">--space-12</span><span class="name">3rem</span><div class="bar" style="width:48px;"></div></div>
+</div>
+</body>
+</html>

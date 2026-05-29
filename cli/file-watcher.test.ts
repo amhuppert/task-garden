@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { type WatcherFactory, startPlanWatcher } from "./file-watcher";
 import { createPlanState } from "./plan-state";
 
@@ -132,5 +132,36 @@ describe("startPlanWatcher", () => {
     });
     await handle.close();
     expect(controller.closed).toBe(true);
+  });
+
+  it("suppresses watcher echo of a self-written change (only the self-write notifies)", async () => {
+    const echoTmp = mkdtempSync(path.join(os.tmpdir(), "watcher-echo-"));
+    const echoPath = path.join(echoTmp, "plan.yaml");
+    const selfText = "self: written\n";
+    writeFileSync(echoPath, selfText, "utf8");
+    try {
+      const state = createPlanState(echoPath);
+      const fn = vi.fn();
+      state.subscribe(fn);
+      const { factory, controller } = makeFakeWatcher();
+      const handle = startPlanWatcher(echoPath, state, {
+        createWatcher: factory,
+      });
+
+      // Simulate: CLI writes file and marks the snapshot.
+      state.markSelfWrite(selfText);
+      const revAfterSelfWrite = state.get().revision;
+      expect(fn).toHaveBeenCalledTimes(1);
+
+      // Watcher fires for the same write — should be suppressed.
+      controller.emit("change");
+      await flush();
+
+      expect(state.get().revision).toBe(revAfterSelfWrite);
+      expect(fn).toHaveBeenCalledTimes(1);
+      await handle.close();
+    } finally {
+      rmSync(echoTmp, { recursive: true, force: true });
+    }
   });
 });

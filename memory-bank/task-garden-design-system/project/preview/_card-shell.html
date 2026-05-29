@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Card · shared</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  html, body { margin: 0; }
+  body {
+    font-family: var(--font-sans);
+    color: var(--color-foreground);
+    background: var(--color-background);
+  }
+  .card {
+    box-sizing: border-box;
+    width: 700px;
+    padding: 24px 28px;
+    background:
+      radial-gradient(circle at 80% -10%,
+        color-mix(in oklab, var(--color-lichen) 18%, transparent), transparent 60%),
+      linear-gradient(180deg, var(--color-panel), var(--color-panel-strong));
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-specimen);
+    overflow: hidden;
+    position: relative;
+  }
+  .card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(to right, var(--color-grid) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--color-grid) 1px, transparent 1px);
+    background-size: 32px 32px;
+    opacity: 0.55;
+    mask-image: linear-gradient(180deg, black, transparent 85%);
+  }
+  .card > * { position: relative; }
+</style>
+</head>
+<body></body>
+</html>

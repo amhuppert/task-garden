@@ -89,4 +89,70 @@ describe("createPlanState", () => {
     expect(a).toHaveBeenCalledTimes(1);
     expect(b).toHaveBeenCalledTimes(1);
   });
+
+  it("markSelfWrite bumps revision, stores source, and notifies subscribers", () => {
+    const state = createPlanState(PLAN_PATH);
+    const fn = vi.fn();
+    state.subscribe(fn);
+    state.markSelfWrite("self: written");
+    const snap = state.get();
+    expect(snap.revision).toBe(1);
+    expect(snap.source).toBe("self: written");
+    expect(snap.sourceError).toBeNull();
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  it("setSourceFromWatcher with matching self-written text does not bump revision or notify", () => {
+    const state = createPlanState(PLAN_PATH);
+    state.markSelfWrite("self: written");
+    const revAfterSelfWrite = state.get().revision;
+    const fn = vi.fn();
+    state.subscribe(fn);
+    state.setSourceFromWatcher("self: written");
+    expect(state.get().revision).toBe(revAfterSelfWrite);
+    expect(fn).not.toHaveBeenCalled();
+  });
+
+  it("setSourceFromWatcher with differing text bumps revision and notifies", () => {
+    const state = createPlanState(PLAN_PATH);
+    state.markSelfWrite("self: written");
+    const revAfterSelfWrite = state.get().revision;
+    const fn = vi.fn();
+    state.subscribe(fn);
+    state.setSourceFromWatcher("external: change");
+    expect(state.get().revision).toBe(revAfterSelfWrite + 1);
+    expect(state.get().source).toBe("external: change");
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(fn.mock.calls[0][0].source).toBe("external: change");
+  });
+
+  it("setSourceFromWatcher clears lastSelfWrittenText after match (subsequent echo bumps revision)", () => {
+    const state = createPlanState(PLAN_PATH);
+    state.markSelfWrite("self: written");
+    state.setSourceFromWatcher("self: written");
+    const rev = state.get().revision;
+    // The self-written text marker is now cleared; a second event with the same text is treated as external.
+    state.setSourceFromWatcher("self: written");
+    expect(state.get().revision).toBe(rev + 1);
+  });
+
+  it("setMissing clears lastSelfWrittenText", () => {
+    const state = createPlanState(PLAN_PATH);
+    state.markSelfWrite("self: written");
+    state.setMissing();
+    const revAfterMissing = state.get().revision;
+    state.setSourceFromWatcher("self: written");
+    expect(state.get().revision).toBe(revAfterMissing + 1);
+    expect(state.get().source).toBe("self: written");
+  });
+
+  it("setError clears lastSelfWrittenText", () => {
+    const state = createPlanState(PLAN_PATH);
+    state.markSelfWrite("self: written");
+    state.setError("boom", true);
+    const revAfterError = state.get().revision;
+    state.setSourceFromWatcher("self: written");
+    expect(state.get().revision).toBe(revAfterError + 1);
+    expect(state.get().source).toBe("self: written");
+  });
 });

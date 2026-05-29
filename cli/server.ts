@@ -1,11 +1,20 @@
+import type { AsyncMutex } from "./mutex";
 import type { PlanState } from "./plan-state";
+import type { PlanWriter } from "./plan-writer";
 import { type RouteCtx, handleRequest } from "./routes";
 
 export type StartServerOptions = {
   port: number;
   planState: PlanState;
   planDir: string;
+  planAbsPath: string;
   staticAssetsRoot: string;
+  planWriter: PlanWriter;
+  mutexFor: (planAbsPath: string) => AsyncMutex;
+  writeFile: (path: string, data: string) => Promise<unknown>;
+  readFile: (path: string) => Promise<string>;
+  rename: (oldPath: string, newPath: string) => Promise<unknown>;
+  now: () => number;
 };
 
 export type ServerHandle = {
@@ -26,11 +35,18 @@ export function startServer(opts: StartServerOptions): ServerHandle {
   const ctx: RouteCtx = {
     planState: opts.planState,
     planDir: opts.planDir,
+    planAbsPath: opts.planAbsPath,
     staticAssetsRoot: opts.staticAssetsRoot,
     hostAllowList: new Set([
       `localhost:${opts.port}`,
       `127.0.0.1:${opts.port}`,
     ]),
+    planWriter: opts.planWriter,
+    mutexFor: opts.mutexFor,
+    writeFile: opts.writeFile,
+    readFile: opts.readFile,
+    rename: opts.rename,
+    now: opts.now,
   };
 
   const server = Bun.serve({

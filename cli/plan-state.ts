@@ -12,6 +12,8 @@ export interface PlanState {
   setSource(source: string): void;
   setError(message: string, keepLastSource: boolean): void;
   setMissing(): void;
+  markSelfWrite(source: string): void;
+  setSourceFromWatcher(source: string): void;
   subscribe(fn: (s: PlanStateSnapshot) => void): () => void;
 }
 
@@ -23,6 +25,7 @@ export function createPlanState(planAbsPath: string): PlanState {
     sourceError: null,
     planFileName,
   };
+  let lastSelfWrittenText: string | null = null;
   const subscribers = new Set<(s: PlanStateSnapshot) => void>();
 
   const update = (
@@ -37,26 +40,42 @@ export function createPlanState(planAbsPath: string): PlanState {
     for (const fn of subscribers) fn(snapshot);
   };
 
+  const setSource = (source: string) => {
+    update({ source, sourceError: null });
+  };
+
   return {
     get() {
       return snapshot;
     },
-    setSource(source) {
-      update({ source, sourceError: null });
-    },
+    setSource,
     setError(message, keepLastSource) {
+      lastSelfWrittenText = null;
       update({
         source: keepLastSource ? snapshot.source : null,
         sourceError: { message },
       });
     },
     setMissing() {
+      lastSelfWrittenText = null;
       update({
         source: null,
         sourceError: {
           message: `Plan file no longer exists at ${planAbsPath}`,
         },
       });
+    },
+    markSelfWrite(source) {
+      lastSelfWrittenText = source;
+      setSource(source);
+    },
+    setSourceFromWatcher(source) {
+      if (source === lastSelfWrittenText) {
+        lastSelfWrittenText = null;
+        return;
+      }
+      lastSelfWrittenText = null;
+      setSource(source);
     },
     subscribe(fn) {
       subscribers.add(fn);

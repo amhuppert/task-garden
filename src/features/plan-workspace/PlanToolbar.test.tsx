@@ -41,6 +41,8 @@ describe("PlanToolbar — search input debouncing", () => {
       <PlanToolbar
         availableFilters={emptyFilters}
         projectionSummary={emptySummary}
+        baseRevision={1}
+        onNewItem={vi.fn()}
       />,
     );
 
@@ -63,6 +65,8 @@ describe("PlanToolbar — search input debouncing", () => {
       <PlanToolbar
         availableFilters={emptyFilters}
         projectionSummary={emptySummary}
+        baseRevision={1}
+        onNewItem={vi.fn()}
       />,
     );
 
@@ -83,6 +87,8 @@ describe("PlanToolbar — search input debouncing", () => {
       <PlanToolbar
         availableFilters={emptyFilters}
         projectionSummary={emptySummary}
+        baseRevision={1}
+        onNewItem={vi.fn()}
       />,
     );
 
@@ -96,5 +102,25 @@ describe("PlanToolbar — search input debouncing", () => {
     });
 
     expect(input.value).toBe("");
+  });
+});
+
+describe("PlanToolbar — new item button", () => {
+  beforeEach(resetExplorer);
+  afterEach(cleanup);
+
+  it("invokes onNewItem when the toolbar new-item button is clicked", () => {
+    const onNewItem = vi.fn();
+    const { getByTestId } = render(
+      <PlanToolbar
+        availableFilters={emptyFilters}
+        projectionSummary={emptySummary}
+        baseRevision={1}
+        onNewItem={onNewItem}
+      />,
+    );
+
+    fireEvent.click(getByTestId("toolbar-new-item"));
+    expect(onNewItem).toHaveBeenCalledTimes(1);
   });
 });

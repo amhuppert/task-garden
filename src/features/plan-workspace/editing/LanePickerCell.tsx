@@ -1,0 +1,178 @@
+import {
+  FloatingFocusManager,
+  FloatingPortal,
+  autoUpdate,
+  flip,
+  offset,
+  shift,
+  useClick,
+  useDismiss,
+  useFloating,
+  useInteractions,
+} from "@floating-ui/react";
+import { useCallback, useState } from "react";
+import type { PlanPatch } from "../../../../cli/shared/patch-schema";
+import type {
+  EditApiResult,
+  PatchPlanOptions,
+} from "../../../lib/plan/edit-api-client";
+import type { TaskGardenLane } from "../../../lib/plan/task-garden-plan.schema";
+import { FieldSaveIndicator } from "./FieldSaveIndicator";
+import { ChevronGlyph } from "./glyphs";
+import { patchTargets } from "./patch-targets";
+import { useFieldDraft } from "./useFieldDraft";
+
+type PatchPlanFn = (
+  patch: PlanPatch,
+  opts: PatchPlanOptions,
+) => Promise<EditApiResult>;
+
+export interface LanePickerCellProps {
+  workItemId: string;
+  committedValue: string;
+  baseRevision: number;
+  lanes: readonly TaskGardenLane[];
+  patchPlan?: PatchPlanFn;
+}
+
+function laneColor(lane: TaskGardenLane | undefined): string {
+  return lane?.color ?? "var(--color-iron)";
+}
+
+export function LanePickerCell({
+  workItemId,
+  committedValue,
+  baseRevision,
+  lanes,
+  patchPlan,
+}: LanePickerCellProps) {
+  const key = `work_item:${workItemId}:lane`;
+
+  const buildPatch = useCallback(
+    (next: string) => patchTargets.workItemField(workItemId, "lane", next),
+    [workItemId],
+  );
+
+  const { value, isDirty, setDraft, commit } = useFieldDraft<string>({
+    key,
+    committedValue,
+    buildPatch,
+    baseRevision,
+    patchPlan,
+  });
+
+  const [open, setOpen] = useState(false);
+  const { refs, floatingStyles, context } = useFloating({
+    open,
+    onOpenChange: setOpen,
+    placement: "bottom-start",
+    whileElementsMounted: autoUpdate,
+    middleware: [offset(6), flip(), shift({ padding: 8 })],
+  });
+  const click = useClick(context);
+  const dismiss = useDismiss(context);
+  const { getReferenceProps, getFloatingProps } = useInteractions([
+    click,
+    dismiss,
+  ]);
+
+  const handleSelect = (next: string) => {
+    setDraft(next);
+    setOpen(false);
+    queueMicrotask(() => {
+      void commit();
+    });
+  };
+
+  const current = lanes.find((l) => l.id === value) ?? lanes[0];
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center gap-2">
+        <span className="atlas-kicker">Lane</span>
+        {isDirty && (
+          <span
+            aria-hidden="true"
+            className="inline-block h-1.5 w-1.5 rounded-full"
+            style={{ backgroundColor: "var(--color-pollen)" }}
+            data-testid="lane-dirty-dot"
+          />
+        )}
+        <FieldSaveIndicator stateKey={key} />
+      </div>
+      <button
+        ref={refs.setReference}
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        data-testid="lane-picker-chip"
+        className={`flex w-full items-center justify-between gap-2 rounded-[var(--radius-md)] border px-3 py-2 text-sm transition-colors ${
+          open
+            ? "border-moss bg-surface"
+            : "border-border bg-surface hover:border-border-strong"
+        }`}
+        {...getReferenceProps()}
+      >
+        <span className="flex items-center gap-2">
+          <span
+            aria-hidden="true"
+            className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm"
+            style={{ backgroundColor: laneColor(current) }}
+          />
+          <span className="truncate font-semibold">
+            {current?.label ?? value}
+          </span>
+        </span>
+        <ChevronGlyph size={10} className="text-muted-foreground" />
+      </button>
+
+      {open && (
+        <FloatingPortal>
+          <FloatingFocusManager context={context} modal={false}>
+            <div
+              ref={refs.setFloating}
+              style={floatingStyles}
+              // biome-ignore lint/a11y/useSemanticElements: floating popover requires div + role
+              role="listbox"
+              tabIndex={-1}
+              aria-label="Set lane"
+              className="atlas-panel z-50 flex max-h-48 w-56 flex-col gap-0.5 overflow-y-auto p-1"
+              {...getFloatingProps()}
+            >
+              {lanes.map((lane) => {
+                const selected = lane.id === value;
+                return (
+                  <button
+                    key={lane.id}
+                    type="button"
+                    // biome-ignore lint/a11y/useSemanticElements: listbox option uses button for click+focus
+                    role="option"
+                    aria-selected={selected}
+                    onClick={() => handleSelect(lane.id)}
+                    className={`flex items-center gap-2 rounded-[var(--radius-sm)] px-2 py-1.5 text-left text-xs transition-colors ${
+                      selected
+                        ? "bg-[color-mix(in_oklab,var(--color-lichen)_20%,transparent)] font-semibold"
+                        : "hover:bg-surface-muted"
+                    }`}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm"
+                      style={{ backgroundColor: laneColor(lane) }}
+                    />
+                    <span className="flex-1 truncate">{lane.label}</span>
+                    {selected && (
+                      <span className="font-mono text-[0.58rem] uppercase tracking-wider text-muted-foreground">
+                        current
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </FloatingFocusManager>
+        </FloatingPortal>
+      )}
+    </div>
+  );
+}

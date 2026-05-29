@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Buttons</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  html,body{margin:0;background:var(--color-background);}
+  .card{box-sizing:border-box;width:700px;padding:22px 28px;background:linear-gradient(180deg,var(--color-panel),var(--color-panel-strong));border:1px solid var(--color-border);border-radius:var(--radius-lg);box-shadow:var(--shadow-specimen);}
+  .lbl{font-family:var(--font-mono);font-size:.62rem;color:var(--color-muted-foreground);text-transform:uppercase;letter-spacing:.2em;margin:8px 0;}
+  .row{display:flex;gap:10px;align-items:center;margin-bottom:6px;}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="lbl">Primary · moss gradient</div>
+  <div class="row">
+    <button class="atlas-button atlas-button-primary">Fit Graph</button>
+    <button class="atlas-button atlas-button-primary">Clear filters</button>
+    <button class="atlas-button atlas-button-primary" disabled style="opacity:.4;cursor:not-allowed;">Disabled</button>
+  </div>
+  <div class="lbl" style="margin-top:16px;">Secondary · paper</div>
+  <div class="row">
+    <button class="atlas-button atlas-button-secondary">Upstream</button>
+    <button class="atlas-button atlas-button-secondary">Downstream</button>
+    <button class="atlas-button atlas-button-secondary">Full chain</button>
+  </div>
+</div>
+</body>
+</html>

@@ -1,9 +1,12 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { createMutex } from "./mutex";
 import { createPlanState } from "./plan-state";
+import type { PlanWriter, PlanWriterResult } from "./plan-writer";
 import { type RouteCtx, handleRequest } from "./routes";
+import type { PlanPatch } from "./shared/patch-schema";
 
 let planDir = "";
 
@@ -16,7 +19,15 @@ afterAll(() => {
 });
 
 function ctxFor(
-  opts: { hostAllowList?: ReadonlySet<string>; planAbsPath?: string } = {},
+  opts: {
+    hostAllowList?: ReadonlySet<string>;
+    planAbsPath?: string;
+    planWriter?: PlanWriter;
+    writeFile?: RouteCtx["writeFile"];
+    readFile?: RouteCtx["readFile"];
+    rename?: RouteCtx["rename"];
+    now?: RouteCtx["now"];
+  } = {},
 ): {
   ctx: RouteCtx;
   planState: ReturnType<typeof createPlanState>;
@@ -34,12 +45,27 @@ function ctxFor(
       u();
     };
   };
+  const sharedMutex = createMutex();
+  const defaultWriter: PlanWriter = {
+    apply: (_src: string, _patch: PlanPatch): PlanWriterResult => ({
+      ok: true,
+      nextSource: "next: source",
+    }),
+  };
+  let nowCounter = 0;
   const ctx: RouteCtx = {
     planState,
     planDir,
+    planAbsPath,
     staticAssetsRoot: "",
     hostAllowList:
       opts.hostAllowList ?? new Set(["localhost:4173", "127.0.0.1:4173"]),
+    planWriter: opts.planWriter ?? defaultWriter,
+    mutexFor: () => sharedMutex,
+    writeFile: opts.writeFile ?? (async () => undefined),
+    readFile: opts.readFile ?? (async () => "version: 1\n"),
+    rename: opts.rename ?? (async () => undefined),
+    now: opts.now ?? (() => ++nowCounter),
   };
   return { ctx, planState, trackedSubscriberCount: () => subs };
 }
@@ -137,6 +163,56 @@ describe("handleRequest", () => {
       ctx,
     );
     expect(res.status).toBe(404);
+  });
+
+  it("PATCH /api/plan dispatches to handleEditRequest and returns 200 with revision", async () => {
+    const writeFile = vi.fn(async () => undefined);
+    const rename = vi.fn(async () => undefined);
+    const writer: PlanWriter = {
+      apply: (_src, _patch): PlanWriterResult => ({
+        ok: true,
+        nextSource: "patched: yes",
+      }),
+    };
+    const { ctx, planState } = ctxFor({
+      planWriter: writer,
+      writeFile,
+      rename,
+      readFile: async () => "version: 1\n",
+    });
+    planState.setSource("initial");
+    const revBefore = planState.get().revision;
+
+    const patch: PlanPatch = {
+      kind: "plan.field",
+      field: "title",
+      value: "Patched Title",
+    };
+    const req = reqWithHost(
+      "http://localhost:4173/api/plan",
+      "localhost:4173",
+      {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ operationId: "op-patch", patch }),
+      },
+    );
+
+    const res = await handleRequest(req, ctx);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      ok: boolean;
+      operationId: string;
+      revision: number;
+    };
+    expect(body).toEqual({
+      ok: true,
+      operationId: "op-patch",
+      revision: revBefore + 1,
+    });
+    expect(writeFile).toHaveBeenCalledTimes(1);
+    expect(rename).toHaveBeenCalledTimes(1);
+    expect(planState.get().source).toBe("patched: yes");
   });
 
   it("SSE: streams initial plan-state event, subsequent update, and releases subscription on abort", async () => {

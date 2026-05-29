@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Colors · Botanical accents</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  html,body{margin:0;background:var(--color-background);}
+  .card{box-sizing:border-box;width:700px;padding:24px 28px;background:linear-gradient(180deg,var(--color-panel),var(--color-panel-strong));border:1px solid var(--color-border);border-radius:var(--radius-lg);box-shadow:var(--shadow-specimen);}
+  .row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;}
+  .sw{border-radius:var(--radius-md);padding:10px 12px;height:92px;display:flex;flex-direction:column;justify-content:flex-end;box-shadow:inset 0 1px 0 color-mix(in oklab,white 28%,transparent);}
+  .name{font-family:var(--font-sans);font-size:12px;font-weight:700;color:var(--color-primary-foreground);text-shadow:0 1px 1px rgba(0,0,0,.2);}
+  .tok{font-family:var(--font-mono);font-size:9px;color:color-mix(in oklab,var(--color-primary-foreground) 80%,transparent);text-transform:uppercase;letter-spacing:.14em;}
+  h3{font-family:var(--font-display);font-size:18px;font-weight:600;margin:0 0 12px 0;color:var(--color-foreground);letter-spacing:-.02em;}
+  .role{font-family:var(--font-mono);font-size:9px;color:var(--color-muted-foreground);text-transform:uppercase;letter-spacing:.16em;margin-top:14px;display:grid;grid-template-columns:repeat(5,1fr);gap:10px;}
+  .role span{padding-left:4px;}
+</style>
+</head>
+<body>
+<div class="card">
+  <h3>Botanical palette</h3>
+  <div class="row">
+    <div class="sw" style="background:var(--color-moss);"><span class="name">Moss</span><span class="tok">--moss</span></div>
+    <div class="sw" style="background:var(--color-moss-deep);"><span class="name">Moss Deep</span><span class="tok">--moss-deep</span></div>
+    <div class="sw" style="background:var(--color-sage);"><span class="name" style="color:var(--color-foreground);text-shadow:none;">Sage</span><span class="tok" style="color:var(--color-muted-foreground);">--sage</span></div>
+    <div class="sw" style="background:var(--color-lichen);"><span class="name" style="color:var(--color-foreground);text-shadow:none;">Lichen</span><span class="tok" style="color:var(--color-muted-foreground);">--lichen</span></div>
+    <div class="sw" style="background:var(--color-bark);"><span class="name">Bark</span><span class="tok">--bark</span></div>
+  </div>
+  <div class="row" style="margin-top:10px;">
+    <div class="sw" style="background:var(--color-iron);"><span class="name">Iron</span><span class="tok">--iron</span></div>
+    <div class="sw" style="background:var(--color-water);"><span class="name" style="color:var(--color-foreground);text-shadow:none;">Water</span><span class="tok" style="color:var(--color-muted-foreground);">--water</span></div>
+    <div class="sw" style="background:var(--color-petal);"><span class="name">Petal</span><span class="tok">--petal</span></div>
+    <div class="sw" style="background:var(--color-pollen);"><span class="name" style="color:var(--color-foreground);text-shadow:none;">Pollen</span><span class="tok" style="color:var(--color-muted-foreground);">--pollen</span></div>
+    <div class="sw" style="background:var(--color-foreground);"><span class="name">Fg (Ink)</span><span class="tok">--foreground</span></div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Type · Body &amp; Mono</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  html,body{margin:0;background:var(--color-background);}
+  .card{box-sizing:border-box;width:700px;padding:24px 28px;background:linear-gradient(180deg,var(--color-panel),var(--color-panel-strong));border:1px solid var(--color-border);border-radius:var(--radius-lg);box-shadow:var(--shadow-specimen);}
+  .grid{display:grid;grid-template-columns:170px 1fr;gap:10px 20px;align-items:baseline;}
+  .meta{font-family:var(--font-mono);font-size:.62rem;color:var(--color-muted-foreground);text-transform:uppercase;letter-spacing:.18em;}
+  .specimen{color:var(--color-foreground);}
+  .mono{font-family:var(--font-mono);}
+  hr{grid-column:1/-1;border:none;border-top:1px dashed color-mix(in oklab,var(--color-border-strong) 40%,transparent);margin:4px 0;}
+</style>
+</head>
+<body>
+<div class="card">
+<div class="grid">
+  <span class="meta">Body LG · 16/1.55</span>
+  <span class="specimen" style="font-family:var(--font-sans);font-size:16px;font-weight:400;line-height:1.55;">Planning is a field study — composed, measured, quietly obsessive.</span>
+  <hr/>
+  <span class="meta">Body · 14/1.5</span>
+  <span class="specimen" style="font-family:var(--font-sans);font-size:14px;line-height:1.5;">Load a plan, explore its dependencies, scope the graph, and inspect each work item as a specimen.</span>
+  <hr/>
+  <span class="meta">Body SM · 13/1.45</span>
+  <span class="specimen" style="font-family:var(--font-sans);font-size:13px;color:var(--color-muted-foreground);line-height:1.45;">Supporting prose and muted copy live here.</span>
+  <hr/>
+  <span class="meta">Kicker · 11 · .22em</span>
+  <span class="atlas-kicker" style="font-size:11px;">Plan Overview</span>
+  <hr/>
+  <span class="meta">Mono · 12 / 500</span>
+  <span class="specimen mono" style="font-size:12px;">api-auth · seq 07 · B 0.42</span>
+  <hr/>
+  <span class="meta">Mono SM · 9 / 500</span>
+  <span class="specimen mono" style="font-size:9px;text-transform:uppercase;letter-spacing:.16em;">3D · EST · +2 CRIT</span>
+</div>
+</div>
+</body>
+</html>
