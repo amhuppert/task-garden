@@ -5,6 +5,7 @@ import { TaskGardenPlanSchemaDefinition } from "../src/lib/plan/task-garden-plan
 
 const jsonSchema = z.toJSONSchema(TaskGardenPlanSchemaDefinition, {
   target: "draft-7",
+  io: "input",
 });
 
 const output = {

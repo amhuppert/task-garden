@@ -48,8 +48,7 @@
             "minLength": 1
           }
         },
-        "required": ["label", "href"],
-        "additionalProperties": false
+        "required": ["label", "href"]
       }
     },
     "lanes": {
@@ -80,8 +79,7 @@
             "minLength": 1
           }
         },
-        "required": ["id", "label"],
-        "additionalProperties": false
+        "required": ["id", "label"]
       }
     },
     "work_items": {
@@ -161,8 +159,7 @@
                 "enum": ["hours", "days", "points"]
               }
             },
-            "required": ["value", "unit"],
-            "additionalProperties": false
+            "required": ["value", "unit"]
           },
           "deliverables": {
             "description": "Concrete outputs produced when this item is done.",
@@ -200,8 +197,7 @@
                   "minLength": 1
                 }
               },
-              "required": ["label", "href"],
-              "additionalProperties": false
+              "required": ["label", "href"]
             }
           },
           "notes": {
@@ -210,20 +206,7 @@
             "minLength": 1
           }
         },
-        "required": [
-          "id",
-          "title",
-          "summary",
-          "lane",
-          "status",
-          "priority",
-          "depends_on",
-          "tags",
-          "deliverables",
-          "reuse_candidates",
-          "links"
-        ],
-        "additionalProperties": false
+        "required": ["id", "title", "summary", "lane", "status", "priority"]
       }
     }
   },
@@ -233,9 +216,7 @@
     "title",
     "last_updated",
     "summary",
-    "references",
     "lanes",
     "work_items"
-  ],
-  "additionalProperties": false
+  ]
 }
