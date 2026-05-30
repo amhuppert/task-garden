@@ -23,7 +23,9 @@ export default defineConfig({
     // The plan YAML is owned by taskGardenPlanServerPlugin: it watches the
     // file and pushes updates via SSE. Letting vite watch it too causes a
     // full HMR page reload on every edit (visible as a loading-state flash).
-    watch: { ignored: ["**/src/plans/**"] },
+    // `.debug/**` is the debug-mode log/artifact dir; watching it creates a
+    // feedback loop when in-app probes append to logs.jsonl.
+    watch: { ignored: ["**/src/plans/**", "**/.debug/**"] },
   },
   test: {
     environment: "node",

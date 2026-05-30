@@ -308,15 +308,27 @@ function ViewportController({
 }) {
   const { setCenter, getZoom, fitView } = useReactFlow();
 
+  // Effect re-fires whenever `nodes` changes — including hover-driven ghost-add
+  // nodes — so we track which selection we last auto-panned to and bail when
+  // it hasn't changed. Without this, hovering a lane after a task is selected
+  // would re-center the viewport on every hover.
+  const lastAutoPannedSelectionRef = useRef<string | null>(null);
+
   // Auto-pan: when selection comes from outside the graph (panel clicks, etc.)
   useEffect(() => {
-    if (!selectedWorkItemId) return;
+    if (lastAutoPannedSelectionRef.current === selectedWorkItemId) return;
+    if (!selectedWorkItemId) {
+      lastAutoPannedSelectionRef.current = null;
+      return;
+    }
     if (skipAutoPanRef.current) {
       skipAutoPanRef.current = false;
+      lastAutoPannedSelectionRef.current = selectedWorkItemId;
       return;
     }
     const node = nodes.find((n) => n.id === selectedWorkItemId);
     if (!node) return;
+    lastAutoPannedSelectionRef.current = selectedWorkItemId;
     const x = node.position.x + (node.width ?? 200) / 2;
     const y = node.position.y + (node.height ?? 80) / 2;
     setCenter(x, y, { duration: 400, zoom: getZoom() });
