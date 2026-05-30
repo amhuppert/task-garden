@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import type { PlanPatch } from "../../../../cli/shared/patch-schema";
 import type {
   EditApiResult,
@@ -44,7 +44,11 @@ export function EditableTitleCell({
   const [focused, setFocused] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  // Sync the DOM imperatively rather than rendering {value} as a JSX child.
+  // Rendering it as a child causes React to reconcile the text node on every
+  // keystroke (each input → setDraft → re-render), which writes to nodeValue
+  // and collapses the caret to position 0 in real browsers.
+  useLayoutEffect(() => {
     if (focused) return;
     const el = ref.current;
     if (!el) return;
@@ -113,9 +117,7 @@ export function EditableTitleCell({
         onInput={handleInput}
         onKeyDown={handleKeyDown}
         className={`atlas-title text-xl leading-tight text-foreground rounded-[var(--radius-sm)] border px-1 py-0.5 -mx-1 outline-none transition-colors ${stateClasses}`}
-      >
-        {value}
-      </div>
+      />
     </div>
   );
 }

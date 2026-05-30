@@ -150,6 +150,48 @@ describe("NotesEditorCell", () => {
     });
   });
 
+  it("does not mutate the contentEditable DOM during the input-driven re-render (preserves caret)", async () => {
+    render(
+      <NotesEditorCell
+        workItemId="a"
+        committedValue="initial"
+        baseRevision={1}
+      />,
+    );
+
+    const el = screen.getByTestId("editable-notes");
+
+    act(() => {
+      el.focus();
+    });
+
+    // Simulate a real-browser keypress: append to the existing text node
+    // in place instead of replacing children. In a real browser the caret
+    // would sit at the end (offset 8).
+    const textNode = el.firstChild as Text;
+    textNode.appendData("X");
+
+    const mutations: MutationRecord[] = [];
+    const observer = new MutationObserver((records) => {
+      mutations.push(...records);
+    });
+    observer.observe(el, {
+      childList: true,
+      characterData: true,
+      subtree: true,
+    });
+
+    await act(async () => {
+      fireEvent.input(el);
+      await Promise.resolve();
+    });
+
+    observer.disconnect();
+
+    expect(mutations).toEqual([]);
+    expect(el.textContent).toBe("initialX");
+  });
+
   it("Escape rolls back the draft", async () => {
     const patchPlan: PatchPlanFn = vi.fn();
 

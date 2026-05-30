@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import type { PlanPatch } from "../../../../cli/shared/patch-schema";
 import type {
   EditApiResult,
@@ -50,7 +50,11 @@ export function NotesEditorCell({
   const [focused, setFocused] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  // Sync the DOM imperatively rather than rendering {value} as a JSX child.
+  // Rendering it as a child causes React to reconcile the text node on every
+  // keystroke (each input → setDraft → re-render), which writes to nodeValue
+  // and collapses the caret to position 0 in real browsers.
+  useLayoutEffect(() => {
     if (focused) return;
     const el = ref.current;
     if (!el) return;
@@ -118,9 +122,7 @@ export function NotesEditorCell({
         onInput={handleInput}
         onKeyDown={handleKeyDown}
         className={`min-h-[5rem] whitespace-pre-wrap rounded-[var(--radius-md)] border bg-surface px-3 py-2 text-sm leading-relaxed text-foreground outline-none transition-colors ${focusClasses}`}
-      >
-        {value}
-      </div>
+      />
     </section>
   );
 }

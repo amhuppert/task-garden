@@ -166,6 +166,53 @@ describe("EditableTitleCell", () => {
     expect(patchPlan).not.toHaveBeenCalled();
   });
 
+  it("does not mutate the contentEditable DOM during the input-driven re-render (preserves caret)", async () => {
+    render(
+      <EditableTitleCell
+        workItemId="a"
+        committedValue="Original"
+        baseRevision={1}
+      />,
+    );
+
+    const el = screen.getByTestId("editable-title");
+
+    act(() => {
+      el.focus();
+    });
+
+    // Simulate a real-browser keypress in a contentEditable: the browser
+    // appends to the existing text node in place — it does not replace
+    // children. Cursor would naturally land at offset 9 (end of text).
+    const textNode = el.firstChild as Text;
+    textNode.appendData("X");
+
+    // Watch for any DOM writes during the React re-render triggered by
+    // setDraft. In a real browser, *any* characterData/childList write
+    // on this subtree collapses the caret to offset 0 — that is the
+    // user-visible bug.
+    const mutations: MutationRecord[] = [];
+    const observer = new MutationObserver((records) => {
+      mutations.push(...records);
+    });
+    observer.observe(el, {
+      childList: true,
+      characterData: true,
+      subtree: true,
+    });
+
+    await act(async () => {
+      fireEvent.input(el);
+      // Flush MutationObserver microtask
+      await Promise.resolve();
+    });
+
+    observer.disconnect();
+
+    expect(mutations).toEqual([]);
+    expect(el.textContent).toBe("OriginalX");
+  });
+
   it("shows the saved indicator after a successful save", async () => {
     const patchPlan: PatchPlanFn = vi.fn().mockResolvedValue({
       ok: true,
