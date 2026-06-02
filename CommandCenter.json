@@ -1,5 +1,11 @@
 {
   "initScriptPath": "scripts/worktree-init.sh",
   "preMergeCommand": "scripts/pre-merge-validate.sh",
-  "devServers": [{ "name": "vite", "command": ".cc/dev-servers/vite.sh" }]
+  "devServers": [
+    {
+      "name": "vite",
+      "command": "bun run scripts/dev.ts --port $CC_ASSIGNED_PORT",
+      "port": { "base": 5173, "range": 100 }
+    }
+  ]
 }
