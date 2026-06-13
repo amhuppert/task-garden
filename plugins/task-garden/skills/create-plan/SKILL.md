@@ -37,7 +37,7 @@ Optional fields you can ask about if the user wants more detail:
 - `tags` — cross-cutting labels (slug format, may contain `/`)
 - `estimate` — `{ value: <positive number>, unit: "hours" | "days" | "points" }`
 - `deliverables` — list of concrete outputs
-- `links` — list of `{ label, href }` where href is an http(s) URL or `.md` path resolved relative to the plan file's parent directory
+- `links` — list of `{ label, href }` where href is an http(s) URL or a file path resolved relative to the plan file's parent directory
 - `notes` — freeform context
 - `reuse_candidates` — list of existing code/libraries to consider
 
@@ -61,7 +61,7 @@ Generate the YAML and write it using the Write tool. Ask the user where they wan
 
 **Filename**: use the `.taskgarden.yaml` suffix (e.g., `<plan_id>.taskgarden.yaml`). Editors that have the Task Garden JSON Schema wired up — see `schemas/task-garden-plan.schema.json` in the repo — match on this suffix to provide completions, hover docs, and validation while editing. A plain `.yaml` file still loads at runtime, but loses editor support.
 
-The plan is loaded at runtime via `taskgarden <path-to-plan.yaml>`, and any `.md` references in the plan resolve relative to that file's parent directory, so place referenced docs nearby.
+The plan is loaded at runtime via `taskgarden <path-to-plan.yaml>`, and any file references in the plan resolve relative to that file's parent directory, so place referenced files nearby.
 
 ## Schema Reference
 
@@ -76,7 +76,7 @@ summary: >                    # Non-empty string
   A description of the project.
 references:                   # Optional, defaults to []
   - label: Some Doc           # Non-empty string
-    href: docs/overview.md    # http(s) URL or .md path relative to the plan file's directory (no path traversal)
+    href: docs/overview.md    # http(s) URL or file path relative to the plan file's directory (no path traversal)
 
 lanes:                        # At least 1 lane required
   - id: backend               # Slug format
@@ -100,7 +100,7 @@ work_items:                   # At least 1 work item required
     reuse_candidates: []       # Optional; list of non-empty strings
     links:                     # Optional
       - label: Migration Guide # Non-empty string
-        href: https://example.com/guide  # http(s) URL or .md path relative to the plan file's directory
+        href: https://example.com/guide  # http(s) URL or file path relative to the plan file's directory
     notes: Some extra context  # Optional, non-empty string
 ```
 
@@ -123,9 +123,9 @@ Tags follow slug format but also allow `/`: `^[a-z0-9][a-z0-9_/-]*$`
 The `href` field in links and references must be one of:
 
 - **HTTP(S) URL**: starts with `http://` or `https://`
-- **Plan-relative .md path**: starts with an alphanumeric character, ends with `.md`, must not contain `..` (no path traversal). Paths are resolved by the Task Garden CLI relative to the **plan file's parent directory** at view time — place referenced Markdown files alongside (or in subdirectories of) the plan YAML so they resolve correctly.
-  - Valid: `docs/overview.md`, `memory-bank/notes.md`
-  - Invalid: `../secret.md`, `/etc/passwd`, `./local.md`
+- **Plan-relative file path**: any safe relative file path, including dot-prefixed names and extensionless files. It must not be absolute, contain URL schemes, contain `..` path segments, or end with a path separator. Paths are resolved by the Task Garden CLI relative to the **plan file's parent directory** at view time — place referenced files alongside (or in subdirectories of) the plan YAML so they resolve correctly.
+  - Valid: `docs/overview.md`, `memory-bank/notes.md`, `.taskgarden-notes.md`, `.kiro/specs/design.md`, `docs/README`
+  - Invalid: `../secret.md`, `/etc/passwd`, `docs/`, `ftp://example.com/file`
 
 ## Example Plan
 

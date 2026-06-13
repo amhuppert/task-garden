@@ -8,7 +8,14 @@ let planDir = "";
 beforeAll(() => {
   planDir = mkdtempSync(path.join(os.tmpdir(), "doc-resolver-"));
   mkdirSync(path.join(planDir, "subdir"), { recursive: true });
+  mkdirSync(path.join(planDir, ".kiro", "specs"), { recursive: true });
   writeFileSync(path.join(planDir, "doc.md"), "# Top-level doc\n", "utf8");
+  writeFileSync(path.join(planDir, ".notes.md"), "# Dot file\n", "utf8");
+  writeFileSync(
+    path.join(planDir, ".kiro", "specs", "design.md"),
+    "# Dot directory\n",
+    "utf8",
+  );
   writeFileSync(
     path.join(planDir, "subdir", "nested.md"),
     "# Nested\n",
@@ -66,6 +73,16 @@ describe("resolveDocument", () => {
     const r = await resolveDocument(planDir, "subdir/nested.md");
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.content).toBe("# Nested\n");
+  });
+
+  it("reads dot-prefixed files and paths", async () => {
+    const rootFile = await resolveDocument(planDir, ".notes.md");
+    expect(rootFile.ok).toBe(true);
+    if (rootFile.ok) expect(rootFile.content).toBe("# Dot file\n");
+
+    const nestedFile = await resolveDocument(planDir, ".kiro/specs/design.md");
+    expect(nestedFile.ok).toBe(true);
+    if (nestedFile.ok) expect(nestedFile.content).toBe("# Dot directory\n");
   });
 
   it("returns 404 for nonexistent file inside planDir", async () => {

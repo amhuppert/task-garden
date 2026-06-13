@@ -43,7 +43,7 @@
             "minLength": 1
           },
           "href": {
-            "description": "An http(s) URL or a .md path resolved relative to the plan file's parent directory (no path traversal).",
+            "description": "An http(s) URL or a file path resolved relative to the plan file's parent directory (no path traversal).",
             "type": "string",
             "minLength": 1
           }
@@ -192,7 +192,7 @@
                   "minLength": 1
                 },
                 "href": {
-                  "description": "An http(s) URL or a .md path resolved relative to the plan file's parent directory (no path traversal).",
+                  "description": "An http(s) URL or a file path resolved relative to the plan file's parent directory (no path traversal).",
                   "type": "string",
                   "minLength": 1
                 }

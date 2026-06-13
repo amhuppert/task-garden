@@ -210,7 +210,7 @@ function PlanReferencesField({
             <input
               data-testid={`plan-ref-href-${index}`}
               aria-label={`Reference href ${index + 1}`}
-              placeholder="https://… or path.md"
+              placeholder="https://... or file path"
               value={row.href}
               onChange={(event) =>
                 updateRow(index, { href: event.target.value })

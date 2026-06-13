@@ -27,7 +27,7 @@ Create a Claude Code plugin named `task-garden` that's distributed alongside the
   - `work_items`: at least 1, each with slug `id`, `title`, `summary`, `lane` (must reference existing lane), `status` (planned|ready|blocked|in_progress|done|future), `priority` (p0|p1|p2|p3|nice_to_have)
   - `depends_on`: references must exist, no self-dependencies, no duplicates, no cycles (must form a DAG)
   - `estimate`: optional, positive number with unit (hours|days|points)
-  - `links.href`: http(s) URLs or repo-relative .md paths (no path traversal)
+  - `links.href`: http(s) URLs or safe relative file paths (no path traversal)
   - `references`: same link format as work item links
 - Should include an example YAML plan for Claude to reference
 

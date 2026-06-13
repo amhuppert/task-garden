@@ -1,4 +1,5 @@
 import { z } from "zod/v4";
+import { isReferenceTarget } from "./reference-target";
 import type { Result } from "./result";
 
 // ---------------------------------------------------------------------------
@@ -19,21 +20,14 @@ const DateOnlySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 export const SlugSchema = z.string().regex(/^[a-z0-9][a-z0-9_-]*$/);
 export const TagSchema = z.string().regex(/^[a-z0-9][a-z0-9_/-]*$/);
 
-// A reference target is either an http/https URL or a repo-relative .md path.
-// Repo-relative paths must start with an alphanumeric character (not "/" or ".")
-// and must not contain any path-traversal sequences ("..").
+// A reference target is either an http/https URL or a safe relative file path.
 export const ReferenceTargetSchema = z
   .string()
   .min(1)
-  .refine(
-    (v) =>
-      /^https?:\/\/.+/.test(v) ||
-      (/^[a-zA-Z0-9].*\.md$/.test(v) && !v.includes("..")),
-    {
-      message:
-        "Reference target must be an http/https URL or a repo-relative .md path (must not start with '/' or '.' and must not contain '..')",
-    },
-  );
+  .refine(isReferenceTarget, {
+    message:
+      "Reference target must be an http/https URL or a safe relative file path (no absolute paths, empty paths, URL schemes, or '..' path segments)",
+  });
 
 // ---------------------------------------------------------------------------
 // Sub-schemas
@@ -81,7 +75,7 @@ export const TaskGardenEstimateSchema = z.object({
 export const TaskGardenLinkSchema = z.object({
   label: z.string().min(1).describe("Display label for the link."),
   href: ReferenceTargetSchema.describe(
-    "An http(s) URL or a .md path resolved relative to the plan file's parent directory (no path traversal).",
+    "An http(s) URL or a file path resolved relative to the plan file's parent directory (no path traversal).",
   ),
 });
 

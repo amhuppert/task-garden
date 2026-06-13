@@ -114,5 +114,5 @@ If the user is ready to go deeper, you can also help with:
 - **Tags** — cross-cutting labels (e.g., `schema`, `testing`, `config`) that cut across lanes
 - **Estimates** — rough sizing in hours, days, or points (must be positive numbers)
 - **Deliverables** — concrete outputs per work item
-- **Links** — references to external resources (URLs) or `.md` paths resolved relative to the plan file's parent directory
+- **Links** — references to external resources (URLs) or file paths resolved relative to the plan file's parent directory
 - **Notes** — freeform context that doesn't fit elsewhere

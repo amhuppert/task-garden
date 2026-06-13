@@ -124,7 +124,7 @@ export function LinksEditorCell({
             <input
               data-testid={`link-href-${index}`}
               aria-label={`Link href ${index + 1}`}
-              placeholder="https://… or path.md"
+              placeholder="https://... or file path"
               value={row.href}
               onChange={(event) =>
                 updateRow(index, { href: event.target.value })

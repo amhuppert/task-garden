@@ -33,7 +33,7 @@ describe("classifyReference", () => {
     });
   });
 
-  describe("repo-relative Markdown paths", () => {
+  describe("relative file paths", () => {
     it("classifies a nested .md path as document_path", () => {
       const result = classifyReference("memory-bank/specs/design.md", "Design");
       expect(result.ok).toBe(true);
@@ -56,6 +56,24 @@ describe("classifyReference", () => {
       expect(result.ok).toBe(true);
       if (result.ok && result.value.kind === "document_path") {
         expect(result.value.documentPath).toBe("src/docs/architecture.md");
+      }
+    });
+
+    it("classifies dot-prefixed and extensionless file paths as document_path", () => {
+      const targets = [
+        ".taskgarden-notes.md",
+        ".kiro/specs/task-garden/design.md",
+        "docs/README",
+        "docs/release..notes.md",
+        "./local.md",
+      ];
+
+      for (const target of targets) {
+        const result = classifyReference(target, "Reference");
+        expect(result.ok, `expected ok for ${target}`).toBe(true);
+        if (result.ok && result.value.kind === "document_path") {
+          expect(result.value.documentPath).toBe(target);
+        }
       }
     });
   });
@@ -87,8 +105,8 @@ describe("classifyReference", () => {
       }
     });
 
-    it("rejects a non-md path with no URL scheme", () => {
-      const result = classifyReference("some/file.txt", "Text");
+    it("rejects a path with no file name", () => {
+      const result = classifyReference("docs/", "Directory");
       expect(result.ok).toBe(false);
       if (!result.ok) {
         expect(result.error.type).toBe("unsupported_target_format");

@@ -2,6 +2,7 @@ import type {
   ReferenceClassification,
   ReferenceClassificationFailure,
 } from "../../lib/plan/reference-resolver";
+import { isSafeRelativeReferencePath } from "../../lib/plan/reference-target";
 import { detectLinkPreset } from "../../lib/plan/resource-link-preset";
 import { ResourceLinkIcon } from "./ResourceLinkIcon";
 
@@ -17,9 +18,7 @@ export interface ResourceLinkProps {
 }
 
 function inferKind(target: string): "external_url" | "document_path" {
-  return /^[a-zA-Z0-9].*\.md$/.test(target) && !target.includes("..")
-    ? "document_path"
-    : "external_url";
+  return isSafeRelativeReferencePath(target) ? "document_path" : "external_url";
 }
 
 const chipClass =

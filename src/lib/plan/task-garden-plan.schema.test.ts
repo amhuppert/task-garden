@@ -165,6 +165,23 @@ describe("TaskGardenPlanSchemaService – valid plans", () => {
     expect(schemaService.parse(plan).ok).toBe(true);
   });
 
+  it("accepts structured references with dot-prefixed and extensionless relative file paths", () => {
+    const plan = {
+      ...validPlan,
+      references: [
+        { label: "Hidden root file", href: ".taskgarden-notes.md" },
+        {
+          label: "Hidden nested file",
+          href: ".kiro/specs/task-garden/design.md",
+        },
+        { label: "Extensionless file", href: "docs/README" },
+        { label: "Dotted file name", href: "docs/release..notes.md" },
+        { label: "Explicit relative file", href: "./local.md" },
+      ],
+    };
+    expect(schemaService.parse(plan).ok).toBe(true);
+  });
+
   it("preserves both label and href on parsed plan references", () => {
     const plan = {
       ...validPlan,
@@ -246,18 +263,26 @@ describe("TaskGardenPlanSchemaService – field validation", () => {
     expect(result.ok).toBe(false);
   });
 
-  it("rejects reference with href that is not a URL or .md path", () => {
+  it("accepts reference with an extensionless root-level file path", () => {
     const result = schemaService.parse({
       ...validPlan,
-      references: [{ label: "Bad", href: "some-random-string" }],
+      references: [{ label: "Plain file", href: "some-random-string" }],
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects reference with absolute file href (must be relative)", () => {
+    const result = schemaService.parse({
+      ...validPlan,
+      references: [{ label: "Abs", href: "/absolute/path.md" }],
     });
     expect(result.ok).toBe(false);
   });
 
-  it("rejects reference with absolute .md href (must be repo-relative)", () => {
+  it("rejects reference with a trailing path separator", () => {
     const result = schemaService.parse({
       ...validPlan,
-      references: [{ label: "Abs", href: "/absolute/path.md" }],
+      references: [{ label: "Directory", href: "docs/" }],
     });
     expect(result.ok).toBe(false);
   });
