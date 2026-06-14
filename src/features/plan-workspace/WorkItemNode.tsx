@@ -1,7 +1,10 @@
 import { Handle, type Node, type NodeProps, Position } from "@xyflow/react";
 import { memo, useContext } from "react";
 import type { FlowNodeData } from "../../lib/graph/flow-projection-service";
-import { formatCompactEstimate } from "./plan-details-panel.helpers";
+import {
+  compactUnitSuffix,
+  formatCompactUnitValue,
+} from "./plan-details-panel.helpers";
 import type { ColorEncodingMode, SizeEncodingMode } from "./plan-display.store";
 import {
   GraphDisplayModeContext,
@@ -124,11 +127,15 @@ function WorkItemNodeImpl({ data }: NodeProps<WorkItemNodeType>) {
           metricRanges[sizeMode].max,
         )
       : null;
-  const compactEstimate = formatCompactEstimate(data.estimate);
-  const hasDayEstimate = data.estimate?.unit === "days";
+  const hasEstimate = data.estimate != null;
+  const unitSuffix = compactUnitSuffix(data.estimateUnit);
+  const compactEstimate =
+    data.estimate != null
+      ? formatCompactUnitValue(data.estimate, data.estimateUnit)
+      : null;
   const criticalPathAccent = getCriticalPathAccentColor();
   const slackNorm =
-    hasDayEstimate && slackRange
+    hasEstimate && slackRange
       ? slackRange.min === slackRange.max
         ? 0.5
         : normalizeMetric(data.slackDays, slackRange.min, slackRange.max)
@@ -137,13 +144,11 @@ function WorkItemNodeImpl({ data }: NodeProps<WorkItemNodeType>) {
   const showCriticalPathOverlay =
     scheduleOverlay === "critical_path" && data.criticalPathOrder !== null;
   const showSlackHeatOverlay =
-    scheduleOverlay === "slack_heatmap" &&
-    hasDayEstimate &&
-    slackColor !== null;
+    scheduleOverlay === "slack_heatmap" && hasEstimate && slackColor !== null;
   const slackValue = Number.isInteger(data.slackDays)
     ? data.slackDays
     : data.slackDays.toFixed(1);
-  const slackLabel = `${slackValue}d slack`;
+  const slackLabel = `${slackValue}${unitSuffix} slack`;
 
   return (
     <div
@@ -268,7 +273,7 @@ function WorkItemNodeImpl({ data }: NodeProps<WorkItemNodeType>) {
               borderColor: `color-mix(in oklab, ${slackColor} 42%, transparent)`,
               color: slackColor,
             }}
-            title={`Slack: ${slackValue}d buffer`}
+            title={`Slack: ${slackValue}${unitSuffix} buffer`}
           >
             {slackLabel}
           </span>
@@ -290,7 +295,7 @@ function WorkItemNodeImpl({ data }: NodeProps<WorkItemNodeType>) {
             {Number.isInteger(data.metricSummary.remaining_days)
               ? data.metricSummary.remaining_days
               : data.metricSummary.remaining_days.toFixed(1)}
-            d chain
+            {unitSuffix} chain
           </span>
         )}
       </div>

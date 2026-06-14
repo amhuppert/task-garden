@@ -112,7 +112,7 @@ Before the user moves to creating the plan file, review the overall structure:
 If the user is ready to go deeper, you can also help with:
 
 - **Tags** — cross-cutting labels (e.g., `schema`, `testing`, `config`) that cut across lanes
-- **Estimates** — rough sizing in hours, days, or points (must be positive numbers)
+- **Estimates** — rough sizing as positive numbers. The unit (hours, days, or points) is chosen once for the whole plan, so every estimate uses the same unit.
 - **Deliverables** — concrete outputs per work item
 - **Links** — references to external resources (URLs) or file paths resolved relative to the plan file's parent directory
 - **Notes** — freeform context that doesn't fit elsewhere

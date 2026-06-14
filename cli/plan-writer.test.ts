@@ -8,6 +8,7 @@ plan_id: sample-plan
 title: Sample Plan
 last_updated: 2026-05-01
 summary: A small plan used in writer tests.
+estimate_unit: days
 
 lanes:
   - id: alpha
@@ -33,9 +34,7 @@ work_items:
       - label: Docs
         href: https://example.com
     notes: original notes
-    estimate:
-      value: 2
-      unit: days
+    estimate: 2
   - id: item-two
     title: Second item
     summary: The second item.
@@ -127,20 +126,17 @@ describe("planWriter.apply — work_item.field happy path", () => {
 });
 
 describe("planWriter.apply — work_item.estimate", () => {
-  test("setting an estimate writes block-style nested keys", () => {
+  test("setting an estimate writes the numeric magnitude", () => {
     const patch: PlanPatch = {
       kind: "work_item.estimate",
       target: { id: "item-two" },
-      value: { value: 5, unit: "hours" },
+      value: 5,
     };
 
     const result = planWriter.apply(SAMPLE_PLAN, patch);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.nextSource).toMatch(
-      /id: item-two[\s\S]*estimate:\s*\n\s+value: 5\s*\n\s+unit: hours/,
-    );
-    expect(result.nextSource).not.toMatch(/estimate:\s*\{/);
+    expect(result.nextSource).toMatch(/id: item-two[\s\S]*estimate: 5/);
   });
 
   test("setting estimate to null deletes the estimate key", () => {

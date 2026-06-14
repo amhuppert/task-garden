@@ -1,12 +1,14 @@
 import type { FlowProjection } from "../../lib/graph/flow-projection-service";
 import type {
+  EstimateUnit,
   MetricKey,
   PlanAnalysisSnapshot,
 } from "../../lib/graph/plan-analysis-engine";
 import { SectionInfoModal } from "./SectionInfoModal";
 import {
-  formatCompactDayCount,
-  formatDayCount,
+  compactUnitSuffix,
+  formatCompactUnitValue,
+  formatUnitCount,
 } from "./plan-details-panel.helpers";
 import type {
   ColorEncodingMode,
@@ -42,16 +44,28 @@ export interface PlanInsightsPanelProps {
 // Metric labels and explanations
 // ---------------------------------------------------------------------------
 
-const METRIC_LABELS: Record<MetricKey, string> = {
+const STRUCTURAL_METRIC_LABELS: Record<MetricKey, string> = {
   degree: "Degree",
   in_degree: "In-Degree",
   out_degree: "Out-Degree",
   betweenness: "Betweenness",
   dependency_span: "Dependency Span",
-  estimate_days: "Estimate Days",
-  remaining_days: "Remaining Chain Days",
-  downstream_effort_days: "Unlocked Effort Days",
+  estimate_days: "Estimate",
+  remaining_days: "Remaining Chain",
+  downstream_effort_days: "Unlocked Effort",
 };
+
+/** Estimate-based metric labels carry the plan's unit; structural ones don't. */
+function getMetricLabel(key: MetricKey, unit: EstimateUnit): string {
+  if (
+    key === "estimate_days" ||
+    key === "remaining_days" ||
+    key === "downstream_effort_days"
+  ) {
+    return `${STRUCTURAL_METRIC_LABELS[key]} (${compactUnitSuffix(unit)})`;
+  }
+  return STRUCTURAL_METRIC_LABELS[key];
+}
 
 const METRIC_DESCRIPTIONS: Record<MetricKey, string> = {
   degree: "Total direct connections (dependencies + dependents).",
@@ -61,11 +75,11 @@ const METRIC_DESCRIPTIONS: Record<MetricKey, string> = {
     "How often this item appears on shortest paths between other items. High values indicate structural bridges.",
   dependency_span:
     "How many additional dependency levels lie below this item. Higher means more work downstream.",
-  estimate_days: "Authored estimate for the item, normalized to days.",
+  estimate_days: "Authored estimate for the item.",
   remaining_days:
     "The longest estimated chain from this item to a leaf, including this item.",
   downstream_effort_days:
-    "The total unique downstream day-estimate workload unlocked by this item.",
+    "The total unique downstream estimated workload unlocked by this item.",
 };
 
 // ---------------------------------------------------------------------------
@@ -78,7 +92,7 @@ const COLOR_MODE_EXPLANATIONS: Record<ColorEncodingMode, string> = {
   status: "Node color reflects the current status of each item.",
   priority: "Node color reflects the priority level of each item.",
   estimate_days:
-    "Color encodes authored task size in days. Stronger color means a larger individual estimate.",
+    "Color encodes authored task size. Stronger color means a larger individual estimate.",
   remaining_days:
     "Color encodes how much estimated sequential runway remains below each item.",
   downstream_effort_days:
@@ -94,7 +108,7 @@ const COLOR_MODE_EXPLANATIONS: Record<ColorEncodingMode, string> = {
 const SIZE_MODE_EXPLANATIONS: Record<SizeEncodingMode, string> = {
   uniform: "All nodes use the same size.",
   estimate_days:
-    "Node size scales with authored task size in days. Larger nodes are larger tasks.",
+    "Node size scales with authored task size. Larger nodes are larger tasks.",
   remaining_days:
     "Node size scales with estimated remaining chain length. Larger nodes sit above longer sequential runways.",
   downstream_effort_days:
@@ -213,7 +227,7 @@ function EstimateProfileExplanation() {
       </p>
       <div className="rounded-[var(--radius-sm)] bg-surface-muted px-2.5 py-2">
         <span className="font-semibold text-foreground/70">How it works: </span>
-        Coverage counts items that have day estimates. Total effort adds those
+        Coverage counts items that have estimates. Total effort adds those
         estimates together. Schedule floor finds the longest estimated
         dependency route. Parallelism divides total effort by that route.
         Critical items counts tasks with no schedule buffer.
@@ -232,8 +246,8 @@ function EstimatedCriticalPathExplanation() {
       </p>
       <div className="rounded-[var(--radius-sm)] bg-surface-muted px-2.5 py-2">
         <span className="font-semibold text-foreground/70">How it works: </span>
-        Walk each dependency route from start to finish, add the day estimates
-        along each route, and keep the route with the largest total.
+        Walk each dependency route from start to finish, add the estimates along
+        each route, and keep the route with the largest total.
       </div>
     </>
   );
@@ -250,7 +264,7 @@ function MostUnlockingItemsExplanation() {
       <div className="rounded-[var(--radius-sm)] bg-surface-muted px-2.5 py-2">
         <span className="font-semibold text-foreground/70">How it works: </span>
         Start from a task, collect every reachable dependent below it, and add
-        their day estimates without double-counting shared items.
+        their estimates without double-counting shared items.
       </div>
     </>
   );
@@ -401,7 +415,7 @@ function InterpretationNoteExplanation() {
       <div className="rounded-[var(--radius-sm)] bg-surface-muted px-2.5 py-2">
         <span className="font-semibold text-foreground/70">How it works: </span>
         Structural metrics use dependency links only. Estimate metrics add
-        authored day estimates on top of those same dependency links.
+        authored estimates on top of those same dependency links.
       </div>
     </>
   );
@@ -480,6 +494,7 @@ function OverviewMode({ snapshot, onSelectWorkItem }: OverviewModeProps) {
     longestDependencyChain,
     analysisById,
     estimateSummary,
+    estimateUnit,
   } = snapshot;
 
   const totalItems = Object.keys(workItems).length;
@@ -555,19 +570,24 @@ function OverviewMode({ snapshot, onSelectWorkItem }: OverviewModeProps) {
                 {
                   label: "Coverage",
                   value: `${estimateSummary.estimatedItemCount}/${estimateSummary.totalWorkItemCount}`,
-                  detail: "Items with day estimates",
+                  detail: "Items with estimates",
                 },
                 {
                   label: "Total Effort",
-                  value: formatCompactDayCount(
+                  value: formatCompactUnitValue(
                     estimateSummary.totalEstimatedDays,
+                    estimateUnit,
                   ),
-                  detail: formatDayCount(estimateSummary.totalEstimatedDays),
+                  detail: formatUnitCount(
+                    estimateSummary.totalEstimatedDays,
+                    estimateUnit,
+                  ),
                 },
                 {
                   label: "Schedule Floor",
-                  value: formatCompactDayCount(
+                  value: formatCompactUnitValue(
                     estimateSummary.estimatedCriticalPath.totalDays,
+                    estimateUnit,
                   ),
                   detail: "Estimated critical path",
                 },
@@ -599,13 +619,14 @@ function OverviewMode({ snapshot, onSelectWorkItem }: OverviewModeProps) {
 
           {estimateSummary.estimatedCriticalPath.workItemIds.length > 0 && (
             <Section
-              label={`Estimated Critical Path (${formatCompactDayCount(
+              label={`Estimated Critical Path (${formatCompactUnitValue(
                 estimateSummary.estimatedCriticalPath.totalDays,
+                estimateUnit,
               )})`}
               description={<EstimatedCriticalPathExplanation />}
             >
               <p className="text-xs text-muted-foreground">
-                Minimum delivery floor assuming authored day estimates are
+                Minimum delivery floor assuming authored estimates are
                 directionally correct and independent branches can run in
                 parallel.
               </p>
@@ -624,8 +645,11 @@ function OverviewMode({ snapshot, onSelectWorkItem }: OverviewModeProps) {
                             id={id}
                             title={item.title}
                             badge={
-                              item.estimate?.unit === "days"
-                                ? formatCompactDayCount(item.estimate.value)
+                              item.estimate != null
+                                ? formatCompactUnitValue(
+                                    item.estimate,
+                                    estimateUnit,
+                                  )
                                 : undefined
                             }
                             onClick={onSelectWorkItem}
@@ -653,11 +677,13 @@ function OverviewMode({ snapshot, onSelectWorkItem }: OverviewModeProps) {
                     <ItemRow
                       id={item.id}
                       title={item.title}
-                      badge={formatCompactDayCount(
+                      badge={formatCompactUnitValue(
                         analysis.metrics.downstream_effort_days,
+                        estimateUnit,
                       )}
-                      badgeTitle={formatDayCount(
+                      badgeTitle={formatUnitCount(
                         analysis.metrics.downstream_effort_days,
+                        estimateUnit,
                       )}
                       onClick={onSelectWorkItem}
                     />
@@ -793,7 +819,7 @@ interface OrderingModeProps {
 }
 
 function OrderingMode({ snapshot, onSelectWorkItem }: OrderingModeProps) {
-  const { topologicalOrder, workItems, analysisById } = snapshot;
+  const { topologicalOrder, workItems, analysisById, estimateUnit } = snapshot;
 
   // Group items by level
   const byLevel = new Map<number, string[]>();
@@ -844,9 +870,10 @@ function OrderingMode({ snapshot, onSelectWorkItem }: OrderingModeProps) {
                         title={item.title}
                         badge={
                           analysis
-                            ? item.estimate?.unit === "days"
-                              ? `${formatCompactDayCount(
-                                  item.estimate.value,
+                            ? item.estimate != null
+                              ? `${formatCompactUnitValue(
+                                  item.estimate,
+                                  estimateUnit,
                                 )} · ${analysis.dependencyIds.length}↑ ${analysis.dependentIds.length}↓`
                               : `${analysis.dependencyIds.length}↑ ${analysis.dependentIds.length}↓`
                             : undefined
@@ -901,14 +928,20 @@ function MetricsMode({
   onSelectWorkItem,
 }: MetricsModeProps) {
   const { colorMode, sizeMode } = display;
-  const { metricRanges, workItems, topologicalOrder, analysisById } = snapshot;
+  const {
+    metricRanges,
+    workItems,
+    topologicalOrder,
+    analysisById,
+    estimateUnit,
+  } = snapshot;
   const formatRangeValue = (key: MetricKey, value: number): string => {
     if (
       key === "estimate_days" ||
       key === "remaining_days" ||
       key === "downstream_effort_days"
     ) {
-      return formatCompactDayCount(value);
+      return formatCompactUnitValue(value, estimateUnit);
     }
     return value.toFixed(2);
   };
@@ -998,7 +1031,7 @@ function MetricsMode({
               >
                 <div className="mb-1 flex items-center justify-between gap-2">
                   <span className="font-mono text-[0.65rem] uppercase tracking-wider text-muted-foreground">
-                    {METRIC_LABELS[key]}
+                    {getMetricLabel(key, estimateUnit)}
                   </span>
                   <span className="font-mono text-[0.65rem] text-muted-foreground">
                     {isFlat
@@ -1032,7 +1065,7 @@ function MetricsMode({
         <div className="rounded-[var(--radius-sm)] border border-border bg-surface-muted px-3.5 py-2.5">
           <p className="text-xs leading-relaxed text-muted-foreground">
             Structural metrics reflect dependency topology. Estimate-based
-            metrics reflect authored day estimates and assume parallel work can
+            metrics reflect authored estimates and assume parallel work can
             happen across independent branches. Use both lenses together:
             topology shows coordination structure, while estimate metrics show
             likely schedule pressure and gated effort.

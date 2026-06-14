@@ -398,7 +398,7 @@ export function PlanGraphCanvas({
   );
   const slackRange = useMemo(() => {
     const values = projection.nodes
-      .filter((node) => node.data.estimate?.unit === "days")
+      .filter((node) => node.data.estimate != null)
       .map((node) => node.data.slackDays);
     if (values.length === 0) return null;
     return {

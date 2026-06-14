@@ -1,6 +1,5 @@
 import type { PlanPatch } from "../../../../cli/shared/patch-schema";
 import type {
-  TaskGardenEstimate,
   TaskGardenLink,
   TaskGardenWorkItem,
 } from "../../../lib/plan/task-garden-plan.schema";
@@ -33,7 +32,7 @@ export const patchTargets = {
     };
   },
 
-  workItemEstimate(id: string, value: TaskGardenEstimate | null): PlanPatch {
+  workItemEstimate(id: string, value: number | null): PlanPatch {
     return {
       kind: "work_item.estimate",
       target: { id },

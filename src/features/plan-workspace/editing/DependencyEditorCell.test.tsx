@@ -63,6 +63,7 @@ function makePlan(items: TaskGardenWorkItem[]): TaskGardenPlan {
     title: "Test",
     last_updated: "2024-01-01",
     summary: "Test plan",
+    estimate_unit: "days",
     references: [],
     lanes: [{ id: "lane-1", label: "Lane 1" }],
     work_items: items,

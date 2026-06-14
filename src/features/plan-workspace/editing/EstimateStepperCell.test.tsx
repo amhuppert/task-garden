@@ -37,7 +37,8 @@ describe("EstimateStepperCell", () => {
     render(
       <EstimateStepperCell
         workItemId="a"
-        committedValue={{ value: 2, unit: "days" }}
+        committedValue={2}
+        estimateUnit="days"
         baseRevision={1}
       />,
     );
@@ -49,6 +50,7 @@ describe("EstimateStepperCell", () => {
       <EstimateStepperCell
         workItemId="a"
         committedValue={null}
+        estimateUnit="days"
         baseRevision={1}
       />,
     );
@@ -59,7 +61,8 @@ describe("EstimateStepperCell", () => {
     render(
       <EstimateStepperCell
         workItemId="a"
-        committedValue={{ value: 2, unit: "days" }}
+        committedValue={2}
+        estimateUnit="days"
         baseRevision={1}
       />,
     );
@@ -77,7 +80,8 @@ describe("EstimateStepperCell", () => {
     render(
       <EstimateStepperCell
         workItemId="a"
-        committedValue={{ value: 1, unit: "days" }}
+        committedValue={1}
+        estimateUnit="days"
         baseRevision={1}
       />,
     );
@@ -87,7 +91,7 @@ describe("EstimateStepperCell", () => {
     expect(useEditStore.getState().drafts["work_item:a:estimate"]).toBe(1.5);
   });
 
-  it("on blur, commits the patch with { value, unit: 'days' }", async () => {
+  it("on blur, commits the patch with the numeric value", async () => {
     const patchPlan: PatchPlanFn = vi.fn().mockResolvedValue({
       ok: true,
       operationId: "op-1",
@@ -97,7 +101,8 @@ describe("EstimateStepperCell", () => {
     render(
       <EstimateStepperCell
         workItemId="a"
-        committedValue={{ value: 2, unit: "days" }}
+        committedValue={2}
+        estimateUnit="days"
         baseRevision={1}
         patchPlan={patchPlan}
       />,
@@ -118,7 +123,7 @@ describe("EstimateStepperCell", () => {
     expect(patchArg).toEqual({
       kind: "work_item.estimate",
       target: { id: "a" },
-      value: { value: 1.5, unit: "days" },
+      value: 1.5,
     });
   });
 
@@ -132,7 +137,8 @@ describe("EstimateStepperCell", () => {
     render(
       <EstimateStepperCell
         workItemId="a"
-        committedValue={{ value: 0.5, unit: "days" }}
+        committedValue={0.5}
+        estimateUnit="days"
         baseRevision={1}
         patchPlan={patchPlan}
       />,

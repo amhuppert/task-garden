@@ -18,6 +18,7 @@ const baseData: FlowNodeData = {
   priority: "p1",
   summary: "",
   estimate: undefined,
+  estimateUnit: "days",
   isOnCriticalPath: false,
   criticalPathOrder: null,
   slackDays: 0,

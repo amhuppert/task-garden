@@ -1,4 +1,5 @@
 import dagre from "@dagrejs/dagre";
+import { compactUnitSuffix } from "../../features/plan-workspace/plan-details-panel.helpers";
 import type {
   ColorEncodingMode,
   PlanDisplayStateValue,
@@ -12,6 +13,7 @@ import type {
 import { getLanePaletteColor } from "../../features/plan-workspace/plan-graph-canvas.helpers";
 import type { TaskGardenWorkItem } from "../plan/task-garden-plan.schema";
 import type {
+  EstimateUnit,
   MetricKey,
   PlanAnalysisSnapshot,
   WorkItemAnalysis,
@@ -31,6 +33,8 @@ export interface FlowNodeData {
   priority: TaskGardenWorkItem["priority"];
   summary: string;
   estimate: TaskGardenWorkItem["estimate"];
+  /** Plan-level estimate unit, used for labelling derived effort values. */
+  estimateUnit: EstimateUnit;
   isOnCriticalPath: boolean;
   criticalPathOrder: number | null;
   slackDays: number;
@@ -448,13 +452,14 @@ function buildColorLegend(
   snapshot: PlanAnalysisSnapshot,
   colorMode: ColorEncodingMode,
 ): DisplayLegend {
+  const unitSuffix = compactUnitSuffix(snapshot.estimateUnit);
   const formatMetricValue = (metric: MetricKey, value: number): string => {
     if (
       metric === "estimate_days" ||
       metric === "remaining_days" ||
       metric === "downstream_effort_days"
     ) {
-      return `${Number.isInteger(value) ? value : value.toFixed(1)}d`;
+      return `${Number.isInteger(value) ? value : value.toFixed(1)}${unitSuffix}`;
     }
     return value.toFixed(2);
   };
@@ -555,6 +560,7 @@ function buildSizeLegend(
   sizeMode: SizeEncodingMode,
 ): DisplayLegend | null {
   if (sizeMode === "uniform") return null;
+  const unitSuffix = compactUnitSuffix(snapshot.estimateUnit);
   const formatMetricValue = (
     metric: SizeEncodingMode,
     value: number,
@@ -564,7 +570,7 @@ function buildSizeLegend(
       metric === "remaining_days" ||
       metric === "downstream_effort_days"
     ) {
-      return `${Number.isInteger(value) ? value : value.toFixed(1)}d`;
+      return `${Number.isInteger(value) ? value : value.toFixed(1)}${unitSuffix}`;
     }
     return value.toFixed(2);
   };
@@ -613,8 +619,8 @@ function buildLegends(
   };
 }
 
-function formatDayValue(value: number): string {
-  return `${Number.isInteger(value) ? value : value.toFixed(1)}d`;
+function formatUnitValue(value: number, unitSuffix: string): string {
+  return `${Number.isInteger(value) ? value : value.toFixed(1)}${unitSuffix}`;
 }
 
 function buildScheduleLegend(
@@ -624,6 +630,8 @@ function buildScheduleLegend(
 ): ScheduleOverlayLegend | null {
   if (scheduleOverlay === "none") return null;
 
+  const unitSuffix = compactUnitSuffix(snapshot.estimateUnit);
+
   if (snapshot.estimateSummary.estimatedItemCount === 0) {
     return {
       mode: scheduleOverlay,
@@ -631,10 +639,10 @@ function buildScheduleLegend(
         scheduleOverlay === "critical_path"
           ? "Schedule Overlay — Critical Path"
           : "Schedule Overlay — Slack Heatmap",
-      note: "Schedule overlays need authored day estimates.",
+      note: "Schedule overlays need authored estimates.",
       stats: [],
       fallbackMessage:
-        "Add day estimates to the plan to activate schedule overlays.",
+        "Add estimates to the plan to activate schedule overlays.",
     };
   }
 
@@ -649,8 +657,9 @@ function buildScheduleLegend(
         {
           key: "route",
           label: "Plan Route",
-          value: formatDayValue(
+          value: formatUnitValue(
             snapshot.estimateSummary.estimatedCriticalPath.totalDays,
+            unitSuffix,
           ),
         },
         {
@@ -663,7 +672,7 @@ function buildScheduleLegend(
   }
 
   const visibleEstimatedIds = [...visibleIds].filter(
-    (id) => snapshot.workItems[id]?.estimate?.unit === "days",
+    (id) => snapshot.workItems[id]?.estimate != null,
   );
   if (visibleEstimatedIds.length === 0) {
     return {
@@ -695,12 +704,12 @@ function buildScheduleLegend(
       {
         key: "peak",
         label: "Most Buffer",
-        value: formatDayValue(maxSlack),
+        value: formatUnitValue(maxSlack, unitSuffix),
       },
     ],
     gradientLabels: {
-      start: `${formatDayValue(minSlack)} buffer`,
-      end: `${formatDayValue(maxSlack)} buffer`,
+      start: `${formatUnitValue(minSlack, unitSuffix)} buffer`,
+      end: `${formatUnitValue(maxSlack, unitSuffix)} buffer`,
       neutralNote:
         visibleEstimatedIds.length < visibleIds.size
           ? "Unestimated items stay neutral."
@@ -855,6 +864,7 @@ export function createFlowProjectionService(): FlowProjectionService {
           priority: item.priority,
           summary: item.summary,
           estimate: item.estimate,
+          estimateUnit: snapshot.estimateUnit,
           isOnCriticalPath: analysis.schedule.isOnCriticalPath,
           criticalPathOrder: criticalPathOrderById.get(nodeId) ?? null,
           slackDays: analysis.schedule.slackDays,

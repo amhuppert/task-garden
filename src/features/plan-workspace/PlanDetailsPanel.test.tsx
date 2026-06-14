@@ -42,6 +42,7 @@ const snapshot: PlanAnalysisSnapshot = {
     title: "Test",
     last_updated: "2026-04-01",
     summary: "Test.",
+    estimate_unit: "days",
     references: [],
     lanes: [{ id: "core", label: "Core" }],
     work_items: [
@@ -53,10 +54,7 @@ const snapshot: PlanAnalysisSnapshot = {
         status: "ready",
         priority: "p0",
         depends_on: [],
-        estimate: {
-          value: 3,
-          unit: "days",
-        },
+        estimate: 3,
         tags: [],
         deliverables: [],
         reuse_candidates: [],
@@ -76,10 +74,7 @@ const snapshot: PlanAnalysisSnapshot = {
       status: "ready",
       priority: "p0",
       depends_on: [],
-      estimate: {
-        value: 3,
-        unit: "days",
-      },
+      estimate: 3,
       tags: [],
       deliverables: [],
       reuse_candidates: [],

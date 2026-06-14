@@ -1,5 +1,5 @@
 import type {
-  TaskGardenEstimate,
+  EstimateUnit,
   TaskGardenPriority,
   TaskGardenStatus,
 } from "../../lib/plan/task-garden-plan.schema";
@@ -48,43 +48,37 @@ export function getPriorityLabel(priority: TaskGardenPriority): string {
 // Estimate formatting
 // ---------------------------------------------------------------------------
 
-export function formatEstimate(estimate: {
-  value: number;
-  unit: string;
-}): string {
-  const { value, unit } = estimate;
-  // Singular: strip trailing 's' from unit
-  if (value === 1) {
-    return `${value} ${unit.replace(/s$/, "")}`;
-  }
-  return `${value} ${unit}`;
-}
-
 function formatNumeric(value: number): string {
   return Number.isInteger(value) ? `${value}` : value.toFixed(1);
 }
 
-export function formatCompactEstimate(
-  estimate: TaskGardenEstimate | null | undefined,
-): string | null {
-  if (!estimate) return null;
+const COMPACT_UNIT_SUFFIX: Record<EstimateUnit, string> = {
+  hours: "h",
+  days: "d",
+  points: "pt",
+};
 
-  const value = formatNumeric(estimate.value);
-  switch (estimate.unit) {
-    case "days":
-      return `${value}d`;
-    case "hours":
-      return `${value}h`;
-    case "points":
-      return `${value}pt`;
-  }
+const UNIT_SINGULAR: Record<EstimateUnit, string> = {
+  hours: "hour",
+  days: "day",
+  points: "point",
+};
+
+/** Compact unit suffix used after a numeric value, e.g. "d", "h", "pt". */
+export function compactUnitSuffix(unit: EstimateUnit): string {
+  return COMPACT_UNIT_SUFFIX[unit];
 }
 
-export function formatDayCount(days: number): string {
-  const value = formatNumeric(days);
-  return `${value} ${days === 1 ? "day" : "days"}`;
+/** Compact value + unit suffix for an estimate or derived metric, e.g. "8d", "5pt". */
+export function formatCompactUnitValue(
+  value: number,
+  unit: EstimateUnit,
+): string {
+  return `${formatNumeric(value)}${COMPACT_UNIT_SUFFIX[unit]}`;
 }
 
-export function formatCompactDayCount(days: number): string {
-  return `${formatNumeric(days)}d`;
+/** Spelled-out value + unit, singularised at 1, e.g. "1 day", "5 points". */
+export function formatUnitCount(value: number, unit: EstimateUnit): string {
+  const word = value === 1 ? UNIT_SINGULAR[unit] : unit;
+  return `${formatNumeric(value)} ${word}`;
 }

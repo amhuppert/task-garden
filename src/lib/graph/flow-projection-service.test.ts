@@ -37,12 +37,7 @@ function makeWorkItem(
     links: [],
     ...(overrides.estimateDays === undefined
       ? {}
-      : {
-          estimate: {
-            value: overrides.estimateDays,
-            unit: "days" as const,
-          },
-        }),
+      : { estimate: overrides.estimateDays }),
   };
 }
 
@@ -53,6 +48,7 @@ function makePlan(overrides: Partial<TaskGardenPlan> = {}): TaskGardenPlan {
     title: "Test Plan",
     last_updated: "2024-01-01",
     summary: "A plan for testing.",
+    estimate_unit: "days",
     references: [],
     lanes: [
       { id: "backend", label: "Backend" },
@@ -125,6 +121,15 @@ function makeEstimatedBranchingSnapshot(): PlanAnalysisSnapshot {
     ],
   });
   return createPlanAnalysisEngine().build(plan);
+}
+
+/** Same branching plan, but the plan-level unit is story points instead of days. */
+function makePointsBranchingSnapshot(): PlanAnalysisSnapshot {
+  const days = makeEstimatedBranchingSnapshot().plan;
+  return createPlanAnalysisEngine().build({
+    ...days,
+    estimate_unit: "points",
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -393,6 +398,47 @@ describe("FlowProjectionService — schedule overlays", () => {
 
     const nodeB = result.nodes.find((node) => node.id === "b")!;
     expect(nodeB.data.slackDays).toBe(3);
+  });
+
+  it("projects the critical path overlay for a points plan with point labels", () => {
+    const svc = createFlowProjectionService();
+    const snapshot = makePointsBranchingSnapshot();
+    const display = {
+      ...defaultDisplay,
+      scheduleOverlay: "critical_path" as const,
+    };
+    const result = svc.project(snapshot, defaultExplorer, display);
+
+    // Same structural critical path as the days plan, but labelled in points.
+    expect(result.scheduleLegend?.stats).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "Plan Route", value: "8pt" }),
+      ]),
+    );
+    const nodeA = result.nodes.find((node) => node.id === "a")!;
+    const nodeC = result.nodes.find((node) => node.id === "c")!;
+    const nodeD = result.nodes.find((node) => node.id === "d")!;
+    expect(nodeA.data.estimateUnit).toBe("points");
+    expect(nodeA.data.criticalPathOrder).toBe(0);
+    expect(nodeC.data.criticalPathOrder).toBe(1);
+    expect(nodeD.data.criticalPathOrder).toBe(2);
+  });
+
+  it("labels the slack heatmap in points for a points plan", () => {
+    const svc = createFlowProjectionService();
+    const snapshot = makePointsBranchingSnapshot();
+    const display = {
+      ...defaultDisplay,
+      scheduleOverlay: "slack_heatmap" as const,
+    };
+    const result = svc.project(snapshot, defaultExplorer, display);
+
+    expect(result.scheduleLegend?.gradientLabels).toEqual(
+      expect.objectContaining({
+        start: "0pt buffer",
+        end: "3pt buffer",
+      }),
+    );
   });
 });
 

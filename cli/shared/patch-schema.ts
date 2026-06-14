@@ -26,12 +26,8 @@ export const PlanPatchSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("work_item.estimate"),
     target: z.object({ id: SlugSchema }),
-    value: z
-      .object({
-        value: z.number().positive(),
-        unit: z.enum(["hours", "days", "points"]),
-      })
-      .nullable(),
+    // Estimate magnitude only; the unit is configured plan-wide via estimate_unit.
+    value: z.number().positive().nullable(),
   }),
 
   z.object({

@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  formatCompactDayCount,
-  formatCompactEstimate,
-  formatDayCount,
-  formatEstimate,
+  compactUnitSuffix,
+  formatCompactUnitValue,
+  formatUnitCount,
   getPriorityLabel,
   getStatusLabel,
 } from "./plan-details-panel.helpers";
@@ -65,85 +64,43 @@ describe("getPriorityLabel", () => {
 });
 
 // ---------------------------------------------------------------------------
-// formatEstimate
+// Estimate / unit formatting
 // ---------------------------------------------------------------------------
 
-describe("formatEstimate", () => {
-  it("formats plural days", () => {
-    expect(formatEstimate({ value: 3, unit: "days" })).toBe("3 days");
-  });
-
-  it("formats singular day", () => {
-    expect(formatEstimate({ value: 1, unit: "days" })).toBe("1 day");
-  });
-
-  it("formats plural hours", () => {
-    expect(formatEstimate({ value: 4, unit: "hours" })).toBe("4 hours");
-  });
-
-  it("formats singular hour", () => {
-    expect(formatEstimate({ value: 1, unit: "hours" })).toBe("1 hour");
-  });
-
-  it("formats plural points", () => {
-    expect(formatEstimate({ value: 5, unit: "points" })).toBe("5 points");
-  });
-
-  it("formats singular point", () => {
-    expect(formatEstimate({ value: 1, unit: "points" })).toBe("1 point");
-  });
-
-  it("formats fractional values without singularizing", () => {
-    expect(formatEstimate({ value: 0.5, unit: "days" })).toBe("0.5 days");
-  });
-
-  it("formats zero without singularizing", () => {
-    expect(formatEstimate({ value: 0, unit: "hours" })).toBe("0 hours");
+describe("compactUnitSuffix", () => {
+  it("maps each unit to its compact suffix", () => {
+    expect(compactUnitSuffix("days")).toBe("d");
+    expect(compactUnitSuffix("hours")).toBe("h");
+    expect(compactUnitSuffix("points")).toBe("pt");
   });
 });
 
-describe("formatCompactEstimate", () => {
-  it("formats days as d", () => {
-    expect(formatCompactEstimate({ value: 3, unit: "days" })).toBe("3d");
+describe("formatCompactUnitValue", () => {
+  it("formats integer values with the unit suffix", () => {
+    expect(formatCompactUnitValue(8, "days")).toBe("8d");
+    expect(formatCompactUnitValue(5, "points")).toBe("5pt");
+    expect(formatCompactUnitValue(4, "hours")).toBe("4h");
   });
 
-  it("formats fractional days with one decimal place", () => {
-    expect(formatCompactEstimate({ value: 1.5, unit: "days" })).toBe("1.5d");
-  });
-
-  it("formats hours as h", () => {
-    expect(formatCompactEstimate({ value: 4, unit: "hours" })).toBe("4h");
-  });
-
-  it("formats points as pt", () => {
-    expect(formatCompactEstimate({ value: 5, unit: "points" })).toBe("5pt");
-  });
-
-  it("returns null when estimate is missing", () => {
-    expect(formatCompactEstimate(undefined)).toBeNull();
+  it("formats fractional values with one decimal place", () => {
+    expect(formatCompactUnitValue(2.5, "days")).toBe("2.5d");
+    expect(formatCompactUnitValue(1.5, "points")).toBe("1.5pt");
   });
 });
 
-describe("formatDayCount", () => {
-  it("formats singular day", () => {
-    expect(formatDayCount(1)).toBe("1 day");
+describe("formatUnitCount", () => {
+  it("singularises at exactly 1", () => {
+    expect(formatUnitCount(1, "days")).toBe("1 day");
+    expect(formatUnitCount(1, "points")).toBe("1 point");
+    expect(formatUnitCount(1, "hours")).toBe("1 hour");
   });
 
-  it("formats plural days", () => {
-    expect(formatDayCount(8)).toBe("8 days");
+  it("pluralises otherwise", () => {
+    expect(formatUnitCount(8, "days")).toBe("8 days");
+    expect(formatUnitCount(5, "points")).toBe("5 points");
   });
 
-  it("formats fractional days with one decimal place", () => {
-    expect(formatDayCount(2.5)).toBe("2.5 days");
-  });
-});
-
-describe("formatCompactDayCount", () => {
-  it("formats integer day counts compactly", () => {
-    expect(formatCompactDayCount(8)).toBe("8d");
-  });
-
-  it("formats fractional day counts compactly", () => {
-    expect(formatCompactDayCount(2.5)).toBe("2.5d");
+  it("formats fractional values without singularising", () => {
+    expect(formatUnitCount(2.5, "days")).toBe("2.5 days");
   });
 });

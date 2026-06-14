@@ -30,6 +30,12 @@
       "type": "string",
       "minLength": 1
     },
+    "estimate_unit": {
+      "description": "Unit all per-item estimates are expressed in. Defaults to days.",
+      "default": "days",
+      "type": "string",
+      "enum": ["hours", "days", "points"]
+    },
     "references": {
       "description": "Top-level documentation references for the whole plan.",
       "default": [],
@@ -145,21 +151,9 @@
             }
           },
           "estimate": {
-            "description": "Optional rough sizing for this item.",
-            "type": "object",
-            "properties": {
-              "value": {
-                "description": "Positive numeric estimate.",
-                "type": "number",
-                "exclusiveMinimum": 0
-              },
-              "unit": {
-                "description": "Unit for the estimate.",
-                "type": "string",
-                "enum": ["hours", "days", "points"]
-              }
-            },
-            "required": ["value", "unit"]
+            "description": "Optional rough sizing for this item, expressed in the plan's estimate_unit.",
+            "type": "number",
+            "exclusiveMinimum": 0
           },
           "deliverables": {
             "description": "Concrete outputs produced when this item is done.",

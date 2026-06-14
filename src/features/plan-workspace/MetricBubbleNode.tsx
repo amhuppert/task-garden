@@ -12,7 +12,10 @@ import {
 import { Handle, type Node, type NodeProps, Position } from "@xyflow/react";
 import { memo, useContext, useState } from "react";
 import type { FlowNodeData } from "../../lib/graph/flow-projection-service";
-import { formatCompactEstimate } from "./plan-details-panel.helpers";
+import {
+  compactUnitSuffix,
+  formatCompactUnitValue,
+} from "./plan-details-panel.helpers";
 import type { ColorEncodingMode, SizeEncodingMode } from "./plan-display.store";
 import {
   GraphDisplayModeContext,
@@ -161,11 +164,15 @@ function MetricBubbleNodeImpl({ data }: NodeProps<MetricBubbleNodeType>) {
   const metricLabel = METRIC_LABELS[sizeMode] ?? sizeMode;
   const metricValue =
     sizeMode !== "uniform" ? (data.metricSummary[sizeMode] ?? 0) : 0;
-  const compactEstimate = formatCompactEstimate(data.estimate);
-  const hasDayEstimate = data.estimate?.unit === "days";
+  const hasEstimate = data.estimate != null;
+  const unitSuffix = compactUnitSuffix(data.estimateUnit);
+  const compactEstimate =
+    data.estimate != null
+      ? formatCompactUnitValue(data.estimate, data.estimateUnit)
+      : null;
   const criticalPathAccent = getCriticalPathAccentColor();
   const slackNorm =
-    hasDayEstimate && slackRange
+    hasEstimate && slackRange
       ? slackRange.min === slackRange.max
         ? 0.5
         : normalizeMetric(data.slackDays, slackRange.min, slackRange.max)
@@ -174,10 +181,8 @@ function MetricBubbleNodeImpl({ data }: NodeProps<MetricBubbleNodeType>) {
   const showCriticalPathOverlay =
     scheduleOverlay === "critical_path" && data.criticalPathOrder !== null;
   const showSlackHeatOverlay =
-    scheduleOverlay === "slack_heatmap" &&
-    hasDayEstimate &&
-    slackColor !== null;
-  const slackLabel = `${Number.isInteger(data.slackDays) ? data.slackDays : data.slackDays.toFixed(1)}d buffer`;
+    scheduleOverlay === "slack_heatmap" && hasEstimate && slackColor !== null;
+  const slackLabel = `${Number.isInteger(data.slackDays) ? data.slackDays : data.slackDays.toFixed(1)}${unitSuffix} buffer`;
 
   // Floating UI tooltip
   const [isOpen, setIsOpen] = useState(false);
@@ -357,7 +362,7 @@ function MetricBubbleNodeImpl({ data }: NodeProps<MetricBubbleNodeType>) {
                   {sizeMode === "estimate_days" ||
                   sizeMode === "remaining_days" ||
                   sizeMode === "downstream_effort_days"
-                    ? `${Number.isInteger(metricValue) ? metricValue : metricValue.toFixed(1)}d`
+                    ? `${Number.isInteger(metricValue) ? metricValue : metricValue.toFixed(1)}${unitSuffix}`
                     : metricValue.toFixed(1)}
                 </span>
               </div>

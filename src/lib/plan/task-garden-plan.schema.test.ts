@@ -120,13 +120,13 @@ describe("TaskGardenPlanSchemaService – valid plans", () => {
     }
   });
 
-  it("accepts valid estimate fields", () => {
+  it("accepts a numeric per-item estimate", () => {
     const plan = {
       ...validPlan,
       work_items: [
         {
           ...validPlan.work_items[0],
-          estimate: { value: 3, unit: "days" },
+          estimate: 3,
           depends_on: [],
         },
       ],
@@ -134,8 +134,34 @@ describe("TaskGardenPlanSchemaService – valid plans", () => {
     const result = schemaService.parse(plan);
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value.work_items[0].estimate?.value).toBe(3);
+      expect(result.value.work_items[0].estimate).toBe(3);
     }
+  });
+
+  it("defaults estimate_unit to days when omitted", () => {
+    const result = schemaService.parse(validPlan);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.estimate_unit).toBe("days");
+    }
+  });
+
+  it("accepts a plan-level estimate_unit", () => {
+    for (const unit of ["hours", "days", "points"] as const) {
+      const result = schemaService.parse({ ...validPlan, estimate_unit: unit });
+      expect(result.ok, `expected ok for unit "${unit}"`).toBe(true);
+      if (result.ok) {
+        expect(result.value.estimate_unit).toBe(unit);
+      }
+    }
+  });
+
+  it("rejects an unknown estimate_unit", () => {
+    const result = schemaService.parse({
+      ...validPlan,
+      estimate_unit: "weeks",
+    });
+    expect(result.ok).toBe(false);
   });
 
   it("accepts structured references with https URL href", () => {
@@ -319,7 +345,7 @@ describe("TaskGardenPlanSchemaService – field validation", () => {
       work_items: [
         {
           ...validPlan.work_items[0],
-          estimate: { value: 0, unit: "days" },
+          estimate: 0,
           depends_on: [],
         },
       ],

@@ -4,7 +4,7 @@ import type {
   EditApiResult,
   PatchPlanOptions,
 } from "../../../lib/plan/edit-api-client";
-import type { TaskGardenEstimate } from "../../../lib/plan/task-garden-plan.schema";
+import type { EstimateUnit } from "../../../lib/plan/task-garden-plan.schema";
 import { FieldSaveIndicator } from "./FieldSaveIndicator";
 import { patchTargets } from "./patch-targets";
 import { useFieldDraft } from "./useFieldDraft";
@@ -16,37 +16,31 @@ type PatchPlanFn = (
 
 export interface EstimateStepperCellProps {
   workItemId: string;
-  committedValue: TaskGardenEstimate | null;
+  committedValue: number | null;
+  /** Plan-level estimate unit, shown as the stepper's unit label. */
+  estimateUnit: EstimateUnit;
   baseRevision: number;
   patchPlan?: PatchPlanFn;
 }
 
 const STEP = 0.5;
 
-function committedDays(estimate: TaskGardenEstimate | null): number {
-  if (!estimate) return 0;
-  if (estimate.unit !== "days") return estimate.value;
-  return estimate.value;
-}
-
 export function EstimateStepperCell({
   workItemId,
   committedValue,
+  estimateUnit,
   baseRevision,
   patchPlan,
 }: EstimateStepperCellProps) {
   const key = `work_item:${workItemId}:estimate`;
-  const committed = committedDays(committedValue);
+  const committed = committedValue ?? 0;
 
   const buildPatch = useCallback(
     (next: number) => {
       if (next <= 0) {
         return patchTargets.workItemEstimate(workItemId, null);
       }
-      return patchTargets.workItemEstimate(workItemId, {
-        value: next,
-        unit: "days",
-      });
+      return patchTargets.workItemEstimate(workItemId, next);
     },
     [workItemId],
   );
@@ -112,7 +106,7 @@ export function EstimateStepperCell({
             {displayValue}
           </span>
           <span className="font-mono text-[0.65rem] uppercase tracking-[0.16em] text-muted-foreground">
-            days
+            {estimateUnit}
           </span>
         </div>
         <button

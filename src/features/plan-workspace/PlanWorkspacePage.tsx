@@ -82,6 +82,7 @@ interface InfoPopoverButtonProps extends PlanOverviewHeaderProps {
 function InfoPopoverButton({
   plan,
   estimateSummary,
+  estimateUnit,
   classify,
   onDocumentPreview,
   baseRevision,
@@ -154,6 +155,7 @@ function InfoPopoverButton({
               <PlanOverviewHeader
                 plan={plan}
                 estimateSummary={estimateSummary}
+                estimateUnit={estimateUnit}
                 classify={classify}
                 onDocumentPreview={onDocumentPreview}
                 hideEditableSections
@@ -463,6 +465,7 @@ export function PlanWorkspacePage({
             <InfoPopoverButton
               plan={readySnapshot.plan}
               estimateSummary={readySnapshot.estimateSummary}
+              estimateUnit={readySnapshot.estimateUnit}
               onDocumentPreview={handleDocumentPreview}
               baseRevision={processingState.input.revision}
             />

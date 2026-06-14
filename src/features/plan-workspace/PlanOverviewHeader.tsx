@@ -1,9 +1,12 @@
-import type { EstimateSummary } from "../../lib/graph/plan-analysis-engine";
+import type {
+  EstimateSummary,
+  EstimateUnit,
+} from "../../lib/graph/plan-analysis-engine";
 import { classifyReference } from "../../lib/plan/reference-resolver";
 import type { TaskGardenPlan } from "../../lib/plan/task-garden-plan.schema";
 import { ResourceLink } from "./ResourceLink";
 import { SectionInfoModal } from "./SectionInfoModal";
-import { formatCompactDayCount } from "./plan-details-panel.helpers";
+import { formatCompactUnitValue } from "./plan-details-panel.helpers";
 import { formatLastUpdated } from "./plan-overview-header.helpers";
 
 // ---------------------------------------------------------------------------
@@ -15,6 +18,8 @@ export interface PlanOverviewHeaderProps {
   plan: TaskGardenPlan;
   /** Optional estimate summary for schedule-aware overview stats. */
   estimateSummary?: EstimateSummary;
+  /** Estimate unit used to label effort/schedule values. Defaults to days. */
+  estimateUnit?: EstimateUnit;
   /** Reference classifier — inject for testability, defaults to classifyReference. */
   classify?: typeof classifyReference;
   /** Called when a document_path reference is activated. */
@@ -33,6 +38,7 @@ export interface PlanOverviewHeaderProps {
 export function PlanOverviewHeader({
   plan,
   estimateSummary,
+  estimateUnit = "days",
   classify = classifyReference,
   onDocumentPreview,
   hideEditableSections = false,
@@ -72,10 +78,10 @@ export function PlanOverviewHeader({
                 <span className="font-semibold text-foreground/70">
                   How it works:{" "}
                 </span>
-                Coverage counts items with day estimates. Total effort adds
-                those estimates together. Schedule floor finds the longest
-                estimated dependency route. Parallelism divides total effort by
-                that route.
+                Coverage counts items with estimates. Total effort adds those
+                estimates together. Schedule floor finds the longest estimated
+                dependency route. Parallelism divides total effort by that
+                route.
               </div>
             </SectionInfoModal>
           </div>
@@ -87,14 +93,16 @@ export function PlanOverviewHeader({
               },
               {
                 label: "Total Effort",
-                value: formatCompactDayCount(
+                value: formatCompactUnitValue(
                   estimateSummary.totalEstimatedDays,
+                  estimateUnit,
                 ),
               },
               {
                 label: "Schedule Floor",
-                value: formatCompactDayCount(
+                value: formatCompactUnitValue(
                   estimateSummary.estimatedCriticalPath.totalDays,
+                  estimateUnit,
                 ),
               },
               {

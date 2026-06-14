@@ -67,10 +67,12 @@ export const TaskGardenLaneSchema = z.object({
     .describe("Optional CSS color string used for visual encoding."),
 });
 
-export const TaskGardenEstimateSchema = z.object({
-  value: z.number().positive().describe("Positive numeric estimate."),
-  unit: z.enum(["hours", "days", "points"]).describe("Unit for the estimate."),
-});
+// Estimate units are configured once at the plan level (see TaskGardenPlan.
+// estimate_unit) so every item is sized in the same unit. Per-item estimates
+// are therefore plain magnitudes.
+export const EstimateUnitSchema = z
+  .enum(["hours", "days", "points"])
+  .describe("Unit all estimates in the plan are expressed in.");
 
 export const TaskGardenLinkSchema = z.object({
   label: z.string().min(1).describe("Display label for the link."),
@@ -106,9 +108,13 @@ export const TaskGardenWorkItemSchema = z.object({
     .describe(
       "Cross-cutting labels (slug format; may contain '/'). Useful for filtering across lanes.",
     ),
-  estimate: TaskGardenEstimateSchema.optional().describe(
-    "Optional rough sizing for this item.",
-  ),
+  estimate: z
+    .number()
+    .positive()
+    .optional()
+    .describe(
+      "Optional rough sizing for this item, expressed in the plan's estimate_unit.",
+    ),
   deliverables: z
     .array(z.string().min(1))
     .default([])
@@ -328,6 +334,9 @@ export const TaskGardenPlanSchemaDefinition = z
       .string()
       .min(1)
       .describe("One- or two-sentence description of the plan's goal."),
+    estimate_unit: EstimateUnitSchema.default("days").describe(
+      "Unit all per-item estimates are expressed in. Defaults to days.",
+    ),
     references: z
       .array(TaskGardenLinkSchema)
       .default([])
@@ -359,7 +368,7 @@ export type ReferenceTarget = z.infer<typeof ReferenceTargetSchema>;
 export type TaskGardenStatus = z.infer<typeof TaskGardenStatusSchema>;
 export type TaskGardenPriority = z.infer<typeof TaskGardenPrioritySchema>;
 export type TaskGardenLane = z.infer<typeof TaskGardenLaneSchema>;
-export type TaskGardenEstimate = z.infer<typeof TaskGardenEstimateSchema>;
+export type EstimateUnit = z.infer<typeof EstimateUnitSchema>;
 export type TaskGardenLink = z.infer<typeof TaskGardenLinkSchema>;
 export type TaskGardenWorkItem = z.infer<typeof TaskGardenWorkItemSchema>;
 export type TaskGardenPlan = z.infer<typeof TaskGardenPlanSchemaDefinition>;

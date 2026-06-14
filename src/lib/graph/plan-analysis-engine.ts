@@ -2,9 +2,13 @@ import { DirectedGraph } from "graphology";
 import { topologicalSort } from "graphology-dag";
 import betweennessCentrality from "graphology-metrics/centrality/betweenness";
 import type {
+  EstimateUnit,
   TaskGardenPlan,
   TaskGardenWorkItem,
 } from "../plan/task-garden-plan.schema";
+
+/** Re-exported for graph/UI consumers; canonical definition lives in the schema. */
+export type { EstimateUnit };
 
 // ---------------------------------------------------------------------------
 // Types
@@ -77,6 +81,13 @@ export interface PlanAnalysisSnapshot {
   longestDependencyChain: LongestDependencyChain;
   estimateSummary: EstimateSummary;
   metricRanges: Readonly<Record<MetricKey, { min: number; max: number }>>;
+  /**
+   * The estimate unit used for display labels. Estimate values are treated
+   * numerically the same regardless of unit; only labels differ. Derived from
+   * the most common unit among estimated items (first-seen wins ties); defaults
+   * to "days" when no item carries an estimate.
+   */
+  estimateUnit: EstimateUnit;
 }
 
 export interface PlanAnalysisEngineService {
@@ -109,11 +120,15 @@ export function createPlanAnalysisEngine(): PlanAnalysisEngineService {
         workItems[item.id] = item;
       }
 
+      // Estimate values feed the schedule/effort metrics directly. The unit
+      // (hours/days/points) is configured once at the plan level and is a
+      // display concern only, so every estimate contributes its raw value.
       const estimateDaysById: Record<string, number | null> = {};
       for (const item of plan.work_items) {
-        estimateDaysById[item.id] =
-          item.estimate?.unit === "days" ? item.estimate.value : null;
+        estimateDaysById[item.id] = item.estimate ?? null;
       }
+
+      const estimateUnit = plan.estimate_unit;
 
       // ------------------------------------------------------------------
       // 2. Build DirectedGraph
@@ -451,6 +466,7 @@ export function createPlanAnalysisEngine(): PlanAnalysisEngineService {
         longestDependencyChain,
         estimateSummary,
         metricRanges,
+        estimateUnit,
       };
     },
   };

@@ -18,8 +18,8 @@ import { StringListEditorCell } from "./editing/StringListEditorCell";
 import { SummaryEditorCell } from "./editing/SummaryEditorCell";
 import { TagEditorCell } from "./editing/TagEditorCell";
 import {
-  formatCompactDayCount,
-  formatDayCount,
+  formatCompactUnitValue,
+  formatUnitCount,
   getPriorityLabel,
   getStatusLabel,
 } from "./plan-details-panel.helpers";
@@ -229,6 +229,7 @@ export function PlanDetailsPanel({
 
   const allWorkItems = Object.values(snapshot.workItems);
   const hasScheduleEstimate = analysis.schedule.estimateDays !== null;
+  const estimateUnit = snapshot.estimateUnit;
 
   return (
     <article
@@ -353,6 +354,7 @@ export function PlanDetailsPanel({
       <EstimateStepperCell
         workItemId={item.id}
         committedValue={item.estimate ?? null}
+        estimateUnit={estimateUnit}
         baseRevision={baseRevision}
         patchPlan={patchPlan}
       />
@@ -370,7 +372,10 @@ export function PlanDetailsPanel({
                     Remaining Chain
                   </span>
                   <span className="mt-1 block font-mono text-base text-foreground">
-                    {formatCompactDayCount(analysis.schedule.remainingDays)}
+                    {formatCompactUnitValue(
+                      analysis.schedule.remainingDays,
+                      estimateUnit,
+                    )}
                   </span>
                   <span className="mt-1 block text-[0.68rem] leading-snug text-muted-foreground">
                     Longest estimated path to a leaf.
@@ -382,8 +387,9 @@ export function PlanDetailsPanel({
                     Unlocked Effort
                   </span>
                   <span className="mt-1 block font-mono text-base text-foreground">
-                    {formatCompactDayCount(
+                    {formatCompactUnitValue(
                       analysis.schedule.downstreamEffortDays,
+                      estimateUnit,
                     )}
                   </span>
                   <span className="mt-1 block text-[0.68rem] leading-snug text-muted-foreground">
@@ -406,12 +412,15 @@ export function PlanDetailsPanel({
                 >
                   <span className="atlas-kicker text-[0.58rem]">Slack</span>
                   <span className="mt-1 block font-mono text-base text-foreground">
-                    {formatCompactDayCount(analysis.schedule.slackDays)}
+                    {formatCompactUnitValue(
+                      analysis.schedule.slackDays,
+                      estimateUnit,
+                    )}
                   </span>
                   <span className="mt-1 block text-[0.68rem] leading-snug text-muted-foreground">
                     {analysis.schedule.isOnCriticalPath
                       ? "Critical path item with no schedule buffer."
-                      : `${formatDayCount(analysis.schedule.slackDays)} of schedule flexibility.`}
+                      : `${formatUnitCount(analysis.schedule.slackDays, estimateUnit)} of schedule flexibility.`}
                   </span>
                 </div>
               </>
@@ -422,11 +431,14 @@ export function PlanDetailsPanel({
             <p className="text-[0.72rem] leading-relaxed text-muted-foreground">
               Earliest finish at{" "}
               <span className="font-mono text-foreground">
-                {formatCompactDayCount(analysis.schedule.earliestFinishDay)}
+                {formatCompactUnitValue(
+                  analysis.schedule.earliestFinishDay,
+                  estimateUnit,
+                )}
               </span>
               {analysis.schedule.isOnCriticalPath
                 ? ", on the estimated critical path."
-                : ` with a latest safe start around ${formatCompactDayCount(analysis.schedule.latestStartDay)}.`}
+                : ` with a latest safe start around ${formatCompactUnitValue(analysis.schedule.latestStartDay, estimateUnit)}.`}
             </p>
           )}
         </Section>

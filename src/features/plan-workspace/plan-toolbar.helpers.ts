@@ -72,19 +72,19 @@ export const COLOR_MODE_DESCRIPTIONS: Record<
     summary:
       "Shows the size of each individual task. Useful for spotting the biggest estimated items.",
     calculation:
-      "Use the authored day estimate on each task. Higher day counts get stronger color.",
+      "Use the authored estimate on each task. Higher estimates get stronger color.",
   },
   remaining_days: {
     summary:
       "Shows how much estimated sequential work still sits below a task. Useful for finding long runways to completion.",
     calculation:
-      "From each task, follow dependencies to the furthest leaf and add the day estimates along the longest path.",
+      "From each task, follow dependencies to the furthest leaf and add the estimates along the longest path.",
   },
   downstream_effort_days: {
     summary:
       "Shows how much estimated work a task unlocks. Useful for finding tasks that release a lot of follow-on work.",
     calculation:
-      "Collect every unique dependent reachable below the task and add their day estimates.",
+      "Collect every unique dependent reachable below the task and add their estimates.",
   },
   degree: {
     summary:
@@ -192,19 +192,19 @@ export const METRIC_SIZE_DESCRIPTIONS: Record<
     summary:
       "Highlights the largest individual tasks. Useful when you want the graph to communicate task size rather than just topology.",
     calculation:
-      "Use the authored day estimate directly. A task estimated at 3 days is larger than a task estimated at 1 day.",
+      "Use the authored estimate directly. A task estimated at 3 is larger than a task estimated at 1.",
   },
   remaining_days: {
     summary:
       "Highlights tasks that still sit above a long estimated delivery runway. High values indicate work that anchors a long sequential chain to completion.",
     calculation:
-      "Starting from a task, follow the dependency graph toward the furthest leaf and add up the day estimates along the longest chain, including the current task.",
+      "Starting from a task, follow the dependency graph toward the furthest leaf and add up the estimates along the longest chain, including the current task.",
   },
   downstream_effort_days: {
     summary:
       "Highlights tasks that unlock a large amount of downstream effort. High values indicate that a lot of estimated work sits behind that task.",
     calculation:
-      "Collect the task and every unique dependent reachable below it, then sum their authored day estimates.",
+      "Collect the task and every unique dependent reachable below it, then sum their authored estimates.",
   },
   degree: {
     summary:
@@ -240,7 +240,7 @@ export const SCHEDULE_OVERLAY_DESCRIPTIONS: Record<
     summary:
       "Traces the route that most strongly sets the minimum delivery time. Useful for spotting the sequence where slips matter most.",
     calculation:
-      "Follow dependency routes, add the day estimates along each route, and highlight the route with the largest total. Only estimated items can be part of it.",
+      "Follow dependency routes, add the estimates along each route, and highlight the route with the largest total. Only estimated items can be part of it.",
   },
   slack_heatmap: {
     summary:

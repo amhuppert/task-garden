@@ -13,6 +13,7 @@ function makePlan(overrides: Partial<TaskGardenPlan> = {}): TaskGardenPlan {
     title: "Test Plan",
     last_updated: "2024-01-01",
     summary: "A plan for testing.",
+    estimate_unit: "days",
     references: [],
     lanes: [
       { id: "backend", label: "Backend" },
@@ -25,15 +26,9 @@ function makePlan(overrides: Partial<TaskGardenPlan> = {}): TaskGardenPlan {
 
 function makeEstimatedWorkItem(
   item: TaskGardenPlan["work_items"][number],
-  days: number,
+  estimate: number,
 ): TaskGardenPlan["work_items"][number] {
-  return {
-    ...item,
-    estimate: {
-      value: days,
-      unit: "days",
-    },
-  };
+  return { ...item, estimate };
 }
 
 // A simple linear chain: A → B → C (A must be done before B, B before C)
@@ -777,6 +772,89 @@ describe("PlanAnalysisEngine — task 3.2: metrics and longest dependency chain"
       const engine = createPlanAnalysisEngine();
       const snap = engine.build(ESTIMATED_BRANCHING_PLAN);
       expect(snap.estimateSummary.parallelismRatio).toBeCloseTo(1.125, 6);
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Estimate units are numerically equivalent; unit is a display concern only
+// ---------------------------------------------------------------------------
+
+/** Re-labels the plan's estimate unit, leaving every estimate value intact. */
+function withEstimateUnit(
+  plan: TaskGardenPlan,
+  unit: "hours" | "days" | "points",
+): TaskGardenPlan {
+  return { ...plan, estimate_unit: unit };
+}
+
+describe("PlanAnalysisEngine — estimate units are numerically equivalent", () => {
+  const engine = createPlanAnalysisEngine();
+
+  it("points estimates drive estimate metrics exactly like day estimates", () => {
+    const days = engine.build(ESTIMATED_LINEAR_PLAN);
+    const points = engine.build(
+      withEstimateUnit(ESTIMATED_LINEAR_PLAN, "points"),
+    );
+    for (const id of ["task-a", "task-b", "task-c"]) {
+      expect(points.analysisById[id].metrics.estimate_days).toBe(
+        days.analysisById[id].metrics.estimate_days,
+      );
+      expect(points.analysisById[id].metrics.remaining_days).toBe(
+        days.analysisById[id].metrics.remaining_days,
+      );
+      expect(points.analysisById[id].metrics.downstream_effort_days).toBe(
+        days.analysisById[id].metrics.downstream_effort_days,
+      );
+    }
+  });
+
+  it("points estimates produce the same critical path and schedule as days", () => {
+    const days = engine.build(ESTIMATED_BRANCHING_PLAN);
+    const points = engine.build(
+      withEstimateUnit(ESTIMATED_BRANCHING_PLAN, "points"),
+    );
+
+    expect(points.estimateSummary.estimatedCriticalPath.totalDays).toBe(
+      days.estimateSummary.estimatedCriticalPath.totalDays,
+    );
+    expect(points.estimateSummary.estimatedCriticalPath.workItemIds).toEqual(
+      days.estimateSummary.estimatedCriticalPath.workItemIds,
+    );
+    expect(points.estimateSummary.totalEstimatedDays).toBe(
+      days.estimateSummary.totalEstimatedDays,
+    );
+    for (const id of ["a", "b", "c", "d"]) {
+      expect(points.analysisById[id].schedule.isOnCriticalPath).toBe(
+        days.analysisById[id].schedule.isOnCriticalPath,
+      );
+      expect(points.analysisById[id].schedule.slackDays).toBe(
+        days.analysisById[id].schedule.slackDays,
+      );
+    }
+  });
+
+  it("hours estimates behave the same as days", () => {
+    const days = engine.build(ESTIMATED_BRANCHING_PLAN);
+    const hours = engine.build(
+      withEstimateUnit(ESTIMATED_BRANCHING_PLAN, "hours"),
+    );
+    expect(hours.estimateSummary.estimatedCriticalPath.totalDays).toBe(
+      days.estimateSummary.estimatedCriticalPath.totalDays,
+    );
+  });
+
+  describe("estimateUnit", () => {
+    it("reports the plan-level estimate unit", () => {
+      const snap = engine.build(
+        withEstimateUnit(ESTIMATED_BRANCHING_PLAN, "points"),
+      );
+      expect(snap.estimateUnit).toBe("points");
+    });
+
+    it("defaults to days", () => {
+      const snap = engine.build(LINEAR_PLAN);
+      expect(snap.estimateUnit).toBe("days");
     });
   });
 });

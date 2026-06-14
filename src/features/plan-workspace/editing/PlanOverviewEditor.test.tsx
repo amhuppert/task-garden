@@ -48,6 +48,7 @@ function makePlan(overrides: Partial<TaskGardenPlan> = {}): TaskGardenPlan {
     title: "My Plan",
     last_updated: "2024-01-01",
     summary: "Summary text",
+    estimate_unit: "days",
     references: [],
     lanes: [{ id: "lane-1", label: "L1" }],
     work_items: [

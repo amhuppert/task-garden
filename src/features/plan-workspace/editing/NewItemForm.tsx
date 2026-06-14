@@ -60,7 +60,6 @@ interface DraftWorkItem {
   links: { label: string; href: string }[];
   notes: string;
   estimateValue: string;
-  estimateUnit: "hours" | "days" | "points";
 }
 
 function emptyDraft(
@@ -81,7 +80,6 @@ function emptyDraft(
     links: [],
     notes: "",
     estimateValue: "",
-    estimateUnit: "days",
   };
 }
 
@@ -102,11 +100,9 @@ function buildSchemaInput(draft: DraftWorkItem): unknown {
   if (draft.notes.trim().length > 0) obj.notes = draft.notes.trim();
   if (draft.estimateValue.trim().length > 0) {
     const num = Number(draft.estimateValue);
-    if (!Number.isNaN(num)) {
-      obj.estimate = { value: num, unit: draft.estimateUnit };
-    } else {
-      obj.estimate = { value: draft.estimateValue, unit: draft.estimateUnit };
-    }
+    // On a non-numeric entry, pass the raw string through so schema validation
+    // surfaces the error rather than silently dropping the estimate.
+    obj.estimate = Number.isNaN(num) ? draft.estimateValue : num;
   }
   return obj;
 }

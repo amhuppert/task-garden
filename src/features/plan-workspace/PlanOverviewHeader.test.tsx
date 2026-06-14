@@ -27,6 +27,7 @@ const plan: TaskGardenPlan = {
   title: "Test Plan",
   last_updated: "2026-04-01",
   summary: "A test plan.",
+  estimate_unit: "days",
   references: [
     { label: "Focus", href: "memory-bank/focus.md" },
     { label: "GitHub Repo", href: "https://github.com/org/repo" },

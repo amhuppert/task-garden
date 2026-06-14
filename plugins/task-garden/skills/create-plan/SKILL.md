@@ -15,6 +15,7 @@ Ask the user about their project. You need at minimum:
 
 - **Project name** — becomes the `title`; derive a slug for `plan_id` (lowercase, hyphens/underscores, starts with alphanumeric)
 - **Summary** — one or two sentences describing the project's goal
+- **Estimate unit** — the single unit all estimates use, set once at the plan level via `estimate_unit` (`hours`, `days`, or `points`). Defaults to `days` if omitted. Per-item estimates are bare numbers in this unit; do not mix units within a plan.
 - **Lanes** — how the work is organized (e.g., "backend", "frontend", "infra"); each needs an `id` (slug) and a `label`
 - **Work items** — the actual tasks; for each you need a title, summary, lane assignment, and dependencies
 
@@ -35,7 +36,7 @@ For each work item, collect or infer:
 Optional fields you can ask about if the user wants more detail:
 
 - `tags` — cross-cutting labels (slug format, may contain `/`)
-- `estimate` — `{ value: <positive number>, unit: "hours" | "days" | "points" }`
+- `estimate` — a positive number, expressed in the plan's `estimate_unit` (see Step 1). It is a bare magnitude, not an object.
 - `deliverables` — list of concrete outputs
 - `links` — list of `{ label, href }` where href is an http(s) URL or a file path resolved relative to the plan file's parent directory
 - `notes` — freeform context
@@ -74,6 +75,7 @@ title: My Project Plan        # Non-empty string
 last_updated: 2026-04-05      # YYYY-MM-DD format
 summary: >                    # Non-empty string
   A description of the project.
+estimate_unit: days           # Optional; hours | days | points. Defaults to days. Applies to every estimate.
 references:                   # Optional, defaults to []
   - label: Some Doc           # Non-empty string
     href: docs/overview.md    # http(s) URL or file path relative to the plan file's directory (no path traversal)
@@ -93,9 +95,7 @@ work_items:                   # At least 1 work item required
     priority: p0               # p0 | p1 | p2 | p3 | nice_to_have
     depends_on: []             # List of existing work item ids; no self-refs, no dupes, no cycles
     tags: []                   # Optional; slug format, may contain /
-    estimate:                  # Optional
-      value: 2                 # Positive number
-      unit: days               # hours | days | points
+    estimate: 2                # Optional; positive number in the plan's estimate_unit
     deliverables: []           # Optional; list of non-empty strings
     reuse_candidates: []       # Optional; list of non-empty strings
     links:                     # Optional
@@ -139,6 +139,7 @@ last_updated: 2026-04-05
 summary: >
   Initial implementation of a web application with user authentication,
   a product catalog, and a basic admin dashboard.
+estimate_unit: days
 references:
   - label: Product Requirements
     href: docs/requirements.md
@@ -167,9 +168,7 @@ work_items:
     tags:
       - database
       - schema
-    estimate:
-      value: 2
-      unit: days
+    estimate: 2
     deliverables:
       - Migration files
       - Seed data script
@@ -185,9 +184,7 @@ work_items:
     tags:
       - auth
       - api
-    estimate:
-      value: 3
-      unit: days
+    estimate: 3
     links:
       - label: JWT Best Practices
         href: https://auth0.com/docs/secure/tokens/json-web-tokens
@@ -252,9 +249,7 @@ work_items:
     tags:
       - ci
       - automation
-    estimate:
-      value: 1
-      unit: days
+    estimate: 1
 
   - id: deploy-staging
     title: Staging Deployment
