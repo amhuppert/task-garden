@@ -15,7 +15,7 @@ const baseData: FlowNodeData = {
   laneLabel: "Backend",
   laneColor: null,
   status: "ready",
-  priority: "p1",
+  value: 60,
   summary: "",
   estimate: undefined,
   estimateUnit: "days",
@@ -23,6 +23,8 @@ const baseData: FlowNodeData = {
   criticalPathOrder: null,
   slackDays: 0,
   metricSummary: {
+    value: 60,
+    value_per_effort: 0,
     estimate_days: 0,
     remaining_days: 0,
     downstream_effort_days: 0,

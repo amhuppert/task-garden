@@ -40,7 +40,7 @@ const plan: TaskGardenPlan = {
       summary: "First.",
       lane: "core",
       status: "ready",
-      priority: "p0",
+      value: 100,
       depends_on: [],
       tags: [],
       deliverables: [],

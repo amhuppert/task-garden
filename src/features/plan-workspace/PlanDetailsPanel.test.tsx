@@ -52,7 +52,7 @@ const snapshot: PlanAnalysisSnapshot = {
         summary: "First.",
         lane: "core",
         status: "ready",
-        priority: "p0",
+        value: 100,
         depends_on: [],
         estimate: 3,
         tags: [],
@@ -72,7 +72,7 @@ const snapshot: PlanAnalysisSnapshot = {
       summary: "First.",
       lane: "core",
       status: "ready",
-      priority: "p0",
+      value: 100,
       depends_on: [],
       estimate: 3,
       tags: [],
@@ -98,6 +98,8 @@ const snapshot: PlanAnalysisSnapshot = {
         in_degree: 0,
         out_degree: 0,
         dependency_span: 0,
+        value: 100,
+        value_per_effort: 100 / 3,
         estimate_days: 3,
         remaining_days: 3,
         downstream_effort_days: 3,
@@ -235,7 +237,7 @@ describe("PlanDetailsPanel — selection states", () => {
     expect(screen.getByTestId("editable-summary")).toBeTruthy();
     expect(screen.getByTestId("status-picker-chip")).toBeTruthy();
     expect(screen.getByTestId("lane-picker-chip")).toBeTruthy();
-    expect(screen.getByTestId("priority-picker-chip")).toBeTruthy();
+    expect(screen.getByTestId("value-input")).toBeTruthy();
     expect(screen.getByTestId("estimate-value")).toBeTruthy();
     expect(screen.getByTestId("editable-notes")).toBeTruthy();
 

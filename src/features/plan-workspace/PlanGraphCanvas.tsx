@@ -692,10 +692,7 @@ export function PlanGraphCanvas({
                 ) : (
                   <ul className="flex flex-col gap-1">
                     {projection.colorLegend.items.map((item) => {
-                      const dotColor = resolveLegendItemColor(
-                        projection.colorLegend.title,
-                        item,
-                      );
+                      const dotColor = resolveLegendItemColor(colorMode, item);
                       return (
                         <li key={item.key} className="flex items-center gap-2">
                           <span

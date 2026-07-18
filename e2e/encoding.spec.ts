@@ -39,14 +39,19 @@ test.describe("color encoding", () => {
     ).toHaveAttribute("aria-pressed", "false");
   });
 
-  test("switching to By Priority color mode activates that button", async ({
+  test("switching to By Value color mode activates that button", async ({
     page,
   }) => {
     const sidebar = page.locator('[aria-label="Plan controls"]');
-    await sidebar.getByRole("button", { name: "By Priority" }).click();
+    const colorSection = sidebar
+      .locator("section")
+      .filter({ hasText: "Color" });
+    await colorSection
+      .getByRole("button", { name: "By Value", exact: true })
+      .click();
 
     await expect(
-      sidebar.getByRole("button", { name: "By Priority" }),
+      colorSection.getByRole("button", { name: "By Value", exact: true }),
     ).toHaveAttribute("aria-pressed", "true");
   });
 

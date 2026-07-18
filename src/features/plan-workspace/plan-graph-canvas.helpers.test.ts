@@ -10,9 +10,10 @@ import {
   createEdgeStyleFactory,
   getLanePaletteColor,
   getMetricAccentColor,
-  getPriorityAccentColor,
+  getMetricAccentColorForMode,
   getStatusAccentColor,
   normalizeMetric,
+  resolveLegendItemColor,
 } from "./plan-graph-canvas.helpers";
 
 function makeNode(
@@ -30,7 +31,7 @@ function makeNode(
       laneLabel,
       laneColor: null,
       status: "planned",
-      priority: "p2",
+      value: 35,
       summary: "",
       estimate: undefined,
       estimateUnit: "days",
@@ -43,6 +44,8 @@ function makeNode(
         out_degree: 1,
         betweenness: 0.5,
         dependency_span: 2,
+        value: 35,
+        value_per_effort: 0,
         estimate_days: 0,
         remaining_days: 0,
         downstream_effort_days: 0,
@@ -166,6 +169,8 @@ describe("computeMetricRanges", () => {
       out_degree: 1,
       betweenness: 0.2,
       dependency_span: 3,
+      value: 20,
+      value_per_effort: 20,
       estimate_days: 1,
       remaining_days: 5,
       downstream_effort_days: 6,
@@ -176,6 +181,8 @@ describe("computeMetricRanges", () => {
       out_degree: 2,
       betweenness: 0.8,
       dependency_span: 5,
+      value: 90,
+      value_per_effort: 30,
       estimate_days: 3,
       remaining_days: 8,
       downstream_effort_days: 12,
@@ -184,6 +191,8 @@ describe("computeMetricRanges", () => {
     expect(ranges.degree).toEqual({ min: 2, max: 4 });
     expect(ranges.betweenness).toEqual({ min: 0.2, max: 0.8 });
     expect(ranges.dependency_span).toEqual({ min: 3, max: 5 });
+    expect(ranges.value).toEqual({ min: 20, max: 90 });
+    expect(ranges.value_per_effort).toEqual({ min: 20, max: 30 });
     expect(ranges.estimate_days).toEqual({ min: 1, max: 3 });
     expect(ranges.remaining_days).toEqual({ min: 5, max: 8 });
   });
@@ -196,6 +205,8 @@ describe("computeMetricRanges", () => {
       out_degree: 2,
       betweenness: 0.5,
       dependency_span: 4,
+      value: 60,
+      value_per_effort: 30,
       estimate_days: 2,
       remaining_days: 6,
       downstream_effort_days: 9,
@@ -224,19 +235,6 @@ describe("getStatusAccentColor", () => {
     expect(getStatusAccentColor("done")).toBe("var(--color-status-done)"));
   it("returns CSS variable for future", () =>
     expect(getStatusAccentColor("future")).toBe("var(--color-status-future)"));
-});
-
-describe("getPriorityAccentColor", () => {
-  it("p0 → petal", () =>
-    expect(getPriorityAccentColor("p0")).toBe("var(--color-petal)"));
-  it("p1 → pollen", () =>
-    expect(getPriorityAccentColor("p1")).toBe("var(--color-pollen)"));
-  it("p2 → moss", () =>
-    expect(getPriorityAccentColor("p2")).toBe("var(--color-moss)"));
-  it("p3 → water", () =>
-    expect(getPriorityAccentColor("p3")).toBe("var(--color-water)"));
-  it("nice_to_have → iron", () =>
-    expect(getPriorityAccentColor("nice_to_have")).toBe("var(--color-iron)"));
 });
 
 describe("getLanePaletteColor", () => {
@@ -274,6 +272,81 @@ describe("getMetricAccentColor", () => {
     expect(getMetricAccentColor(0.66)).toBe("var(--color-petal)");
     expect(getMetricAccentColor(0.8)).toBe("var(--color-petal)");
     expect(getMetricAccentColor(1)).toBe("var(--color-petal)");
+  });
+});
+
+describe("getMetricAccentColorForMode", () => {
+  it("keeps the severity gradient for cost metrics (high = red)", () => {
+    for (const mode of [
+      "estimate_days",
+      "remaining_days",
+      "downstream_effort_days",
+      "degree",
+      "betweenness",
+      "dependency_span",
+    ] as const) {
+      expect(getMetricAccentColorForMode(mode, 0)).toBe("var(--color-moss)");
+      expect(getMetricAccentColorForMode(mode, 1)).toBe("var(--color-petal)");
+    }
+  });
+
+  it("inverts the gradient for value (high value = green)", () => {
+    expect(getMetricAccentColorForMode("value", 1)).toBe("var(--color-moss)");
+    expect(getMetricAccentColorForMode("value", 0)).toBe("var(--color-petal)");
+  });
+
+  it("inverts the gradient for value_per_effort (high density = green)", () => {
+    expect(getMetricAccentColorForMode("value_per_effort", 1)).toBe(
+      "var(--color-moss)",
+    );
+    expect(getMetricAccentColorForMode("value_per_effort", 0)).toBe(
+      "var(--color-petal)",
+    );
+  });
+});
+
+describe("resolveLegendItemColor", () => {
+  const low = { key: "low", label: "Low", value: "20" };
+  const high = { key: "high", label: "High", value: "100" };
+
+  it("flips the value legend so the high end reads green", () => {
+    expect(resolveLegendItemColor("value", low)).toBe("var(--color-petal)");
+    expect(resolveLegendItemColor("value", high)).toBe("var(--color-moss)");
+  });
+
+  it("flips the value_per_effort legend so the high end reads green", () => {
+    expect(resolveLegendItemColor("value_per_effort", low)).toBe(
+      "var(--color-petal)",
+    );
+    expect(resolveLegendItemColor("value_per_effort", high)).toBe(
+      "var(--color-moss)",
+    );
+  });
+
+  it("leaves cost-metric legends as low=green, high=red", () => {
+    expect(resolveLegendItemColor("estimate_days", low)).toBe(
+      "var(--color-moss)",
+    );
+    expect(resolveLegendItemColor("estimate_days", high)).toBe(
+      "var(--color-petal)",
+    );
+  });
+
+  it("resolves status and lane modes from item metadata", () => {
+    expect(
+      resolveLegendItemColor("status", {
+        key: "done",
+        label: "done",
+        value: "done",
+      }),
+    ).toBe("var(--color-status-done)");
+    expect(
+      resolveLegendItemColor("lane", {
+        key: "alpha",
+        label: "Alpha",
+        value: "var(--color-water)",
+      }),
+    ).toBe("var(--color-water)");
   });
 });
 

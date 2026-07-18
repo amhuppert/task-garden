@@ -9,6 +9,8 @@ import {
   compactUnitSuffix,
   formatCompactUnitValue,
   formatUnitCount,
+  formatValue,
+  formatValueDensity,
 } from "./plan-details-panel.helpers";
 import type {
   ColorEncodingMode,
@@ -50,6 +52,8 @@ const STRUCTURAL_METRIC_LABELS: Record<MetricKey, string> = {
   out_degree: "Out-Degree",
   betweenness: "Betweenness",
   dependency_span: "Dependency Span",
+  value: "Value",
+  value_per_effort: "Value / Effort",
   estimate_days: "Estimate",
   remaining_days: "Remaining Chain",
   downstream_effort_days: "Unlocked Effort",
@@ -75,6 +79,9 @@ const METRIC_DESCRIPTIONS: Record<MetricKey, string> = {
     "How often this item appears on shortest paths between other items. High values indicate structural bridges.",
   dependency_span:
     "How many additional dependency levels lie below this item. Higher means more work downstream.",
+  value: "Authored impact value for the item.",
+  value_per_effort:
+    "Authored value divided by authored estimate. Higher means more impact per effort.",
   estimate_days: "Authored estimate for the item.",
   remaining_days:
     "The longest estimated chain from this item to a leaf, including this item.",
@@ -90,7 +97,9 @@ const COLOR_MODE_EXPLANATIONS: Record<ColorEncodingMode, string> = {
   default: "Nodes use neutral specimen styling with moss selection highlight.",
   lane: "Node color reflects the authored lane each item belongs to.",
   status: "Node color reflects the current status of each item.",
-  priority: "Node color reflects the priority level of each item.",
+  value: "Node color reflects the authored value of each item.",
+  value_per_effort:
+    "Node color reflects authored value divided by authored estimate.",
   estimate_days:
     "Color encodes authored task size. Stronger color means a larger individual estimate.",
   remaining_days:
@@ -107,6 +116,9 @@ const COLOR_MODE_EXPLANATIONS: Record<ColorEncodingMode, string> = {
 
 const SIZE_MODE_EXPLANATIONS: Record<SizeEncodingMode, string> = {
   uniform: "All nodes use the same size.",
+  value: "Node size scales with authored value.",
+  value_per_effort:
+    "Node size scales with authored value divided by authored estimate.",
   estimate_days:
     "Node size scales with authored task size. Larger nodes are larger tasks.",
   remaining_days:
@@ -156,6 +168,7 @@ function getScopeExplanation(
 
 const TABS: { mode: InsightMode; label: string }[] = [
   { mode: "overview", label: "Overview" },
+  { mode: "ready", label: "Ready" },
   { mode: "ordering", label: "Ordering" },
   { mode: "metrics", label: "Metrics" },
 ];
@@ -208,7 +221,7 @@ function Section({
   return (
     <section className="flex flex-col gap-2">
       <div className="flex items-center gap-1.5">
-        <span className="atlas-kicker">{label}</span>
+        <h2 className="atlas-kicker">{label}</h2>
         {description ? (
           <SectionInfoModal title={label}>{description}</SectionInfoModal>
         ) : null}
@@ -363,9 +376,9 @@ function ColorEncodingExplanation() {
       </p>
       <div className="rounded-[var(--radius-sm)] bg-surface-muted px-2.5 py-2">
         <span className="font-semibold text-foreground/70">How it works: </span>
-        Authored modes use lane, status, or priority directly. Metric modes
-        compute the selected value for each item and map lower values to lighter
-        color and higher values to stronger color.
+        Authored modes use lane or status directly. Metric modes compute the
+        selected value for each item and map lower values to lighter color and
+        higher values to stronger color.
       </div>
     </>
   );
@@ -414,8 +427,8 @@ function InterpretationNoteExplanation() {
       </p>
       <div className="rounded-[var(--radius-sm)] bg-surface-muted px-2.5 py-2">
         <span className="font-semibold text-foreground/70">How it works: </span>
-        Structural metrics use dependency links only. Estimate metrics add
-        authored estimates on top of those same dependency links.
+        Structural metrics use dependency links only. Value and estimate metrics
+        add authored scoring and effort on top of those same dependency links.
       </div>
     </>
   );
@@ -435,6 +448,116 @@ function TopItemsByDegreeExplanation() {
         item, then sort from highest to lowest.
       </div>
     </>
+  );
+}
+
+function ReadyWorkExplanation() {
+  return (
+    <>
+      <p>
+        Tasks that can be worked on next, ranked by impact and by impact per
+        effort. Useful for deciding what to pick up when multiple tasks are
+        unblocked.
+      </p>
+      <div className="rounded-[var(--radius-sm)] bg-surface-muted px-2.5 py-2">
+        <span className="font-semibold text-foreground/70">How it works: </span>
+        Include tasks marked ready, plus planned tasks whose dependencies are
+        all done. Value comes from the authored value field; value density is
+        value divided by estimate.
+      </div>
+    </>
+  );
+}
+
+type ReadyCandidate = {
+  item: PlanAnalysisSnapshot["workItems"][string];
+  effort: number | null;
+  valueDensity: number | null;
+};
+
+function isReadyToWork(
+  item: PlanAnalysisSnapshot["workItems"][string],
+  snapshot: PlanAnalysisSnapshot,
+): boolean {
+  if (
+    item.status === "blocked" ||
+    item.status === "done" ||
+    item.status === "future" ||
+    item.status === "in_progress"
+  ) {
+    return false;
+  }
+  if (item.status === "ready") return true;
+  return item.depends_on.every(
+    (depId) => snapshot.workItems[depId]?.status === "done",
+  );
+}
+
+function buildReadyCandidates(
+  snapshot: PlanAnalysisSnapshot,
+): ReadyCandidate[] {
+  return Object.values(snapshot.workItems)
+    .filter((item) => isReadyToWork(item, snapshot))
+    .map((item) => {
+      const effort = item.estimate ?? null;
+      return {
+        item,
+        effort,
+        valueDensity:
+          effort !== null && effort > 0 ? item.value / effort : null,
+      };
+    });
+}
+
+function sortByValue(a: ReadyCandidate, b: ReadyCandidate): number {
+  const valueDiff = b.item.value - a.item.value;
+  if (Math.abs(valueDiff) > 1e-9) return valueDiff;
+  return a.item.title.localeCompare(b.item.title);
+}
+
+function sortByValueDensity(a: ReadyCandidate, b: ReadyCandidate): number {
+  const aDensity = a.valueDensity ?? Number.NEGATIVE_INFINITY;
+  const bDensity = b.valueDensity ?? Number.NEGATIVE_INFINITY;
+  const densityDiff = bDensity - aDensity;
+  if (Math.abs(densityDiff) > 1e-9) return densityDiff;
+  return sortByValue(a, b);
+}
+
+interface ReadyItemRowProps {
+  candidate: ReadyCandidate;
+  estimateUnit: EstimateUnit;
+  onClick?: (id: string) => void;
+}
+
+function ReadyItemRow({ candidate, estimateUnit, onClick }: ReadyItemRowProps) {
+  const { item, effort, valueDensity } = candidate;
+  return (
+    <button
+      type="button"
+      onClick={onClick ? () => onClick(item.id) : undefined}
+      disabled={!onClick}
+      className="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-3 rounded-[var(--radius-sm)] border border-border bg-surface px-3 py-2 text-left transition-colors hover:border-border-strong hover:bg-surface-muted disabled:cursor-default"
+    >
+      <div className="min-w-0">
+        <span className="truncate font-mono text-[0.65rem] text-muted-foreground">
+          {item.id}
+        </span>
+        <span className="mt-0.5 block truncate text-sm text-foreground">
+          {item.title}
+        </span>
+      </div>
+      <div className="grid min-w-[7.5rem] grid-cols-3 gap-1 text-right font-mono text-[0.65rem]">
+        <span title="Value" className="text-foreground">
+          V{formatValue(item.value)}
+        </span>
+        <span title="Effort" className="text-muted-foreground">
+          {effort !== null ? formatCompactUnitValue(effort, estimateUnit) : "—"}
+        </span>
+        <span title="Value divided by effort" className="text-foreground">
+          {valueDensity !== null ? formatValueDensity(valueDensity) : "—"}
+        </span>
+      </div>
+    </button>
   );
 }
 
@@ -473,6 +596,108 @@ function ItemRow({ id, title, badge, badgeTitle, onClick }: ItemRowProps) {
         </span>
       )}
     </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Ready mode
+// ---------------------------------------------------------------------------
+
+interface ReadyModeProps {
+  snapshot: PlanAnalysisSnapshot;
+  onSelectWorkItem?: (id: string) => void;
+}
+
+function ReadyMode({ snapshot, onSelectWorkItem }: ReadyModeProps) {
+  const candidates = buildReadyCandidates(snapshot);
+  const byDensity = [...candidates].sort(sortByValueDensity);
+  const byValue = [...candidates].sort(sortByValue);
+  const estimatedCount = candidates.filter((c) => c.effort !== null).length;
+
+  if (candidates.length === 0) {
+    return (
+      <div className="flex flex-col gap-6">
+        <Section label="Ready Work" description={<ReadyWorkExplanation />}>
+          <div className="rounded-[var(--radius-sm)] border border-border bg-surface px-3 py-4 text-sm leading-relaxed text-muted-foreground">
+            No unblocked tasks are ready to start. Mark an item ready or finish
+            its dependencies to bring it into this queue.
+          </div>
+        </Section>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      <Section label="Ready Work" description={<ReadyWorkExplanation />}>
+        <div className="atlas-metric-grid">
+          <div className="atlas-stat-card">
+            <span className="atlas-kicker text-[0.58rem]">Ready Items</span>
+            <span className="mt-1 block font-mono text-base text-foreground">
+              {candidates.length}
+            </span>
+            <span className="mt-1 block text-[0.68rem] leading-snug text-muted-foreground">
+              Explicitly ready or dependency-unblocked.
+            </span>
+          </div>
+          <div className="atlas-stat-card">
+            <span className="atlas-kicker text-[0.58rem]">With Effort</span>
+            <span className="mt-1 block font-mono text-base text-foreground">
+              {estimatedCount}/{candidates.length}
+            </span>
+            <span className="mt-1 block text-[0.68rem] leading-snug text-muted-foreground">
+              Value density needs an estimate.
+            </span>
+          </div>
+        </div>
+      </Section>
+
+      <Section label="Best Value / Effort">
+        <p className="text-xs text-muted-foreground">
+          Ranked by value divided by estimate. Items without effort are listed
+          last until an estimate is added.
+        </p>
+        <ol className="flex flex-col gap-1">
+          {byDensity.map((candidate, index) => (
+            <li key={candidate.item.id} className="flex items-center gap-2">
+              <span className="w-5 shrink-0 font-mono text-[0.65rem] text-muted-foreground text-right">
+                {index + 1}
+              </span>
+              <div className="min-w-0 flex-1">
+                <ReadyItemRow
+                  candidate={candidate}
+                  estimateUnit={snapshot.estimateUnit}
+                  onClick={onSelectWorkItem}
+                />
+              </div>
+            </li>
+          ))}
+        </ol>
+      </Section>
+
+      <Section label="Highest Value">
+        <p className="text-xs text-muted-foreground">
+          Ranked by authored value alone when impact matters more than task
+          size.
+        </p>
+        <ol className="flex flex-col gap-1">
+          {byValue.map((candidate, index) => (
+            <li key={candidate.item.id} className="flex items-center gap-2">
+              <span className="w-5 shrink-0 font-mono text-[0.65rem] text-muted-foreground text-right">
+                {index + 1}
+              </span>
+              <div className="min-w-0 flex-1">
+                <ReadyItemRow
+                  candidate={candidate}
+                  estimateUnit={snapshot.estimateUnit}
+                  onClick={onSelectWorkItem}
+                />
+              </div>
+            </li>
+          ))}
+        </ol>
+      </Section>
+    </div>
   );
 }
 
@@ -902,6 +1127,8 @@ function OrderingMode({ snapshot, onSelectWorkItem }: OrderingModeProps) {
 // ---------------------------------------------------------------------------
 
 const METRIC_KEYS: MetricKey[] = [
+  "value",
+  "value_per_effort",
   "estimate_days",
   "remaining_days",
   "downstream_effort_days",
@@ -936,6 +1163,8 @@ function MetricsMode({
     estimateUnit,
   } = snapshot;
   const formatRangeValue = (key: MetricKey, value: number): string => {
+    if (key === "value") return formatValue(value);
+    if (key === "value_per_effort") return formatValueDensity(value);
     if (
       key === "estimate_days" ||
       key === "remaining_days" ||
@@ -1134,6 +1363,9 @@ export function PlanInsightsPanel({
       {/* Mode content */}
       {insightMode === "overview" && (
         <OverviewMode snapshot={snapshot} onSelectWorkItem={onSelectWorkItem} />
+      )}
+      {insightMode === "ready" && (
+        <ReadyMode snapshot={snapshot} onSelectWorkItem={onSelectWorkItem} />
       )}
       {insightMode === "ordering" && (
         <OrderingMode snapshot={snapshot} onSelectWorkItem={onSelectWorkItem} />

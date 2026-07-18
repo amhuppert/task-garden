@@ -58,7 +58,7 @@ function makePlan(overrides: Partial<TaskGardenPlan> = {}): TaskGardenPlan {
         summary: "S",
         lane: "lane-1",
         status: "planned",
-        priority: "p1",
+        value: 60,
         depends_on: [],
         tags: [],
         deliverables: [],

@@ -19,10 +19,7 @@ import {
   type PlanAnalysisSnapshot,
   usePlanProcessing,
 } from "../../lib/plan/plan-processing-pipeline";
-import type {
-  TaskGardenPriority,
-  TaskGardenStatus,
-} from "../../lib/plan/task-garden-plan.schema";
+import type { TaskGardenStatus } from "../../lib/plan/task-garden-plan.schema";
 import { PlanDetailsPanel } from "./PlanDetailsPanel";
 import { PlanGraphCanvas } from "./PlanGraphCanvas";
 import { PlanInsightsPanel } from "./PlanInsightsPanel";
@@ -63,7 +60,6 @@ import {
   type PlanExplorerStateValue,
   selectActiveScope,
   selectLaneIds,
-  selectPriorities,
   selectSearchQuery,
   selectSelectedWorkItemId,
   selectStatuses,
@@ -223,7 +219,6 @@ export function PlanWorkspacePage({
   const activeScope = usePlanExplorerStore(selectActiveScope);
   const laneIds = usePlanExplorerStore(selectLaneIds);
   const statuses = usePlanExplorerStore(selectStatuses);
-  const priorities = usePlanExplorerStore(selectPriorities);
   const tags = usePlanExplorerStore(selectTags);
   const selectWorkItem = usePlanExplorerStore((s) => s.selectWorkItem);
   const clearSelection = usePlanExplorerStore((s) => s.clearSelection);
@@ -250,18 +245,9 @@ export function PlanWorkspacePage({
       activeScope,
       laneIds,
       statuses,
-      priorities,
       tags,
     }),
-    [
-      selectedWorkItemId,
-      searchQuery,
-      activeScope,
-      laneIds,
-      statuses,
-      priorities,
-      tags,
-    ],
+    [selectedWorkItemId, searchQuery, activeScope, laneIds, statuses, tags],
   );
 
   const displayState: PlanDisplayStateValue = useMemo(
@@ -304,15 +290,12 @@ export function PlanWorkspacePage({
   // Available filter options derived from plan data
   const availableFilters: PlanToolbarAvailableFilters = useMemo(() => {
     if (!snapshot) {
-      return { lanes: [], statuses: [], priorities: [], tags: [] };
+      return { lanes: [], statuses: [], tags: [] };
     }
     const items = Object.values(snapshot.workItems);
     return {
       lanes: snapshot.plan.lanes,
       statuses: [...new Set(items.map((i) => i.status))] as TaskGardenStatus[],
-      priorities: [
-        ...new Set(items.map((i) => i.priority)),
-      ] as TaskGardenPriority[],
       tags: [...new Set(items.flatMap((i) => i.tags))],
     };
   }, [snapshot]);

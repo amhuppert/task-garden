@@ -12,22 +12,19 @@ import { EstimateStepperCell } from "./editing/EstimateStepperCell";
 import { LanePickerCell } from "./editing/LanePickerCell";
 import { LinksEditorCell } from "./editing/LinksEditorCell";
 import { NotesEditorCell } from "./editing/NotesEditorCell";
-import { PriorityPickerCell } from "./editing/PriorityPickerCell";
 import { StatusPickerCell } from "./editing/StatusPickerCell";
 import { StringListEditorCell } from "./editing/StringListEditorCell";
 import { SummaryEditorCell } from "./editing/SummaryEditorCell";
 import { TagEditorCell } from "./editing/TagEditorCell";
+import { ValueInputCell } from "./editing/ValueInputCell";
 import {
   formatCompactUnitValue,
   formatUnitCount,
-  getPriorityLabel,
+  formatValue,
   getStatusLabel,
 } from "./plan-details-panel.helpers";
 import type { PlanExplorerStateValue } from "./plan-explorer.store";
-import {
-  getPriorityAccentColor,
-  getStatusAccentColor,
-} from "./plan-graph-canvas.helpers";
+import { getStatusAccentColor } from "./plan-graph-canvas.helpers";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -126,7 +123,7 @@ interface WorkItemRefButtonProps {
   id: string;
   title: string;
   status: string;
-  priority: string;
+  value: number;
   onClick?: (id: string) => void;
 }
 
@@ -134,7 +131,7 @@ function WorkItemRefButton({
   id,
   title,
   status,
-  priority,
+  value,
   onClick,
 }: WorkItemRefButtonProps) {
   const handleClick = onClick ? () => onClick(id) : undefined;
@@ -151,7 +148,7 @@ function WorkItemRefButton({
         </span>
         <div
           className="flex shrink-0 items-center gap-1.5"
-          title={`${getStatusLabel(status as Parameters<typeof getStatusLabel>[0])} · ${getPriorityLabel(priority as Parameters<typeof getPriorityLabel>[0])}`}
+          title={`${getStatusLabel(status as Parameters<typeof getStatusLabel>[0])} · value ${formatValue(value)}`}
         >
           <span
             className="h-1.5 w-1.5 shrink-0 rounded-full"
@@ -162,15 +159,9 @@ function WorkItemRefButton({
             }}
             aria-label={status}
           />
-          <span
-            className="h-1.5 w-1.5 shrink-0 rounded-full"
-            style={{
-              backgroundColor: getPriorityAccentColor(
-                priority as Parameters<typeof getPriorityAccentColor>[0],
-              ),
-            }}
-            aria-label={priority}
-          />
+          <span className="font-mono text-[0.62rem] text-muted-foreground">
+            V{formatValue(value)}
+          </span>
         </div>
       </div>
       <p className="mt-0.5 text-sm text-foreground">{title}</p>
@@ -314,7 +305,7 @@ export function PlanDetailsPanel({
       </div>
 
       {/* ------------------------------------------------------------------ */}
-      {/* Editable metadata: lane, status, priority                           */}
+      {/* Editable metadata: lane, status, value                              */}
       {/* ------------------------------------------------------------------ */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <LanePickerCell
@@ -330,9 +321,9 @@ export function PlanDetailsPanel({
           baseRevision={baseRevision}
           patchPlan={patchPlan}
         />
-        <PriorityPickerCell
+        <ValueInputCell
           workItemId={item.id}
-          committedValue={item.priority}
+          committedValue={item.value}
           baseRevision={baseRevision}
           patchPlan={patchPlan}
         />
@@ -468,7 +459,7 @@ export function PlanDetailsPanel({
                     id={dep.id}
                     title={dep.title}
                     status={dep.status}
-                    priority={dep.priority}
+                    value={dep.value}
                     onClick={onSelectWorkItem}
                   />
                 </li>
@@ -503,7 +494,7 @@ export function PlanDetailsPanel({
                     id={dep.id}
                     title={dep.title}
                     status={dep.status}
-                    priority={dep.priority}
+                    value={dep.value}
                     onClick={onSelectWorkItem}
                   />
                 </li>

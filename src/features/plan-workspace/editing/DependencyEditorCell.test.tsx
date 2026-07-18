@@ -47,7 +47,7 @@ function makeWorkItem(
     summary: `Summary ${id}`,
     lane: "lane-1",
     status: "planned",
-    priority: "p1",
+    value: 60,
     depends_on,
     tags: [],
     deliverables: [],

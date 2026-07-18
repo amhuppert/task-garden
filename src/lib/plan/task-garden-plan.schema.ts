@@ -42,14 +42,6 @@ export const TaskGardenStatusSchema = z.enum([
   "future",
 ]);
 
-export const TaskGardenPrioritySchema = z.enum([
-  "p0",
-  "p1",
-  "p2",
-  "p3",
-  "nice_to_have",
-]);
-
 export const TaskGardenLaneSchema = z.object({
   id: SlugSchema.describe(
     "Unique slug identifying this lane. Referenced by work_items.lane.",
@@ -93,9 +85,12 @@ export const TaskGardenWorkItemSchema = z.object({
   status: TaskGardenStatusSchema.describe(
     "Lifecycle state. planned = scoped, not started; ready = unblocked, can start; blocked = waiting; in_progress = active; done = complete; future = not yet fully scoped.",
   ),
-  priority: TaskGardenPrioritySchema.describe(
-    "Importance. p0 = must-have / blocking; p1 = important; p2 = nice quality improvement; p3 = low priority; nice_to_have = explicit stretch goal.",
-  ),
+  value: z
+    .number()
+    .nonnegative()
+    .describe(
+      "Abstract implementation value for this item. Values are meaningful only relative to other items in the same plan.",
+    ),
   depends_on: z
     .array(SlugSchema)
     .default([])
@@ -366,7 +361,6 @@ export const TaskGardenPlanSchemaDefinition = z
 
 export type ReferenceTarget = z.infer<typeof ReferenceTargetSchema>;
 export type TaskGardenStatus = z.infer<typeof TaskGardenStatusSchema>;
-export type TaskGardenPriority = z.infer<typeof TaskGardenPrioritySchema>;
 export type TaskGardenLane = z.infer<typeof TaskGardenLaneSchema>;
 export type EstimateUnit = z.infer<typeof EstimateUnitSchema>;
 export type TaskGardenLink = z.infer<typeof TaskGardenLinkSchema>;

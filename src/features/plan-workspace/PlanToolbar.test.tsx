@@ -8,7 +8,6 @@ import { usePlanExplorerStore } from "./plan-explorer.store";
 const emptyFilters = {
   lanes: [],
   statuses: [],
-  priorities: [],
   tags: [],
 };
 const emptySummary = { hiddenNodeCount: 0, selectedNodeFilteredOut: false };
@@ -20,7 +19,6 @@ function resetExplorer() {
     activeScope: "all",
     laneIds: [],
     statuses: [],
-    priorities: [],
     tags: [],
   });
 }

@@ -37,10 +37,10 @@ test.describe("graph exploration — node selection", () => {
     await node.click();
 
     // Details panel should now show the work item title as a heading.
-    // Use getByRole to avoid matching the same title text in the graph node.
-    await expect(
-      page.getByRole("heading", { name: "Plan Runtime Config" }),
-    ).toBeVisible();
+    const detailsPanel = page.locator('[aria-label="Details and insights"]');
+    await expect(detailsPanel.getByLabel("Work item title")).toHaveText(
+      "Plan Runtime Config",
+    );
   });
 
   test("details panel shows item id, status chip after selection", async ({
@@ -70,7 +70,7 @@ test.describe("graph exploration — node selection", () => {
     const detailsPanel = page.locator('[aria-label="Details and insights"]');
     // The Dependencies section lists plan-runtime-config as a button.
     const depButton = detailsPanel.getByRole("button", {
-      name: /plan-runtime-config/i,
+      name: /^plan-runtime-config\b/i,
     });
     await expect(depButton).toBeVisible();
 
@@ -89,9 +89,10 @@ test.describe("graph exploration — node selection", () => {
       '.react-flow__node[data-id="plan-runtime-config"]',
     );
     await node.click();
-    await expect(
-      page.getByRole("heading", { name: "Plan Runtime Config" }),
-    ).toBeVisible();
+    const detailsPanel = page.locator('[aria-label="Details and insights"]');
+    await expect(detailsPanel.getByLabel("Work item title")).toHaveText(
+      "Plan Runtime Config",
+    );
 
     // Click the background pane to clear the selection.
     await page
@@ -171,16 +172,21 @@ test.describe("graph exploration — lane filter", () => {
     const sidebar = page.locator('[aria-label="Plan controls"]');
     // task-garden-v1 has lanes: Input Boundary, Domain, UI
     await expect(
-      sidebar.getByRole("button", { name: "Input Boundary" }),
+      sidebar.getByRole("button", { name: "Input Boundary", exact: true }),
     ).toBeVisible();
-    await expect(sidebar.getByRole("button", { name: "Domain" })).toBeVisible();
+    await expect(
+      sidebar.getByRole("button", { name: "Domain", exact: true }),
+    ).toBeVisible();
   });
 
   test("activating a lane filter shows the button as active", async ({
     page,
   }) => {
     const sidebar = page.locator('[aria-label="Plan controls"]');
-    const laneBtn = sidebar.getByRole("button", { name: "Input Boundary" });
+    const laneBtn = sidebar.getByRole("button", {
+      name: "Input Boundary",
+      exact: true,
+    });
 
     await laneBtn.click();
 
@@ -192,7 +198,7 @@ test.describe("graph exploration — lane filter", () => {
     page,
   }) => {
     const sidebar = page.locator('[aria-label="Plan controls"]');
-    await sidebar.getByRole("button", { name: "Domain" }).click();
+    await sidebar.getByRole("button", { name: "Domain", exact: true }).click();
 
     // Domain-lane node should remain visible.
     await expect(

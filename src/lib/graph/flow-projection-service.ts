@@ -30,7 +30,7 @@ export interface FlowNodeData {
   /** Plan-authored lane color, or null when not set. */
   laneColor: string | null;
   status: TaskGardenWorkItem["status"];
-  priority: TaskGardenWorkItem["priority"];
+  value: TaskGardenWorkItem["value"];
   summary: string;
   estimate: TaskGardenWorkItem["estimate"];
   /** Plan-level estimate unit, used for labelling derived effort values. */
@@ -198,12 +198,6 @@ function matchesFilters(
   if (
     explorer.statuses.length > 0 &&
     !explorer.statuses.includes(item.status)
-  ) {
-    return false;
-  }
-  if (
-    explorer.priorities.length > 0 &&
-    !explorer.priorities.includes(item.priority)
   ) {
     return false;
   }
@@ -504,24 +498,8 @@ function buildColorLegend(
       };
     }
 
-    case "priority": {
-      const priorities: TaskGardenWorkItem["priority"][] = [
-        "p0",
-        "p1",
-        "p2",
-        "p3",
-        "nice_to_have",
-      ];
-      return {
-        title: "Priority",
-        items: priorities.map((p) => ({
-          key: p,
-          label: p.replace(/_/g, " "),
-          value: p,
-        })),
-      };
-    }
-
+    case "value":
+    case "value_per_effort":
     case "estimate_days":
     case "remaining_days":
     case "downstream_effort_days":
@@ -861,7 +839,7 @@ export function createFlowProjectionService(): FlowProjectionService {
           laneLabel: lane?.label ?? item.lane,
           laneColor: lane?.color ?? getLanePaletteColor(laneIndex),
           status: item.status,
-          priority: item.priority,
+          value: item.value,
           summary: item.summary,
           estimate: item.estimate,
           estimateUnit: snapshot.estimateUnit,
@@ -899,7 +877,6 @@ export function createFlowProjectionService(): FlowProjectionService {
       explorer.searchQuery !== "" ||
       explorer.laneIds.length > 0 ||
       explorer.statuses.length > 0 ||
-      explorer.priorities.length > 0 ||
       explorer.tags.length > 0;
 
     const emptyStateMessage =

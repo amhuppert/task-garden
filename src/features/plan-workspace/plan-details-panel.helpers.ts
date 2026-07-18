@@ -1,6 +1,5 @@
 import type {
   EstimateUnit,
-  TaskGardenPriority,
   TaskGardenStatus,
 } from "../../lib/plan/task-garden-plan.schema";
 
@@ -26,30 +25,20 @@ export function getStatusLabel(status: TaskGardenStatus): string {
 }
 
 // ---------------------------------------------------------------------------
-// Priority labels
-// ---------------------------------------------------------------------------
-
-export function getPriorityLabel(priority: TaskGardenPriority): string {
-  switch (priority) {
-    case "p0":
-      return "P0";
-    case "p1":
-      return "P1";
-    case "p2":
-      return "P2";
-    case "p3":
-      return "P3";
-    case "nice_to_have":
-      return "Nice to Have";
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Estimate formatting
+// Numeric formatting
 // ---------------------------------------------------------------------------
 
 function formatNumeric(value: number): string {
   return Number.isInteger(value) ? `${value}` : value.toFixed(1);
+}
+
+export function formatValue(value: number): string {
+  return formatNumeric(value);
+}
+
+export function formatValueDensity(value: number): string {
+  if (!Number.isFinite(value)) return "—";
+  return Number.isInteger(value) ? `${value}` : value.toFixed(2);
 }
 
 const COMPACT_UNIT_SUFFIX: Record<EstimateUnit, string> = {

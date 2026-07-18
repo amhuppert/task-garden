@@ -53,10 +53,14 @@ test.describe("multi-lane plan — lane band visibility", () => {
     const sidebar = page.locator('[aria-label="Plan controls"]');
     // The toolbar shows one chip per lane derived from the plan.
     await expect(
-      sidebar.getByRole("button", { name: "Input Boundary" }),
+      sidebar.getByRole("button", { name: "Input Boundary", exact: true }),
     ).toBeVisible();
-    await expect(sidebar.getByRole("button", { name: "Domain" })).toBeVisible();
-    await expect(sidebar.getByRole("button", { name: "UI" })).toBeVisible();
+    await expect(
+      sidebar.getByRole("button", { name: "Domain", exact: true }),
+    ).toBeVisible();
+    await expect(
+      sidebar.getByRole("button", { name: "UI", exact: true }),
+    ).toBeVisible();
   });
 
   test("lane band nodes are rendered (different node type from work items)", async ({
@@ -77,7 +81,7 @@ test.describe("multi-lane plan — lane band visibility", () => {
   }) => {
     const sidebar = page.locator('[aria-label="Plan controls"]');
     // Activate the Domain lane filter.
-    await sidebar.getByRole("button", { name: "Domain" }).click();
+    await sidebar.getByRole("button", { name: "Domain", exact: true }).click();
 
     // Graph canvas should still be visible (not empty state with no nodes).
     await expect(

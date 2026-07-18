@@ -20,6 +20,8 @@ export type MetricKey =
   | "out_degree"
   | "betweenness"
   | "dependency_span"
+  | "value"
+  | "value_per_effort"
   | "estimate_days"
   | "remaining_days"
   | "downstream_effort_days";
@@ -104,6 +106,8 @@ const METRIC_KEYS: MetricKey[] = [
   "out_degree",
   "betweenness",
   "dependency_span",
+  "value",
+  "value_per_effort",
   "estimate_days",
   "remaining_days",
   "downstream_effort_days",
@@ -335,6 +339,11 @@ export function createPlanAnalysisEngine(): PlanAnalysisEngineService {
             out_degree: graph.outDegree(id),
             betweenness: betweenness[id] ?? 0,
             dependency_span: maxDownstreamDepth[id] - level,
+            value: item.value,
+            value_per_effort:
+              estimateDays !== null && estimateDays > 0
+                ? item.value / estimateDays
+                : 0,
             estimate_days: estimateDays ?? 0,
             remaining_days: remainingDays[id],
             downstream_effort_days: downstreamEffortDays[id],

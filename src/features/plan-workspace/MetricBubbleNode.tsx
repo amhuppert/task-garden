@@ -15,6 +15,8 @@ import type { FlowNodeData } from "../../lib/graph/flow-projection-service";
 import {
   compactUnitSuffix,
   formatCompactUnitValue,
+  formatValue,
+  formatValueDensity,
 } from "./plan-details-panel.helpers";
 import type { ColorEncodingMode, SizeEncodingMode } from "./plan-display.store";
 import {
@@ -25,8 +27,7 @@ import {
 import {
   type MetricRanges,
   getCriticalPathAccentColor,
-  getMetricAccentColor,
-  getPriorityAccentColor,
+  getMetricAccentColorForMode,
   getSlackHeatColor,
   getStatusAccentColor,
   normalizeMetric,
@@ -58,15 +59,9 @@ const STATUS_LABELS: Record<FlowNodeData["status"], string> = {
   future: "Future",
 };
 
-const PRIORITY_LABELS: Record<FlowNodeData["priority"], string> = {
-  p0: "P0",
-  p1: "P1",
-  p2: "P2",
-  p3: "P3",
-  nice_to_have: "NTH",
-};
-
 const METRIC_LABELS: Record<string, string> = {
+  value: "Value",
+  value_per_effort: "Value / Effort",
   estimate_days: "Estimate",
   remaining_days: "Remaining Chain",
   downstream_effort_days: "Unlocked Effort",
@@ -94,12 +89,11 @@ function getBubbleColor(
     case "status":
       accent = getStatusAccentColor(data.status);
       break;
-    case "priority":
-      accent = getPriorityAccentColor(data.priority);
-      break;
     case "lane":
       accent = data.laneColor;
       break;
+    case "value":
+    case "value_per_effort":
     case "estimate_days":
     case "remaining_days":
     case "downstream_effort_days":
@@ -108,7 +102,8 @@ function getBubbleColor(
     case "dependency_span": {
       const range = metricRanges[colorMode];
       if (range) {
-        accent = getMetricAccentColor(
+        accent = getMetricAccentColorForMode(
+          colorMode,
           normalizeMetric(data.metricSummary[colorMode], range.min, range.max),
         );
       }
@@ -129,7 +124,7 @@ function getBubbleColor(
         range.min,
         range.max,
       );
-      return getMetricAccentColor(norm);
+      return getMetricAccentColorForMode(sizeMode, norm);
     }
   }
 
@@ -304,11 +299,8 @@ function MetricBubbleNodeImpl({ data }: NodeProps<MetricBubbleNodeType>) {
               <span className="truncate text-xs text-muted-foreground">
                 {data.laneLabel}
               </span>
-              <span
-                className="font-mono text-xs font-bold"
-                style={{ color: getPriorityAccentColor(data.priority) }}
-              >
-                {PRIORITY_LABELS[data.priority]}
+              <span className="font-mono text-xs font-bold text-foreground">
+                V{formatValue(data.value)}
               </span>
             </div>
             {(compactEstimate || data.isOnCriticalPath) && (
@@ -359,11 +351,15 @@ function MetricBubbleNodeImpl({ data }: NodeProps<MetricBubbleNodeType>) {
               <div className="mt-1.5 border-t border-border pt-1.5">
                 <span className="text-xs text-muted-foreground">
                   {metricLabel}:{" "}
-                  {sizeMode === "estimate_days" ||
-                  sizeMode === "remaining_days" ||
-                  sizeMode === "downstream_effort_days"
-                    ? `${Number.isInteger(metricValue) ? metricValue : metricValue.toFixed(1)}${unitSuffix}`
-                    : metricValue.toFixed(1)}
+                  {sizeMode === "value"
+                    ? formatValue(metricValue)
+                    : sizeMode === "value_per_effort"
+                      ? formatValueDensity(metricValue)
+                      : sizeMode === "estimate_days" ||
+                          sizeMode === "remaining_days" ||
+                          sizeMode === "downstream_effort_days"
+                        ? `${Number.isInteger(metricValue) ? metricValue : metricValue.toFixed(1)}${unitSuffix}`
+                        : metricValue.toFixed(1)}
                 </span>
               </div>
             )}

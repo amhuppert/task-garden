@@ -34,9 +34,12 @@ test.describe("invalid plan — schema validation failure", () => {
     await expect(page.getByRole("alert").locator("h2")).toBeVisible();
   });
 
-  test("validation feedback includes plan key", async ({ page }) => {
+  test("validation feedback includes the failing work item", async ({
+    page,
+  }) => {
     await expect(page.getByRole("alert")).toBeVisible();
-    await expect(page.getByText(/invalid-plan-test/)).toBeVisible();
+    await expect(page.getByText(/task-a/)).toBeVisible();
+    await expect(page.getByText(/does-not-exist-lane/)).toBeVisible();
   });
 
   test("at least one validation issue is listed", async ({ page }) => {

@@ -8,7 +8,8 @@ export type ColorEncodingMode =
   | "default"
   | "lane"
   | "status"
-  | "priority"
+  | "value"
+  | "value_per_effort"
   | "estimate_days"
   | "remaining_days"
   | "downstream_effort_days"
@@ -18,6 +19,8 @@ export type ColorEncodingMode =
 
 export type SizeEncodingMode =
   | "uniform"
+  | "value"
+  | "value_per_effort"
   | "estimate_days"
   | "remaining_days"
   | "downstream_effort_days"
@@ -25,7 +28,7 @@ export type SizeEncodingMode =
   | "betweenness"
   | "dependency_span";
 
-export type InsightMode = "overview" | "ordering" | "metrics";
+export type InsightMode = "overview" | "ready" | "ordering" | "metrics";
 export type ScheduleOverlayMode = "none" | "critical_path" | "slack_heatmap";
 
 export interface PlanDisplayStateValue {

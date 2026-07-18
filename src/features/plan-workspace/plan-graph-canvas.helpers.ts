@@ -1,11 +1,11 @@
 import { type EdgeMarker, MarkerType } from "@xyflow/react";
 import type { CSSProperties } from "react";
 import type { FlowNode } from "../../lib/graph/flow-projection-service";
+import type { TaskGardenStatus } from "../../lib/plan/task-garden-plan.schema";
 import type {
-  TaskGardenPriority,
-  TaskGardenStatus,
-} from "../../lib/plan/task-garden-plan.schema";
-import type { ScheduleOverlayMode } from "./plan-display.store";
+  ColorEncodingMode,
+  ScheduleOverlayMode,
+} from "./plan-display.store";
 
 // ---------------------------------------------------------------------------
 // Layout constants — must match FlowProjectionService values
@@ -192,18 +192,6 @@ export function getStatusAccentColor(status: TaskGardenStatus): string {
   return STATUS_COLORS[status];
 }
 
-const PRIORITY_COLORS: Record<TaskGardenPriority, string> = {
-  p0: "var(--color-petal)",
-  p1: "var(--color-pollen)",
-  p2: "var(--color-moss)",
-  p3: "var(--color-water)",
-  nice_to_have: "var(--color-iron)",
-};
-
-export function getPriorityAccentColor(priority: TaskGardenPriority): string {
-  return PRIORITY_COLORS[priority];
-}
-
 /** Cycling palette of botanical tones for lane color encoding. */
 const LANE_COLOR_PALETTE = [
   "var(--color-water)",
@@ -226,6 +214,31 @@ export function getMetricAccentColor(normalizedValue: number): string {
   if (normalizedValue < 0.33) return "var(--color-moss)";
   if (normalizedValue < 0.66) return "var(--color-pollen)";
   return "var(--color-petal)";
+}
+
+/**
+ * Metric color modes where a *higher* value is desirable. The base gradient runs
+ * green → yellow → red as the normalized value rises (the right direction for
+ * cost/severity metrics like effort or chain length). For these "benefit" modes
+ * we invert the input so green means high value / high value-per-effort.
+ */
+const HIGHER_IS_BETTER_COLOR_MODES = new Set<ColorEncodingMode>([
+  "value",
+  "value_per_effort",
+]);
+
+/**
+ * Maps a normalized metric value [0,1] to an accent color, orienting the
+ * gradient so that "good" is always green for the given color mode.
+ */
+export function getMetricAccentColorForMode(
+  colorMode: ColorEncodingMode,
+  normalizedValue: number,
+): string {
+  const oriented = HIGHER_IS_BETTER_COLOR_MODES.has(colorMode)
+    ? 1 - normalizedValue
+    : normalizedValue;
+  return getMetricAccentColor(oriented);
 }
 
 export function getCriticalPathAccentColor(): string {
@@ -331,26 +344,25 @@ export function createEdgeStyleFactory(): (
 }
 
 /**
- * Resolves the CSS color for a legend item dot based on the active encoding mode.
+ * Resolves the CSS color for a legend item dot based on the active color mode.
  * Returns null for items where no specific color applies (e.g., 'default' mode).
  */
 export function resolveLegendItemColor(
-  legendTitle: string,
+  colorMode: ColorEncodingMode,
   item: { key: string; label: string; value: string },
 ): string | null {
-  switch (legendTitle) {
-    case "Status":
+  switch (colorMode) {
+    case "status":
       return STATUS_COLORS[item.key as TaskGardenStatus] ?? null;
-    case "Priority":
-      return PRIORITY_COLORS[item.key as TaskGardenPriority] ?? null;
-    case "Lane": {
+    case "lane":
       // value is always a resolved CSS color (plan-authored or palette-based)
       return item.value;
-    }
+    case "default":
+      return null;
     default: {
-      // Metric modes: low end and high end of the gradient
-      if (item.key === "low") return getMetricAccentColor(0);
-      if (item.key === "high") return getMetricAccentColor(1);
+      // Metric modes: low and high ends of the mode-oriented gradient.
+      if (item.key === "low") return getMetricAccentColorForMode(colorMode, 0);
+      if (item.key === "high") return getMetricAccentColorForMode(colorMode, 1);
       return null;
     }
   }

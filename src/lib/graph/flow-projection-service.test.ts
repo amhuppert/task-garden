@@ -18,7 +18,7 @@ function makeWorkItem(
     title: string;
     summary: string;
     status: TaskGardenPlan["work_items"][0]["status"];
-    priority: TaskGardenPlan["work_items"][0]["priority"];
+    value: number;
     tags: string[];
     estimateDays: number;
   }> = {},
@@ -29,7 +29,7 @@ function makeWorkItem(
     summary: overrides.summary ?? `Summary ${id}`,
     lane,
     status: overrides.status ?? "planned",
-    priority: overrides.priority ?? "p1",
+    value: overrides.value ?? 60,
     depends_on,
     tags: overrides.tags ?? [],
     deliverables: [],
@@ -65,7 +65,6 @@ const defaultExplorer: PlanExplorerStateValue = {
   activeScope: "all",
   laneIds: [],
   statuses: [],
-  priorities: [],
   tags: [],
 };
 
@@ -161,7 +160,7 @@ describe("FlowProjectionService — task 3.3: basic projection", () => {
     expect(nodeA.data.title).toBe("Title a");
     expect(nodeA.data.laneLabel).toBe("Backend");
     expect(nodeA.data.status).toBe("planned");
-    expect(nodeA.data.priority).toBe("p1");
+    expect(nodeA.data.value).toBe(60);
     expect(nodeA.data.summary).toBe("Summary a");
     expect(nodeA.data.estimate).toBeUndefined();
     expect(nodeA.data.isOnCriticalPath).toBe(false);

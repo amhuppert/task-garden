@@ -14,4 +14,4 @@ work_items:
     summary: This work item references a lane that does not exist.
     lane: does-not-exist-lane
     status: planned
-    priority: p1
+    value: 60

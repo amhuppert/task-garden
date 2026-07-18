@@ -15,8 +15,6 @@ import {
 } from "../../../lib/plan/edit-api-client";
 import {
   type TaskGardenLane,
-  type TaskGardenPriority,
-  TaskGardenPrioritySchema,
   type TaskGardenStatus,
   TaskGardenStatusSchema,
   type TaskGardenWorkItem,
@@ -52,7 +50,7 @@ interface DraftWorkItem {
   summary: string;
   lane: string;
   status: TaskGardenStatus;
-  priority: TaskGardenPriority;
+  valueValue: string;
   depends_on: string[];
   tags: string[];
   deliverables: string[];
@@ -72,7 +70,7 @@ function emptyDraft(
     summary: "",
     lane: prefill?.lane ?? defaultLaneId,
     status: "planned",
-    priority: "p2",
+    valueValue: "10",
     depends_on: prefill?.dependsOn ? [...prefill.dependsOn] : [],
     tags: [],
     deliverables: [],
@@ -90,13 +88,14 @@ function buildSchemaInput(draft: DraftWorkItem): unknown {
     summary: draft.summary.trim(),
     lane: draft.lane,
     status: draft.status,
-    priority: draft.priority,
     depends_on: draft.depends_on,
     tags: draft.tags,
     deliverables: draft.deliverables,
     reuse_candidates: draft.reuse_candidates,
     links: draft.links,
   };
+  const valueNum = Number(draft.valueValue);
+  obj.value = Number.isNaN(valueNum) ? draft.valueValue : valueNum;
   if (draft.notes.trim().length > 0) obj.notes = draft.notes.trim();
   if (draft.estimateValue.trim().length > 0) {
     const num = Number(draft.estimateValue);
@@ -112,7 +111,6 @@ function generateOperationId(): string {
 }
 
 const STATUS_OPTIONS = TaskGardenStatusSchema.options;
-const PRIORITY_OPTIONS = TaskGardenPrioritySchema.options;
 
 export function NewItemForm({
   open,
@@ -221,6 +219,7 @@ export function NewItemForm({
   const errTitle = fieldError("title");
   const errSummary = fieldError("summary");
   const errLane = fieldError("lane");
+  const errValue = fieldError("value");
 
   return (
     <FloatingPortal>
@@ -386,26 +385,25 @@ export function NewItemForm({
 
                 <div className="flex flex-col gap-1">
                   <label
-                    htmlFor="nif-priority"
+                    htmlFor="nif-value"
                     className="atlas-kicker text-foreground"
                   >
-                    Priority
+                    Value
                   </label>
-                  <select
-                    id="nif-priority"
-                    data-testid="nif-priority"
-                    value={draft.priority}
-                    onChange={(e) =>
-                      update("priority", e.target.value as TaskGardenPriority)
-                    }
+                  <input
+                    id="nif-value"
+                    data-testid="nif-value"
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={draft.valueValue}
+                    onChange={(e) => update("valueValue", e.target.value)}
+                    onBlur={() => markTouched("value")}
                     className="rounded-[var(--radius-sm)] border border-border bg-surface px-2 py-1 text-sm text-foreground outline-none focus:border-moss"
-                  >
-                    {PRIORITY_OPTIONS.map((p) => (
-                      <option key={p} value={p}>
-                        {p}
-                      </option>
-                    ))}
-                  </select>
+                  />
+                  {errValue && (
+                    <span className="text-xs text-petal">{errValue}</span>
+                  )}
                 </div>
               </div>
 

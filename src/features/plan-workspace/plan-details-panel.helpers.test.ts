@@ -3,7 +3,8 @@ import {
   compactUnitSuffix,
   formatCompactUnitValue,
   formatUnitCount,
-  getPriorityLabel,
+  formatValue,
+  formatValueDensity,
   getStatusLabel,
 } from "./plan-details-panel.helpers";
 
@@ -38,34 +39,26 @@ describe("getStatusLabel", () => {
 });
 
 // ---------------------------------------------------------------------------
-// getPriorityLabel
+// Numeric / unit formatting
 // ---------------------------------------------------------------------------
 
-describe("getPriorityLabel", () => {
-  it("returns 'P0' for p0", () => {
-    expect(getPriorityLabel("p0")).toBe("P0");
-  });
-
-  it("returns 'P1' for p1", () => {
-    expect(getPriorityLabel("p1")).toBe("P1");
-  });
-
-  it("returns 'P2' for p2", () => {
-    expect(getPriorityLabel("p2")).toBe("P2");
-  });
-
-  it("returns 'P3' for p3", () => {
-    expect(getPriorityLabel("p3")).toBe("P3");
-  });
-
-  it("returns 'Nice to Have' for nice_to_have", () => {
-    expect(getPriorityLabel("nice_to_have")).toBe("Nice to Have");
+describe("formatValue", () => {
+  it("formats integer and fractional values compactly", () => {
+    expect(formatValue(80)).toBe("80");
+    expect(formatValue(12.5)).toBe("12.5");
   });
 });
 
-// ---------------------------------------------------------------------------
-// Estimate / unit formatting
-// ---------------------------------------------------------------------------
+describe("formatValueDensity", () => {
+  it("formats ratios with two decimal places", () => {
+    expect(formatValueDensity(12)).toBe("12");
+    expect(formatValueDensity(12.345)).toBe("12.35");
+  });
+
+  it("formats non-finite ratios as a dash", () => {
+    expect(formatValueDensity(Number.POSITIVE_INFINITY)).toBe("—");
+  });
+});
 
 describe("compactUnitSuffix", () => {
   it("maps each unit to its compact suffix", () => {

@@ -19,8 +19,14 @@ export const PlanPatchSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("work_item.field"),
     target: z.object({ id: SlugSchema }),
-    field: z.enum(["title", "summary", "lane", "status", "priority", "notes"]),
+    field: z.enum(["title", "summary", "lane", "status", "notes"]),
     value: z.string().nullable(),
+  }),
+
+  z.object({
+    kind: z.literal("work_item.value"),
+    target: z.object({ id: SlugSchema }),
+    value: z.number().nonnegative(),
   }),
 
   z.object({

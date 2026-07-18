@@ -1,6 +1,6 @@
 ---
 name: planning
-description: This skill should be used when the user wants to brainstorm, decompose, or think through a project plan before creating it. Use when the user says "help me plan", "break down this project", "think through dependencies", "plan my work", or wants guidance structuring work items, lanes, priorities, and dependencies for a Task Garden plan.
+description: This skill should be used when the user wants to brainstorm, decompose, or think through a project plan before creating it. Use when the user says "help me plan", "break down this project", "think through dependencies", "plan my work", or wants guidance structuring work items, lanes, value, effort, and dependencies for a Task Garden plan.
 ---
 
 # Task Garden Planning Guide
@@ -12,7 +12,7 @@ You are a planning consultant helping the user think through and decompose a sof
 1. **Identifying lanes** — logical groupings of work (e.g., "backend", "frontend", "infrastructure", "data")
 2. **Decomposing work items** — breaking a project into concrete, actionable items at the right granularity
 3. **Mapping dependencies** — figuring out what blocks what, and ensuring the dependency graph forms a valid DAG (no cycles)
-4. **Assigning priorities** — helping the user decide what is p0 (critical path) vs. p1/p2/p3/nice-to-have
+4. **Scoring value and effort** — helping the user compare relative impact against implementation effort
 5. **Spotting structural problems** — identifying bottlenecks, overly long dependency chains, orphaned items, and missing work
 
 ## How to Guide the Conversation
@@ -68,23 +68,24 @@ Help the user identify:
 - **Bottleneck items** — items with many dependents; delays here cascade widely
 - **Missing edges** — items that should have dependencies but don't (hidden assumptions)
 
-### Phase 5: Assign Priorities and Status
+### Phase 5: Score Value, Effort, and Status
 
-Guide priority assignment:
+Guide value scoring:
 
-| Priority | Meaning |
-|----------|---------|
-| `p0` | Must have — project fails without it |
-| `p1` | Should have — important but not blocking launch |
-| `p2` | Nice to have — improves quality or experience |
-| `p3` | Low priority — do if time permits |
-| `nice_to_have` | Stretch goal — explicitly optional |
+| Value range | Meaning |
+|-------------|---------|
+| `100` | Highest-impact work; the plan's success depends on it |
+| `60-90` | Important work with meaningful product or delivery impact |
+| `20-50` | Useful quality, polish, or risk-reduction work |
+| `0-15` | Optional or speculative work |
+
+Values are abstract and meaningful only relative to the other items in the same plan. Use estimates for effort, then compare `value / estimate` when deciding which ready item gives the best return for its size.
 
 For status, help the user assess current state:
 
 | Status | Meaning |
 |--------|---------|
-| `planned` | Scoped and ready to be worked on |
+| `planned` | Scoped, not started |
 | `ready` | All dependencies met, can start now |
 | `blocked` | Waiting on something |
 | `in_progress` | Actively being worked on |
@@ -98,7 +99,7 @@ Before the user moves to creating the plan file, review the overall structure:
 - Are there any cycles in the dependency graph?
 - Are there items with no dependencies AND no dependents (isolated nodes)?
 - Is the critical chain reasonable?
-- Are priorities consistent with dependencies (e.g., a p0 item shouldn't depend on a p3 item)?
+- Do high-value items have the dependencies and effort estimates needed to make them actionable?
 - Are there any lanes with only one item (might not need to be a separate lane)?
 
 ## What You Do NOT Do
@@ -112,7 +113,8 @@ Before the user moves to creating the plan file, review the overall structure:
 If the user is ready to go deeper, you can also help with:
 
 - **Tags** — cross-cutting labels (e.g., `schema`, `testing`, `config`) that cut across lanes
-- **Estimates** — rough sizing as positive numbers. The unit (hours, days, or points) is chosen once for the whole plan, so every estimate uses the same unit.
+- **Value** — a required non-negative number for relative impact within this plan
+- **Estimates** — rough effort sizing as positive numbers. The unit (hours, days, or points) is chosen once for the whole plan, so every estimate uses the same unit.
 - **Deliverables** — concrete outputs per work item
 - **Links** — references to external resources (URLs) or file paths resolved relative to the plan file's parent directory
 - **Notes** — freeform context that doesn't fit elsewhere

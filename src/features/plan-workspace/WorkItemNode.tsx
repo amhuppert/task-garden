@@ -4,6 +4,7 @@ import type { FlowNodeData } from "../../lib/graph/flow-projection-service";
 import {
   compactUnitSuffix,
   formatCompactUnitValue,
+  formatValue,
 } from "./plan-details-panel.helpers";
 import type { ColorEncodingMode, SizeEncodingMode } from "./plan-display.store";
 import {
@@ -15,8 +16,7 @@ import {
   type MetricRanges,
   NODE_RENDER_HEIGHT,
   getCriticalPathAccentColor,
-  getMetricAccentColor,
-  getPriorityAccentColor,
+  getMetricAccentColorForMode,
   getSlackHeatColor,
   getStatusAccentColor,
   normalizeMetric,
@@ -41,14 +41,6 @@ const STATUS_LABELS: Record<FlowNodeData["status"], string> = {
   future: "Future",
 };
 
-const PRIORITY_LABELS: Record<FlowNodeData["priority"], string> = {
-  p0: "P0",
-  p1: "P1",
-  p2: "P2",
-  p3: "P3",
-  nice_to_have: "NTH",
-};
-
 // ---------------------------------------------------------------------------
 // Encoding helpers (pure)
 // ---------------------------------------------------------------------------
@@ -63,10 +55,10 @@ function getAccentColor(
       return null;
     case "status":
       return getStatusAccentColor(data.status);
-    case "priority":
-      return getPriorityAccentColor(data.priority);
     case "lane":
       return data.laneColor;
+    case "value":
+    case "value_per_effort":
     case "estimate_days":
     case "remaining_days":
     case "downstream_effort_days":
@@ -80,7 +72,7 @@ function getAccentColor(
         range.min,
         range.max,
       );
-      return getMetricAccentColor(norm);
+      return getMetricAccentColorForMode(colorMode, norm);
     }
     default:
       return null;
@@ -247,11 +239,8 @@ function WorkItemNodeImpl({ data }: NodeProps<WorkItemNodeType>) {
               {compactEstimate}
             </span>
           )}
-          <span
-            style={{ backgroundColor: getPriorityAccentColor(data.priority) }}
-            className="inline-flex items-center rounded-full px-1.5 py-0.5 font-mono text-[0.55rem] font-bold leading-none text-primary-foreground"
-          >
-            {PRIORITY_LABELS[data.priority]}
+          <span className="atlas-microchip text-foreground">
+            V{formatValue(data.value)}
           </span>
         </div>
       </div>

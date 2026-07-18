@@ -28,7 +28,8 @@ const COLOR_MODE_LABELS: Record<ColorEncodingMode, string> = {
   default: "Default",
   lane: "By Lane",
   status: "By Status",
-  priority: "By Priority",
+  value: "By Value",
+  value_per_effort: "By Value / Effort",
   estimate_days: "By Estimate",
   remaining_days: "By Remaining Chain",
   downstream_effort_days: "By Unlocked Effort",
@@ -62,11 +63,17 @@ export const COLOR_MODE_DESCRIPTIONS: Record<
     calculation:
       "Use the authored status on each task and assign the matching status color.",
   },
-  priority: {
+  value: {
     summary:
-      "Shows urgency. Useful for seeing where the highest-priority work sits in the graph.",
+      "Shows authored impact. Useful for seeing where the highest-value work sits in the graph.",
     calculation:
-      "Use the authored priority on each task and assign the matching priority color.",
+      "Use the numeric value saved on each task. Higher values get stronger color.",
+  },
+  value_per_effort: {
+    summary:
+      "Shows value density. Useful for finding tasks that return the most value for their estimated effort.",
+    calculation:
+      "Divide each task's authored value by its estimate. Tasks without an estimate score 0 until effort is supplied.",
   },
   estimate_days: {
     summary:
@@ -115,6 +122,8 @@ export function getColorModeDescription(mode: ColorEncodingMode): {
 
 const SIZE_MODE_LABELS: Record<SizeEncodingMode, string> = {
   uniform: "Uniform",
+  value: "By Value",
+  value_per_effort: "By Value / Effort",
   estimate_days: "By Estimate",
   remaining_days: "By Remaining Chain",
   downstream_effort_days: "By Unlocked Effort",
@@ -152,7 +161,8 @@ export const COLOR_MODE_OPTIONS: readonly ColorEncodingMode[] = [
   "default",
   "lane",
   "status",
-  "priority",
+  "value",
+  "value_per_effort",
   "estimate_days",
   "remaining_days",
   "downstream_effort_days",
@@ -163,6 +173,8 @@ export const COLOR_MODE_OPTIONS: readonly ColorEncodingMode[] = [
 
 export const SIZE_MODE_OPTIONS: readonly SizeEncodingMode[] = [
   "uniform",
+  "value",
+  "value_per_effort",
   "estimate_days",
   "remaining_days",
   "downstream_effort_days",
@@ -193,6 +205,18 @@ export const METRIC_SIZE_DESCRIPTIONS: Record<
       "Highlights the largest individual tasks. Useful when you want the graph to communicate task size rather than just topology.",
     calculation:
       "Use the authored estimate directly. A task estimated at 3 is larger than a task estimated at 1.",
+  },
+  value: {
+    summary:
+      "Highlights the highest-value tasks. Useful when you want the graph to communicate impact rather than topology.",
+    calculation:
+      "Use the authored value directly. A task valued at 80 is larger than a task valued at 20.",
+  },
+  value_per_effort: {
+    summary:
+      "Highlights tasks with the strongest value-to-effort return. Useful for choosing small, high-impact tasks.",
+    calculation:
+      "Divide authored value by authored estimate. A value 80 task with estimate 4 scores 20.",
   },
   remaining_days: {
     summary:

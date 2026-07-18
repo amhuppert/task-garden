@@ -17,7 +17,7 @@ Ask the user about their project. You need at minimum:
 - **Summary** — one or two sentences describing the project's goal
 - **Estimate unit** — the single unit all estimates use, set once at the plan level via `estimate_unit` (`hours`, `days`, or `points`). Defaults to `days` if omitted. Per-item estimates are bare numbers in this unit; do not mix units within a plan.
 - **Lanes** — how the work is organized (e.g., "backend", "frontend", "infra"); each needs an `id` (slug) and a `label`
-- **Work items** — the actual tasks; for each you need a title, summary, lane assignment, and dependencies
+- **Work items** — the actual tasks; for each you need a title, summary, lane assignment, relative value, and dependencies
 
 If the user has already done planning work (e.g., with the `/planning` skill), use that context rather than re-asking questions they've already answered.
 
@@ -30,7 +30,7 @@ For each work item, collect or infer:
 - `summary` — what this item delivers
 - `lane` — which lane it belongs to (must reference an existing lane id)
 - `status` — one of: `planned`, `ready`, `blocked`, `in_progress`, `done`, `future`
-- `priority` — one of: `p0`, `p1`, `p2`, `p3`, `nice_to_have`
+- `value` — a non-negative number expressing this item's relative impact within the plan
 - `depends_on` — list of work item ids this depends on (can be empty)
 
 Optional fields you can ask about if the user wants more detail:
@@ -92,7 +92,7 @@ work_items:                   # At least 1 work item required
     summary: Create schema     # Non-empty string
     lane: backend              # Must reference existing lane id
     status: planned            # planned | ready | blocked | in_progress | done | future
-    priority: p0               # p0 | p1 | p2 | p3 | nice_to_have
+    value: 100                 # Required non-negative number; relative impact within this plan
     depends_on: []             # List of existing work item ids; no self-refs, no dupes, no cycles
     tags: []                   # Optional; slug format, may contain /
     estimate: 2                # Optional; positive number in the plan's estimate_unit
@@ -163,7 +163,7 @@ work_items:
     summary: Design and implement the initial database schema for users and products.
     lane: backend
     status: done
-    priority: p0
+    value: 100
     depends_on: []
     tags:
       - database
@@ -178,7 +178,7 @@ work_items:
     summary: JWT-based authentication with login, registration, and token refresh endpoints.
     lane: backend
     status: in_progress
-    priority: p0
+    value: 95
     depends_on:
       - db-schema
     tags:
@@ -194,7 +194,7 @@ work_items:
     summary: CRUD endpoints for products with search and filtering.
     lane: backend
     status: planned
-    priority: p0
+    value: 85
     depends_on:
       - db-schema
     tags:
@@ -206,7 +206,7 @@ work_items:
     summary: React app with routing, layout, and auth context.
     lane: frontend
     status: planned
-    priority: p0
+    value: 90
     depends_on:
       - auth-api
     tags:
@@ -218,7 +218,7 @@ work_items:
     summary: Product listing page with search, filters, and detail view.
     lane: frontend
     status: planned
-    priority: p1
+    value: 70
     depends_on:
       - app-shell
       - product-api
@@ -231,7 +231,7 @@ work_items:
     summary: Basic admin interface for managing products and viewing user stats.
     lane: frontend
     status: future
-    priority: p2
+    value: 40
     depends_on:
       - app-shell
       - product-api
@@ -244,7 +244,7 @@ work_items:
     summary: GitHub Actions workflow for linting, testing, and building on every PR.
     lane: infra
     status: planned
-    priority: p1
+    value: 60
     depends_on: []
     tags:
       - ci
@@ -256,7 +256,7 @@ work_items:
     summary: Automated deployment to staging environment on merge to main.
     lane: infra
     status: planned
-    priority: p1
+    value: 55
     depends_on:
       - ci-pipeline
     tags:
@@ -270,6 +270,7 @@ work_items:
 - Set `last_updated` to today's date in `YYYY-MM-DD` format
 - Every plan must have at least 1 lane and at least 1 work item
 - Default `depends_on`, `tags`, `deliverables`, `reuse_candidates`, and `links` to empty arrays `[]` when not provided
+- Always set `value` on each work item; use estimates for effort so Task Garden can surface both highest-value and best value/effort ready work
 - Do not invent dependencies the user didn't mention — ask if you're unsure
 - If the user describes a cycle (A depends on B, B depends on A), flag it and ask how to resolve it
 - Write the file with the Write tool; suggest a filename like `<plan_id>.taskgarden.yaml` so editors pick up the JSON Schema for completions and validation

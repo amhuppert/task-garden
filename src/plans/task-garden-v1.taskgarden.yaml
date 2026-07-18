@@ -30,7 +30,7 @@ work_items:
     summary: Resolve VITE_PLAN_KEY from the environment and fail fast when absent....
     lane: input
     status: done
-    priority: p2
+    value: 35
     estimate: 1
     depends_on: []
     tags:
@@ -48,7 +48,7 @@ work_items:
     summary: Compile-time registry mapping plan keys to bundled YAML documents.
     lane: input
     status: done
-    priority: p0
+    value: 100
     estimate: 2
     depends_on: []
     tags:
@@ -69,7 +69,7 @@ work_items:
       re-emitting on HMR changes...
     lane: input
     status: done
-    priority: p0
+    value: 100
     estimate: 1.5
     depends_on:
       - plan-runtime-config
@@ -90,7 +90,7 @@ work_items:
       dependency integrity.
     lane: domain
     status: planned
-    priority: p0
+    value: 100
     estimate: 2
     depends_on:
       - plan-source-subscription
@@ -109,7 +109,7 @@ work_items:
       replacing stale output on failure.
     lane: input
     status: planned
-    priority: p0
+    value: 100
     estimate: 2
     depends_on:
       - plan-schema
@@ -132,7 +132,7 @@ work_items:
       document paths.
     lane: domain
     status: planned
-    priority: p1
+    value: 60
     estimate: 1
     depends_on:
       - plan-schema
@@ -146,7 +146,7 @@ work_items:
       leaves, metrics, and longest chain.
     lane: domain
     status: planned
-    priority: p0
+    value: 100
     depends_on:
       - processing-pipeline
     tags:
@@ -169,7 +169,7 @@ work_items:
       from analysis and UI state.
     lane: domain
     status: planned
-    priority: p0
+    value: 100
     depends_on:
       - graph-analysis
     tags:
@@ -183,7 +183,7 @@ work_items:
       from all surfaces.
     lane: ui
     status: planned
-    priority: p0
+    value: 100
     estimate: 2
     depends_on:
       - processing-pipeline
@@ -198,7 +198,7 @@ work_items:
       selection interactions....
     lane: ui
     status: planned
-    priority: p0
+    value: 100
     depends_on:
       - workspace-page
       - flow-projection
@@ -220,7 +220,7 @@ work_items:
       relationships, and optional metadata.
     lane: ui
     status: planned
-    priority: p1
+    value: 60
     estimate: 1.5
     depends_on:
       - workspace-page
@@ -240,7 +240,7 @@ work_items:
       metrics, and encoding legends.
     lane: ui
     status: planned
-    priority: p1
+    value: 60
     estimate: 2
     depends_on:
       - workspace-page
@@ -251,11 +251,11 @@ work_items:
 
   - id: control-rail
     title: Plan Toolbar
-    summary: Search, lane/status/priority/tag filters, scope controls, and encoding
+    summary: Search, lane/status/tag filters, scope controls, and value-aware encoding
       mode controls.
     lane: ui
     status: in_progress
-    priority: p1
+    value: 60
     estimate: 1.5
     depends_on:
       - workspace-page

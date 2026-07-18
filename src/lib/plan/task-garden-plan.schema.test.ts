@@ -30,7 +30,7 @@ const validPlan = {
       summary: "First item.",
       lane: "frontend",
       status: "ready",
-      priority: "p0",
+      value: 100,
       depends_on: [],
     },
     {
@@ -39,7 +39,7 @@ const validPlan = {
       summary: "Second item.",
       lane: "backend",
       status: "planned",
-      priority: "p1",
+      value: 60,
       depends_on: ["item-a"],
     },
   ],
@@ -72,7 +72,7 @@ describe("TaskGardenPlanSchemaService – valid plans", () => {
           summary: "No optional fields.",
           lane: "frontend",
           status: "ready",
-          priority: "p0",
+          value: 100,
           // no depends_on, tags, deliverables, reuse_candidates, links
         },
       ],
@@ -108,16 +108,25 @@ describe("TaskGardenPlanSchemaService – valid plans", () => {
     }
   });
 
-  it("accepts all valid priority values", () => {
-    const priorities = ["p0", "p1", "p2", "p3", "nice_to_have"] as const;
-    for (const priority of priorities) {
-      const plan = {
-        ...validPlan,
-        work_items: [{ ...validPlan.work_items[0], priority, depends_on: [] }],
-      };
-      const result = schemaService.parse(plan);
-      expect(result.ok, `expected ok for priority "${priority}"`).toBe(true);
+  it("accepts a numeric value", () => {
+    const plan = {
+      ...validPlan,
+      work_items: [{ ...validPlan.work_items[0], value: 42, depends_on: [] }],
+    };
+    const result = schemaService.parse(plan);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.work_items[0].value).toBe(42);
     }
+  });
+
+  it("rejects a negative value", () => {
+    const plan = {
+      ...validPlan,
+      work_items: [{ ...validPlan.work_items[0], value: -1, depends_on: [] }],
+    };
+    const result = schemaService.parse(plan);
+    expect(result.ok).toBe(false);
   });
 
   it("accepts a numeric per-item estimate", () => {

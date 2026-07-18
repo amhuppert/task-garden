@@ -23,61 +23,39 @@ test.describe("plan-level references", () => {
     ).toBeVisible();
   });
 
-  test("bundled document references render as clickable buttons in the overview", async ({
+  test("plan references render as editable labels and hrefs in plan details", async ({
     page,
   }) => {
     const sidebar = page.locator('[aria-label="Plan controls"]');
-    // The plan references memory-bank/focus.md — rendered with ⊞ icon if resolved,
-    // or ⊘ icon with disabled state if the bundled document set doesn't include it.
-    // Either way, the reference element should exist (enabled or disabled button).
-    const refButtons = sidebar
-      .locator("button, a")
-      .filter({ hasText: /focus|schema-proposal/ });
-    await expect(refButtons.first()).toBeVisible();
+    await sidebar.getByRole("button", { name: "Plan details" }).click();
+
+    await expect(page.getByLabel("Reference label 1")).toHaveValue("Focus");
+    await expect(page.getByLabel("Reference href 1")).toHaveValue(
+      "memory-bank/focus.md",
+    );
+    await expect(page.getByLabel("Reference label 2")).toHaveValue(
+      "Schema Proposal",
+    );
   });
 
-  test("clicking a resolved bundled document reference opens the document preview", async ({
+  test("plan reference fields show authored relative document paths", async ({
     page,
   }) => {
     const sidebar = page.locator('[aria-label="Plan controls"]');
-    // Find a non-disabled reference button in the overview header area.
-    const enabledRefBtn = sidebar.locator("button:not([disabled])").filter({
-      hasText: /focus|schema/,
-    });
+    await sidebar.getByRole("button", { name: "Plan details" }).click();
 
-    const count = await enabledRefBtn.count();
-    if (count === 0) {
-      // Bundled documents not included in this build — test passes vacuously.
-      return;
-    }
-
-    await enabledRefBtn.first().click();
-
-    // Document preview modal should appear.
-    await expect(
-      page.getByRole("dialog", { name: /Document preview/i }),
-    ).toBeVisible();
-    await expect(page.getByText("Document Preview")).toBeVisible();
+    await expect(page.getByLabel("Reference href 2")).toHaveValue(
+      "memory-bank/schema-proposal.md",
+    );
   });
 
-  test("document preview can be closed", async ({ page }) => {
+  test("plan references can be edited from the details popover", async ({
+    page,
+  }) => {
     const sidebar = page.locator('[aria-label="Plan controls"]');
-    const enabledRefBtn = sidebar.locator("button:not([disabled])").filter({
-      hasText: /focus|schema/,
-    });
+    await sidebar.getByRole("button", { name: "Plan details" }).click();
 
-    const count = await enabledRefBtn.count();
-    if (count === 0) return;
-
-    await enabledRefBtn.first().click();
-    await expect(
-      page.getByRole("dialog", { name: /Document preview/i }),
-    ).toBeVisible();
-
-    await page.getByRole("button", { name: "Close preview" }).click();
-    await expect(
-      page.getByRole("dialog", { name: /Document preview/i }),
-    ).not.toBeVisible();
+    await expect(page.getByTestId("plan-ref-add")).toBeVisible();
   });
 });
 

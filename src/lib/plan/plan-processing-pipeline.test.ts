@@ -26,7 +26,7 @@ work_items:
     summary: First task.
     lane: backlog
     status: planned
-    priority: p1
+    value: 60
 `.trim();
 
 const INVALID_YAML_PARSE = `
@@ -49,7 +49,7 @@ work_items:
     summary: First task.
     lane: does-not-exist
     status: planned
-    priority: p1
+    value: 60
 `.trim();
 
 function makeInput(source: string, revision = 1): PlanProcessingInput {

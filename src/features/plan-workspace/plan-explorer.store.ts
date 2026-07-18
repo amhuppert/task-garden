@@ -1,8 +1,5 @@
 import { create } from "zustand";
-import type {
-  TaskGardenPriority,
-  TaskGardenStatus,
-} from "../../lib/plan/task-garden-plan.schema";
+import type { TaskGardenStatus } from "../../lib/plan/task-garden-plan.schema";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -16,7 +13,6 @@ export interface PlanExplorerStateValue {
   activeScope: GraphScope;
   laneIds: readonly string[];
   statuses: readonly TaskGardenStatus[];
-  priorities: readonly TaskGardenPriority[];
   tags: readonly string[];
 }
 
@@ -27,7 +23,6 @@ interface PlanExplorerActions {
   setScope(scope: GraphScope): void;
   toggleLaneFilter(laneId: string): void;
   toggleStatusFilter(status: TaskGardenStatus): void;
-  togglePriorityFilter(priority: TaskGardenPriority): void;
   toggleTagFilter(tag: string): void;
   clearFilters(): void;
 }
@@ -44,7 +39,6 @@ const defaultState: PlanExplorerStateValue = {
   activeScope: "all",
   laneIds: [],
   statuses: [],
-  priorities: [],
   tags: [],
 };
 
@@ -87,10 +81,6 @@ export const usePlanExplorerStore = create<PlanExplorerStore>((set) => ({
     set((s) => ({ statuses: toggle(s.statuses, status) }));
   },
 
-  togglePriorityFilter(priority) {
-    set((s) => ({ priorities: toggle(s.priorities, priority) }));
-  },
-
   toggleTagFilter(tag) {
     set((s) => ({ tags: toggle(s.tags, tag) }));
   },
@@ -100,7 +90,6 @@ export const usePlanExplorerStore = create<PlanExplorerStore>((set) => ({
       searchQuery: "",
       laneIds: [],
       statuses: [],
-      priorities: [],
       tags: [],
     });
   },
@@ -121,13 +110,10 @@ export const selectLaneIds = (s: PlanExplorerStateValue) => s.laneIds;
 
 export const selectStatuses = (s: PlanExplorerStateValue) => s.statuses;
 
-export const selectPriorities = (s: PlanExplorerStateValue) => s.priorities;
-
 export const selectTags = (s: PlanExplorerStateValue) => s.tags;
 
 export const selectHasActiveFilters = (s: PlanExplorerStateValue): boolean =>
   s.searchQuery !== "" ||
   s.laneIds.length > 0 ||
   s.statuses.length > 0 ||
-  s.priorities.length > 0 ||
   s.tags.length > 0;

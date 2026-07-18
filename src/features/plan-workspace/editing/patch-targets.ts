@@ -40,6 +40,14 @@ export const patchTargets = {
     };
   },
 
+  workItemValue(id: string, value: number): PlanPatch {
+    return {
+      kind: "work_item.value",
+      target: { id },
+      value,
+    };
+  },
+
   workItemTags(id: string, value: readonly string[]): PlanPatch {
     return {
       kind: "work_item.tags",

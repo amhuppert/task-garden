@@ -24,8 +24,10 @@ describe("getColorModeLabel", () => {
     expect(getColorModeLabel("lane")).toBe("By Lane"));
   it("'status' → 'By Status'", () =>
     expect(getColorModeLabel("status")).toBe("By Status"));
-  it("'priority' → 'By Priority'", () =>
-    expect(getColorModeLabel("priority")).toBe("By Priority"));
+  it("'value' → 'By Value'", () =>
+    expect(getColorModeLabel("value")).toBe("By Value"));
+  it("'value_per_effort' → 'By Value / Effort'", () =>
+    expect(getColorModeLabel("value_per_effort")).toBe("By Value / Effort"));
   it("'estimate_days' → 'By Estimate'", () =>
     expect(getColorModeLabel("estimate_days")).toBe("By Estimate"));
   it("'remaining_days' → 'By Remaining Chain'", () =>
@@ -45,6 +47,10 @@ describe("getColorModeLabel", () => {
 describe("getSizeModeLabel", () => {
   it("'uniform' → 'Uniform'", () =>
     expect(getSizeModeLabel("uniform")).toBe("Uniform"));
+  it("'value' → 'By Value'", () =>
+    expect(getSizeModeLabel("value")).toBe("By Value"));
+  it("'value_per_effort' → 'By Value / Effort'", () =>
+    expect(getSizeModeLabel("value_per_effort")).toBe("By Value / Effort"));
   it("'estimate_days' → 'By Estimate'", () =>
     expect(getSizeModeLabel("estimate_days")).toBe("By Estimate"));
   it("'remaining_days' → 'By Remaining Chain'", () =>

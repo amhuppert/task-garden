@@ -31,7 +31,11 @@ test.describe("startup — valid plan", () => {
     await expect(
       page.locator('[aria-label="Plan graph visualization"]'),
     ).toBeVisible();
-    await expect(page.getByText(/Initial implementation plan/)).toBeVisible();
+    const sidebar = page.locator('[aria-label="Plan controls"]');
+    await sidebar.getByRole("button", { name: "Plan details" }).click();
+    await expect(page.getByLabel("Summary")).toHaveValue(
+      /Initial implementation plan/,
+    );
   });
 
   test("plan controls sidebar is visible on desktop", async ({ page }) => {

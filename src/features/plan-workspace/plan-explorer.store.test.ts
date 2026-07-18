@@ -8,7 +8,6 @@ beforeEach(() => {
     activeScope: "all",
     laneIds: [],
     statuses: [],
-    priorities: [],
     tags: [],
   });
 });
@@ -54,13 +53,6 @@ describe("usePlanExplorerStore", () => {
     expect(usePlanExplorerStore.getState().statuses).not.toContain("ready");
   });
 
-  it("togglePriorityFilter adds then removes", () => {
-    usePlanExplorerStore.getState().togglePriorityFilter("p0");
-    expect(usePlanExplorerStore.getState().priorities).toContain("p0");
-    usePlanExplorerStore.getState().togglePriorityFilter("p0");
-    expect(usePlanExplorerStore.getState().priorities).not.toContain("p0");
-  });
-
   it("toggleTagFilter adds then removes", () => {
     usePlanExplorerStore.getState().toggleTagFilter("urgent");
     expect(usePlanExplorerStore.getState().tags).toContain("urgent");
@@ -75,7 +67,6 @@ describe("usePlanExplorerStore", () => {
       activeScope: "upstream",
       laneIds: ["lane-a"],
       statuses: ["ready"],
-      priorities: ["p0"],
       tags: ["urgent"],
     });
     usePlanExplorerStore.getState().clearFilters();
@@ -83,7 +74,6 @@ describe("usePlanExplorerStore", () => {
     expect(s.searchQuery).toBe("");
     expect(s.laneIds).toHaveLength(0);
     expect(s.statuses).toHaveLength(0);
-    expect(s.priorities).toHaveLength(0);
     expect(s.tags).toHaveLength(0);
     // selection and scope are NOT reset by clearFilters
     expect(s.selectedWorkItemId).toBe("abc");

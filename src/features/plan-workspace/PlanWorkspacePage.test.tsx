@@ -35,7 +35,7 @@ work_items:
     summary: First item.
     lane: core
     status: ready
-    priority: p0
+    value: 100
 `;
 
 describe("PlanWorkspacePage", () => {

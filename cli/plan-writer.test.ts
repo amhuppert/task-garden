@@ -23,7 +23,7 @@ work_items:
     summary: The first item.
     lane: alpha
     status: planned # inline comment on status
-    priority: p1
+    value: 60
     depends_on: []
     tags:
       - foo
@@ -40,7 +40,7 @@ work_items:
     summary: The second item.
     lane: beta
     status: ready
-    priority: p2
+    value: 35
     depends_on:
       - item-one
     tags: []
@@ -82,18 +82,17 @@ describe("planWriter.apply — work_item.field happy path", () => {
     expect(result.nextSource).not.toContain("title: First item");
   });
 
-  test("setting priority updates the work item priority", () => {
+  test("setting value updates the work item value", () => {
     const patch: PlanPatch = {
-      kind: "work_item.field",
+      kind: "work_item.value",
       target: { id: "item-one" },
-      field: "priority",
-      value: "p0",
+      value: 100,
     };
 
     const result = planWriter.apply(SAMPLE_PLAN, patch);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.nextSource).toContain("priority: p0");
+    expect(result.nextSource).toContain("value: 100");
   });
 
   test("setting lane updates the work item lane", () => {
@@ -286,7 +285,7 @@ describe("planWriter.apply — replace-array kinds", () => {
         summary: "Newly added.",
         lane: "alpha",
         status: "planned",
-        priority: "p2",
+        value: 35,
         depends_on: [],
         tags: [],
         deliverables: [],
@@ -585,7 +584,7 @@ describe("planWriter.apply — failure paths", () => {
         summary: "Has same id as existing item.",
         lane: "alpha",
         status: "planned",
-        priority: "p2",
+        value: 35,
         depends_on: [],
         tags: [],
         deliverables: [],

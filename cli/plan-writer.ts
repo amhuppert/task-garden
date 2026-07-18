@@ -82,6 +82,21 @@ export function createPlanWriter(
           }
           break;
         }
+        case "work_item.value": {
+          const i = findItemIndex(doc, "work_items", patch.target.id);
+          if (i < 0) {
+            return {
+              ok: false,
+              failure: {
+                type: "target_not_found",
+                target: { kind: "work_item", id: patch.target.id },
+              },
+            };
+          }
+          doc.setIn(["work_items", i, "value"], patch.value);
+          setBlockStyleAt(doc, ["work_items", i, "value"]);
+          break;
+        }
         case "work_item.estimate": {
           const i = findItemIndex(doc, "work_items", patch.target.id);
           if (i < 0) {

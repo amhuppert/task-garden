@@ -13,7 +13,6 @@ import {
 import { memo, useEffect, useState } from "react";
 import type {
   TaskGardenLane,
-  TaskGardenPriority,
   TaskGardenStatus,
 } from "../../lib/plan/task-garden-plan.schema";
 import { SectionInfoModal } from "./SectionInfoModal";
@@ -29,7 +28,6 @@ import {
   selectActiveScope,
   selectHasActiveFilters,
   selectLaneIds,
-  selectPriorities,
   selectSearchQuery,
   selectSelectedWorkItemId,
   selectStatuses,
@@ -62,14 +60,6 @@ const STATUS_LABELS: Record<TaskGardenStatus, string> = {
   in_progress: "In Progress",
   done: "Done",
   future: "Future",
-};
-
-const PRIORITY_LABELS: Record<TaskGardenPriority, string> = {
-  p0: "P0",
-  p1: "P1",
-  p2: "P2",
-  p3: "P3",
-  nice_to_have: "Nice to Have",
 };
 
 const METRIC_SIZE_MODES = Object.keys(
@@ -390,37 +380,6 @@ const StatusFilterSection = memo(function StatusFilterSection({
   );
 });
 
-interface PriorityFilterSectionProps {
-  availablePriorities: readonly TaskGardenPriority[];
-}
-
-const PriorityFilterSection = memo(function PriorityFilterSection({
-  availablePriorities,
-}: PriorityFilterSectionProps) {
-  const activePriorities = usePlanExplorerStore(selectPriorities);
-  const togglePriorityFilter = usePlanExplorerStore(
-    (s) => s.togglePriorityFilter,
-  );
-  if (availablePriorities.length === 0) return null;
-  return (
-    <section>
-      <span className="atlas-kicker mb-2 block">Priority</span>
-      <div className="flex flex-wrap gap-1.5">
-        {availablePriorities.map((priority) => (
-          <button
-            key={priority}
-            type="button"
-            onClick={() => togglePriorityFilter(priority)}
-            className={`atlas-chip hover:border-border-strong${activePriorities.includes(priority) ? " atlas-chip-active" : ""}`}
-          >
-            {PRIORITY_LABELS[priority]}
-          </button>
-        ))}
-      </div>
-    </section>
-  );
-});
-
 interface TagFilterSectionProps {
   availableTags: readonly string[];
 }
@@ -632,7 +591,6 @@ function SizeEncodingSection() {
 export interface PlanToolbarAvailableFilters {
   lanes: readonly TaskGardenLane[];
   statuses: readonly TaskGardenStatus[];
-  priorities: readonly TaskGardenPriority[];
   tags: readonly string[];
 }
 
@@ -683,9 +641,6 @@ export function PlanToolbar({
         baseRevision={baseRevision}
       />
       <StatusFilterSection availableStatuses={availableFilters.statuses} />
-      <PriorityFilterSection
-        availablePriorities={availableFilters.priorities}
-      />
       <TagFilterSection availableTags={availableFilters.tags} />
       <ScopeSection />
       <ColorEncodingSection />
