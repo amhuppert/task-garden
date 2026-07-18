@@ -55,6 +55,12 @@ export const VALIDATION_COPY: Record<string, ValidationCopy> = {
     detail: "The plan server hit a snag writing the file.",
     code: "write_failed",
   },
+  invalid_patch: {
+    title: "Edit rejected",
+    detail:
+      "The change didn't pass validation. Check the value — retrying the same edit will fail again.",
+    code: "invalid_patch",
+  },
   default: {
     title: "Something went sideways",
     detail: "The edit didn't take. Try again.",

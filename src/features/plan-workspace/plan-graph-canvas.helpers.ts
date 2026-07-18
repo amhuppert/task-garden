@@ -8,7 +8,9 @@ import type {
 } from "./plan-display.store";
 
 // ---------------------------------------------------------------------------
-// Layout constants — must match FlowProjectionService values
+// Layout constants. Width matches FlowProjectionService's NODE_WIDTH exactly.
+// Height is the rendered min-height (80); the layout engine allots 100 per
+// node on purpose so rows keep breathing room when content wraps.
 // ---------------------------------------------------------------------------
 
 export const NODE_RENDER_WIDTH = 200;
@@ -149,21 +151,31 @@ export interface MetricRanges {
   [key: string]: { min: number; max: number };
 }
 
-/** Normalizes a metric value to [0, 1]. Returns 0 when range is degenerate. */
+/**
+ * Normalizes a metric value to [0, 1]. Returns 0 when the range is degenerate
+ * and NaN when the value itself is missing (non-finite) — callers render
+ * missing metrics with neutral styling instead of the scale's minimum.
+ */
 export function normalizeMetric(
   value: number,
   min: number,
   max: number,
 ): number {
+  if (!Number.isFinite(value)) return Number.NaN;
   if (min === max) return 0;
   return (value - min) / (max - min);
 }
 
-/** Derives min/max ranges for all metrics across visible nodes. */
+/**
+ * Derives min/max ranges for all metrics across visible nodes. Non-finite
+ * values (e.g. value_per_effort on items without an estimate) are excluded
+ * so they don't distort the scale.
+ */
 export function computeMetricRanges(nodes: readonly FlowNode[]): MetricRanges {
   const ranges: MetricRanges = {};
   for (const node of nodes) {
     for (const [key, value] of Object.entries(node.data.metricSummary)) {
+      if (!Number.isFinite(value)) continue;
       if (!(key in ranges)) {
         ranges[key] = { min: value, max: value };
       } else {
@@ -242,7 +254,9 @@ export function getMetricAccentColorForMode(
 }
 
 export function getCriticalPathAccentColor(): string {
-  return "var(--color-petal)";
+  // Gold — matches the "Critical" node chips and the legend's "gold trace"
+  // copy, and stays distinct from the slack heatmap's warm/danger petal.
+  return "var(--color-pollen)";
 }
 
 export function getSlackHeatColor(normalizedValue: number): string {

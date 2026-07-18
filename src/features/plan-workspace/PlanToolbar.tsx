@@ -10,7 +10,8 @@ import {
   useFloating,
   useInteractions,
 } from "@floating-ui/react";
-import { memo, useEffect, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
+import { useHotkeys } from "react-hotkeys-hook";
 import type {
   TaskGardenLane,
   TaskGardenStatus,
@@ -211,6 +212,7 @@ const VisibilitySummarySection = memo(function VisibilitySummarySection({
 function SearchSection() {
   const searchQuery = usePlanExplorerStore(selectSearchQuery);
   const setSearchQuery = usePlanExplorerStore((s) => s.setSearchQuery);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Local input state — typing only re-renders this section. The store is
   // updated 150ms after the last keystroke so the projection doesn't rebuild
@@ -225,14 +227,30 @@ function SearchSection() {
     return () => clearTimeout(id);
   }, [searchInput, searchQuery, setSearchQuery]);
 
+  useHotkeys(
+    "slash",
+    (event) => {
+      event.preventDefault();
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    },
+    { enableOnFormTags: false, enableOnContentEditable: false },
+  );
+
   return (
     <section>
       <label>
-        <span className="atlas-kicker mb-2 block">Search</span>
+        <span className="atlas-kicker mb-2 flex items-center justify-between">
+          Search
+          <span className="font-mono normal-case tracking-normal opacity-70">
+            /
+          </span>
+        </span>
         <input
+          ref={inputRef}
           type="text"
           className="atlas-field atlas-field-focus"
-          placeholder="Search title, tag, lane…"
+          placeholder="Search id, title, summary, tag, lane…"
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
         />
@@ -456,12 +474,12 @@ function ScopeSection() {
   const hasSelection = selectedWorkItemId !== null;
   return (
     <section>
-      <div className="mb-2 flex items-center justify-between">
-        <span className="atlas-kicker flex items-center gap-1.5">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="atlas-kicker flex shrink-0 items-center gap-1.5 whitespace-nowrap">
           Scope
           <ScopeInfoModal />
         </span>
-        <span className="font-mono text-xs text-muted-foreground">
+        <span className="min-w-0 truncate whitespace-nowrap font-mono text-xs text-muted-foreground">
           {getScopeLabel(activeScope)}
         </span>
       </div>
@@ -496,12 +514,12 @@ function ColorEncodingSection() {
   const setColorMode = usePlanDisplayStore((s) => s.setColorMode);
   return (
     <section>
-      <div className="mb-2 flex items-center justify-between">
-        <span className="atlas-kicker flex items-center gap-1.5">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="atlas-kicker flex shrink-0 items-center gap-1.5 whitespace-nowrap">
           Color
           <ColorInfoModal />
         </span>
-        <span className="font-mono text-xs text-muted-foreground">
+        <span className="min-w-0 truncate whitespace-nowrap font-mono text-xs text-muted-foreground">
           {getColorModeLabel(colorMode)}
         </span>
       </div>
@@ -527,12 +545,12 @@ function ScheduleOverlaySection() {
   const setScheduleOverlay = usePlanDisplayStore((s) => s.setScheduleOverlay);
   return (
     <section>
-      <div className="mb-2 flex items-center justify-between">
-        <span className="atlas-kicker flex items-center gap-1.5">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="atlas-kicker flex shrink-0 items-center gap-1.5 whitespace-nowrap">
           Schedule Overlay
           <ScheduleOverlayInfoModal />
         </span>
-        <span className="font-mono text-xs text-muted-foreground">
+        <span className="min-w-0 truncate whitespace-nowrap font-mono text-xs text-muted-foreground">
           {getScheduleOverlayLabel(scheduleOverlay)}
         </span>
       </div>
@@ -558,12 +576,12 @@ function SizeEncodingSection() {
   const setSizeMode = usePlanDisplayStore((s) => s.setSizeMode);
   return (
     <section>
-      <div className="mb-2 flex items-center justify-between">
-        <span className="atlas-kicker flex items-center gap-1.5">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="atlas-kicker flex shrink-0 items-center gap-1.5 whitespace-nowrap">
           Node Size
           <SizeInfoModal />
         </span>
-        <span className="font-mono text-xs text-muted-foreground">
+        <span className="min-w-0 truncate whitespace-nowrap font-mono text-xs text-muted-foreground">
           {getSizeModeLabel(sizeMode)}
         </span>
       </div>

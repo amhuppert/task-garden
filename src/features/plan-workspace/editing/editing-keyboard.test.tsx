@@ -231,7 +231,9 @@ describe("useEditingHotkeys", () => {
         "wi-1:title": "saving-value",
         "wi-2:status": "rollback-me",
       },
-      inflight: { "wi-1:title": "op-pending" },
+      inflight: {
+        "wi-1:title": { operationId: "op-pending", value: "saving-value" },
+      },
       lastWriteResult: {
         phase: "saving",
         key: "wi-1:title",

@@ -113,17 +113,17 @@ export function LanePickerCell({
         }`}
         {...getReferenceProps()}
       >
-        <span className="flex items-center gap-2">
+        <span className="flex min-w-0 items-center gap-2">
           <span
             aria-hidden="true"
             className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm"
             style={{ backgroundColor: laneColor(current) }}
           />
-          <span className="truncate font-semibold">
+          <span className="truncate whitespace-nowrap font-semibold">
             {current?.label ?? value}
           </span>
         </span>
-        <ChevronGlyph size={10} className="text-muted-foreground" />
+        <ChevronGlyph size={10} className="shrink-0 text-muted-foreground" />
       </button>
 
       {open && (

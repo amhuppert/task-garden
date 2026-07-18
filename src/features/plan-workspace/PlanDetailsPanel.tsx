@@ -448,7 +448,9 @@ export function PlanDetailsPanel({
         patchPlan={patchPlan}
       />
       {analysis.dependencyIds.length > 0 && (
-        <Section label={`Open dependency (${analysis.dependencyIds.length})`}>
+        <Section
+          label={`Browse dependencies (${analysis.dependencyIds.length})`}
+        >
           <ul className="flex flex-col gap-1.5">
             {analysis.dependencyIds.map((depId) => {
               const dep = snapshot.workItems[depId];
@@ -483,7 +485,7 @@ export function PlanDetailsPanel({
         onBranchNewDependent={onBranchNewDependent}
       />
       {analysis.dependentIds.length > 0 && (
-        <Section label={`Open dependent (${analysis.dependentIds.length})`}>
+        <Section label={`Browse dependents (${analysis.dependentIds.length})`}>
           <ul className="flex flex-col gap-1.5">
             {analysis.dependentIds.map((depId) => {
               const dep = snapshot.workItems[depId];

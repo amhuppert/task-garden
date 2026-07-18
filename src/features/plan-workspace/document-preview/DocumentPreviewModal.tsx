@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import type { DocumentErrorCode } from "../../../lib/plan/plan-api-client";
 import {
   type UseDocumentDeps,
@@ -30,8 +31,23 @@ export function DocumentPreviewModal({
   deps,
 }: DocumentPreviewModalProps) {
   const docState = useDocument(documentPath, deps);
+  const isOpen = docState.phase !== "idle";
 
-  if (docState.phase === "idle") {
+  // The dialog uses non-modal `open`, so the native Esc-to-cancel behavior
+  // never applies — close on Escape ourselves.
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.stopPropagation();
+      onClose();
+    };
+    document.addEventListener("keydown", onKeyDown, { capture: true });
+    return () =>
+      document.removeEventListener("keydown", onKeyDown, { capture: true });
+  }, [isOpen, onClose]);
+
+  if (!isOpen) {
     return null;
   }
 
@@ -47,9 +63,12 @@ export function DocumentPreviewModal({
       <div className="atlas-panel relative mx-4 flex max-h-[84vh] w-full max-w-3xl flex-col overflow-hidden">
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-border px-6 py-4">
-          <div>
+          <div className="min-w-0">
             <p className="atlas-kicker mb-0.5">Document Preview</p>
-            <p className="font-mono text-xs text-muted-foreground">
+            <p
+              className="truncate font-mono text-xs text-muted-foreground"
+              title={documentPath ?? undefined}
+            >
               {documentPath}
             </p>
           </div>
@@ -57,7 +76,7 @@ export function DocumentPreviewModal({
             type="button"
             onClick={onClose}
             aria-label="Close preview"
-            className="rounded-[var(--radius-sm)] border border-border bg-surface px-3 py-1.5 font-mono text-xs text-muted-foreground transition-colors hover:border-border-strong hover:bg-surface-muted"
+            className="ml-3 shrink-0 rounded-[var(--radius-sm)] border border-border bg-surface px-3 py-1.5 font-mono text-xs text-muted-foreground transition-colors hover:border-border-strong hover:bg-surface-muted"
           >
             ✕
           </button>
@@ -79,7 +98,7 @@ export function DocumentPreviewModal({
           )}
 
           {docState.phase === "loaded" && (
-            <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed text-foreground/90">
+            <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-foreground/90">
               {docState.content}
             </pre>
           )}

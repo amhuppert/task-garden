@@ -34,9 +34,11 @@ describe("useEditStore", () => {
 
   describe("beginCommit / finishCommit", () => {
     it("beginCommit sets inflight and phase saving", () => {
-      useEditStore.getState().beginCommit("k", "op-1");
+      useEditStore
+        .getState()
+        .beginCommit("k", "op-1", useEditStore.getState().drafts.k);
       const s = useEditStore.getState();
-      expect(s.inflight.k).toBe("op-1");
+      expect(s.inflight.k?.operationId).toBe("op-1");
       expect(s.lastWriteResult).toEqual({
         phase: "saving",
         key: "k",
@@ -46,7 +48,9 @@ describe("useEditStore", () => {
 
     it("finishCommit success clears inflight, clears draft, sets phase saved", () => {
       useEditStore.getState().setDraft("k", "x");
-      useEditStore.getState().beginCommit("k", "op-1");
+      useEditStore
+        .getState()
+        .beginCommit("k", "op-1", useEditStore.getState().drafts.k);
       const result: EditApiResult = {
         ok: true,
         operationId: "op-1",
@@ -63,9 +67,26 @@ describe("useEditStore", () => {
       }
     });
 
+    it("finishCommit success keeps a newer draft typed while the commit was in flight", () => {
+      useEditStore.getState().setDraft("k", "A");
+      useEditStore
+        .getState()
+        .beginCommit("k", "op-1", useEditStore.getState().drafts.k);
+      // User keeps typing while the PATCH is in flight
+      useEditStore.getState().setDraft("k", "AB");
+      useEditStore
+        .getState()
+        .finishCommit("k", { ok: true, operationId: "op-1", revision: 2 });
+      const s = useEditStore.getState();
+      expect(s.drafts.k).toBe("AB");
+      expect(s.lastWriteResult.phase).toBe("saved");
+    });
+
     it("finishCommit validation error preserves draft, sets phase error, canRetry false", () => {
       useEditStore.getState().setDraft("k", "x");
-      useEditStore.getState().beginCommit("k", "op-1");
+      useEditStore
+        .getState()
+        .beginCommit("k", "op-1", useEditStore.getState().drafts.k);
       const result: EditApiResult = {
         ok: false,
         status: 422,
@@ -93,7 +114,9 @@ describe("useEditStore", () => {
 
     it("finishCommit network error canRetry true with network copy", () => {
       useEditStore.getState().setDraft("k", "x");
-      useEditStore.getState().beginCommit("k", "op-1");
+      useEditStore
+        .getState()
+        .beginCommit("k", "op-1", useEditStore.getState().drafts.k);
       const result: EditApiResult = {
         ok: false,
         status: 0,
@@ -113,7 +136,9 @@ describe("useEditStore", () => {
     });
 
     it("finishCommit stale_revision is retryable", () => {
-      useEditStore.getState().beginCommit("k", "op-1");
+      useEditStore
+        .getState()
+        .beginCommit("k", "op-1", useEditStore.getState().drafts.k);
       const result: EditApiResult = {
         ok: false,
         status: 409,
@@ -131,7 +156,9 @@ describe("useEditStore", () => {
     });
 
     it("finishCommit write_failed is retryable", () => {
-      useEditStore.getState().beginCommit("k", "op-1");
+      useEditStore
+        .getState()
+        .beginCommit("k", "op-1", useEditStore.getState().drafts.k);
       const result: EditApiResult = {
         ok: false,
         status: 500,
@@ -149,7 +176,9 @@ describe("useEditStore", () => {
     });
 
     it("finishCommit yaml_parse is not retryable", () => {
-      useEditStore.getState().beginCommit("k", "op-1");
+      useEditStore
+        .getState()
+        .beginCommit("k", "op-1", useEditStore.getState().drafts.k);
       const result: EditApiResult = {
         ok: false,
         status: 422,
@@ -167,7 +196,9 @@ describe("useEditStore", () => {
     });
 
     it("finishCommit target_not_found is not retryable", () => {
-      useEditStore.getState().beginCommit("k", "op-1");
+      useEditStore
+        .getState()
+        .beginCommit("k", "op-1", useEditStore.getState().drafts.k);
       const result: EditApiResult = {
         ok: false,
         status: 422,
@@ -207,7 +238,9 @@ describe("useEditStore", () => {
 
   describe("resetErrorFor", () => {
     it("resetErrorFor clears error phase for matching key", () => {
-      useEditStore.getState().beginCommit("k", "op-1");
+      useEditStore
+        .getState()
+        .beginCommit("k", "op-1", useEditStore.getState().drafts.k);
       useEditStore.getState().finishCommit("k", {
         ok: false,
         status: 422,
@@ -222,7 +255,9 @@ describe("useEditStore", () => {
     });
 
     it("resetErrorFor leaves non-matching key untouched", () => {
-      useEditStore.getState().beginCommit("k", "op-1");
+      useEditStore
+        .getState()
+        .beginCommit("k", "op-1", useEditStore.getState().drafts.k);
       useEditStore.getState().finishCommit("k", {
         ok: false,
         status: 422,
@@ -235,7 +270,9 @@ describe("useEditStore", () => {
     });
 
     it("resetErrorFor is a no-op when not in error phase", () => {
-      useEditStore.getState().beginCommit("k", "op-1");
+      useEditStore
+        .getState()
+        .beginCommit("k", "op-1", useEditStore.getState().drafts.k);
       useEditStore.getState().resetErrorFor("k");
       expect(useEditStore.getState().lastWriteResult.phase).toBe("saving");
     });
@@ -265,7 +302,9 @@ describe("useEditStore", () => {
     it("retry is a no-op when error is not retryable", async () => {
       const fn = vi.fn().mockResolvedValue(undefined);
       useEditStore.getState().registerRetry(fn);
-      useEditStore.getState().beginCommit("k", "op-1");
+      useEditStore
+        .getState()
+        .beginCommit("k", "op-1", useEditStore.getState().drafts.k);
       useEditStore.getState().finishCommit("k", {
         ok: false,
         status: 422,
@@ -278,7 +317,9 @@ describe("useEditStore", () => {
     });
 
     it("retry is a no-op when no retry function is registered", async () => {
-      useEditStore.getState().beginCommit("k", "op-1");
+      useEditStore
+        .getState()
+        .beginCommit("k", "op-1", useEditStore.getState().drafts.k);
       useEditStore.getState().finishCommit("k", {
         ok: false,
         status: 0,
@@ -292,7 +333,9 @@ describe("useEditStore", () => {
     it("retry invokes the registered function when phase is retryable error", async () => {
       const fn = vi.fn().mockResolvedValue(undefined);
       useEditStore.getState().registerRetry(fn);
-      useEditStore.getState().beginCommit("k", "op-1");
+      useEditStore
+        .getState()
+        .beginCommit("k", "op-1", useEditStore.getState().drafts.k);
       useEditStore.getState().finishCommit("k", {
         ok: false,
         status: 0,
@@ -307,7 +350,9 @@ describe("useEditStore", () => {
     it("retryFn is preserved through a retryable error finishCommit", () => {
       const fn = vi.fn().mockResolvedValue(undefined);
       useEditStore.getState().registerRetry(fn);
-      useEditStore.getState().beginCommit("k", "op-1");
+      useEditStore
+        .getState()
+        .beginCommit("k", "op-1", useEditStore.getState().drafts.k);
       useEditStore.getState().finishCommit("k", {
         ok: false,
         status: 500,
@@ -321,7 +366,9 @@ describe("useEditStore", () => {
     it("retryFn is cleared by a non-retryable error finishCommit", () => {
       const fn = vi.fn().mockResolvedValue(undefined);
       useEditStore.getState().registerRetry(fn);
-      useEditStore.getState().beginCommit("k", "op-1");
+      useEditStore
+        .getState()
+        .beginCommit("k", "op-1", useEditStore.getState().drafts.k);
       useEditStore.getState().finishCommit("k", {
         ok: false,
         status: 422,
@@ -335,7 +382,9 @@ describe("useEditStore", () => {
     it("retryFn is cleared by a successful finishCommit", () => {
       const fn = vi.fn().mockResolvedValue(undefined);
       useEditStore.getState().registerRetry(fn);
-      useEditStore.getState().beginCommit("k", "op-1");
+      useEditStore
+        .getState()
+        .beginCommit("k", "op-1", useEditStore.getState().drafts.k);
       useEditStore.getState().finishCommit("k", {
         ok: true,
         operationId: "op-1",
@@ -347,7 +396,9 @@ describe("useEditStore", () => {
     it("resetErrorFor clears retryFn alongside the error phase", () => {
       const fn = vi.fn().mockResolvedValue(undefined);
       useEditStore.getState().registerRetry(fn);
-      useEditStore.getState().beginCommit("k", "op-1");
+      useEditStore
+        .getState()
+        .beginCommit("k", "op-1", useEditStore.getState().drafts.k);
       useEditStore.getState().finishCommit("k", {
         ok: false,
         status: 0,
@@ -363,7 +414,9 @@ describe("useEditStore", () => {
       let call = 0;
       const fn = vi.fn().mockImplementation(async () => {
         call += 1;
-        useEditStore.getState().beginCommit("k", `op-r${call}`);
+        useEditStore
+          .getState()
+          .beginCommit("k", `op-r${call}`, useEditStore.getState().drafts.k);
         useEditStore.getState().finishCommit("k", {
           ok: false,
           status: 0,
@@ -373,7 +426,9 @@ describe("useEditStore", () => {
         } satisfies EditApiResult);
       });
       useEditStore.getState().registerRetry(fn);
-      useEditStore.getState().beginCommit("k", "op-1");
+      useEditStore
+        .getState()
+        .beginCommit("k", "op-1", useEditStore.getState().drafts.k);
       useEditStore.getState().finishCommit("k", {
         ok: false,
         status: 0,

@@ -305,16 +305,27 @@ function computeContextScoped(
 type PositionMap = Map<string, { x: number; y: number }>;
 type LayoutCache = Map<string, PositionMap>;
 
+/** Bound the layout cache so long editing sessions don't grow it unbounded. */
+const LAYOUT_CACHE_MAX_ENTRIES = 64;
+
 function computeLayoutSignature(
   visibleNodeIds: readonly string[],
   visibleEdges: readonly { source: string; target: string }[],
+  snapshot: PlanAnalysisSnapshot,
 ): string {
-  const nodes = [...visibleNodeIds].sort().join(",");
+  // Layout depends on lane assignment and lane order, not just topology —
+  // a lane edit must invalidate cached positions even though the node and
+  // edge sets are unchanged.
+  const nodes = [...visibleNodeIds]
+    .sort()
+    .map((id) => `${id}@${snapshot.workItems[id]?.lane ?? ""}`)
+    .join(",");
   const edges = visibleEdges
     .map((e) => `${e.source}→${e.target}`)
     .sort()
     .join(",");
-  return `${nodes}|${edges}`;
+  const lanes = snapshot.laneOrder.join(",");
+  return `${lanes}|${nodes}|${edges}`;
 }
 
 /**
@@ -442,9 +453,37 @@ function computeLayout(
 // Legend builders
 // ---------------------------------------------------------------------------
 
+/**
+ * Metric range across the currently visible items only — this is what nodes
+ * actually normalize against (PlanGraphCanvas recomputes ranges from visible
+ * nodes), so legends must quote the same endpoints. Non-finite values
+ * (e.g. value_per_effort without an estimate) are excluded.
+ */
+function computeVisibleMetricStats(
+  snapshot: PlanAnalysisSnapshot,
+  metric: MetricKey,
+  visibleIds: ReadonlySet<string>,
+): { min: number; max: number; mean: number } | null {
+  let min = Number.POSITIVE_INFINITY;
+  let max = Number.NEGATIVE_INFINITY;
+  let sum = 0;
+  let count = 0;
+  for (const id of visibleIds) {
+    const value = snapshot.analysisById[id]?.metrics[metric];
+    if (value === undefined || !Number.isFinite(value)) continue;
+    if (value < min) min = value;
+    if (value > max) max = value;
+    sum += value;
+    count++;
+  }
+  if (count === 0) return null;
+  return { min, max, mean: sum / count };
+}
+
 function buildColorLegend(
   snapshot: PlanAnalysisSnapshot,
   colorMode: ColorEncodingMode,
+  visibleIds: ReadonlySet<string>,
 ): DisplayLegend {
   const unitSuffix = compactUnitSuffix(snapshot.estimateUnit);
   const formatMetricValue = (metric: MetricKey, value: number): string => {
@@ -506,12 +545,12 @@ function buildColorLegend(
     case "degree":
     case "betweenness":
     case "dependency_span": {
-      const range = snapshot.metricRanges[colorMode];
-      if (range.min === range.max) {
+      const stats = computeVisibleMetricStats(snapshot, colorMode, visibleIds);
+      if (stats === null || stats.min === stats.max) {
         return {
           title: colorMode.replace(/_/g, " "),
           items: [],
-          fallbackMessage: `All nodes have the same ${colorMode.replace(/_/g, " ")} value; color encoding is not meaningful.`,
+          fallbackMessage: `All visible nodes have the same ${colorMode.replace(/_/g, " ")} value; color encoding is not meaningful.`,
         };
       }
       return {
@@ -520,12 +559,12 @@ function buildColorLegend(
           {
             key: "low",
             label: "Low",
-            value: formatMetricValue(colorMode, range.min),
+            value: formatMetricValue(colorMode, stats.min),
           },
           {
             key: "high",
             label: "High",
-            value: formatMetricValue(colorMode, range.max),
+            value: formatMetricValue(colorMode, stats.max),
           },
         ],
       };
@@ -536,6 +575,7 @@ function buildColorLegend(
 function buildSizeLegend(
   snapshot: PlanAnalysisSnapshot,
   sizeMode: SizeEncodingMode,
+  visibleIds: ReadonlySet<string>,
 ): DisplayLegend | null {
   if (sizeMode === "uniform") return null;
   const unitSuffix = compactUnitSuffix(snapshot.estimateUnit);
@@ -552,36 +592,31 @@ function buildSizeLegend(
     }
     return value.toFixed(2);
   };
-  const range = snapshot.metricRanges[sizeMode];
-  if (range.min === range.max) {
+  const stats = computeVisibleMetricStats(snapshot, sizeMode, visibleIds);
+  if (stats === null || stats.min === stats.max) {
     return {
       title: `Size: ${sizeMode.replace(/_/g, " ")}`,
       items: [],
-      fallbackMessage: `All nodes have the same ${sizeMode.replace(/_/g, " ")} value; size encoding is not meaningful.`,
+      fallbackMessage: `All visible nodes have the same ${sizeMode.replace(/_/g, " ")} value; size encoding is not meaningful.`,
     };
   }
-  // Compute mean across all work items
-  const analyses = Object.values(snapshot.analysisById);
-  const sum = analyses.reduce((acc, a) => acc + a.metrics[sizeMode], 0);
-  const mean =
-    analyses.length > 0 ? sum / analyses.length : (range.min + range.max) / 2;
   return {
     title: `Size: ${sizeMode.replace(/_/g, " ")}`,
     items: [
       {
         key: "min",
-        label: formatMetricValue(sizeMode, range.min),
-        value: formatMetricValue(sizeMode, range.min),
+        label: formatMetricValue(sizeMode, stats.min),
+        value: formatMetricValue(sizeMode, stats.min),
       },
       {
         key: "mean",
-        label: formatMetricValue(sizeMode, mean),
-        value: formatMetricValue(sizeMode, mean),
+        label: formatMetricValue(sizeMode, stats.mean),
+        value: formatMetricValue(sizeMode, stats.mean),
       },
       {
         key: "max",
-        label: formatMetricValue(sizeMode, range.max),
-        value: formatMetricValue(sizeMode, range.max),
+        label: formatMetricValue(sizeMode, stats.max),
+        value: formatMetricValue(sizeMode, stats.max),
       },
     ],
   };
@@ -590,10 +625,11 @@ function buildSizeLegend(
 function buildLegends(
   snapshot: PlanAnalysisSnapshot,
   display: PlanDisplayStateValue,
+  visibleIds: ReadonlySet<string>,
 ): { colorLegend: DisplayLegend; sizeLegend: DisplayLegend | null } {
   return {
-    colorLegend: buildColorLegend(snapshot, display.colorMode),
-    sizeLegend: buildSizeLegend(snapshot, display.sizeMode),
+    colorLegend: buildColorLegend(snapshot, display.colorMode, visibleIds),
+    sizeLegend: buildSizeLegend(snapshot, display.sizeMode, visibleIds),
   };
 }
 
@@ -814,6 +850,7 @@ export function createFlowProjectionService(): FlowProjectionService {
     const layoutSig = computeLayoutSignature(
       visibleNodeIdsSorted,
       visibleEdges,
+      snapshot,
     );
 
     let positions: PositionMap;
@@ -821,6 +858,10 @@ export function createFlowProjectionService(): FlowProjectionService {
       positions = layoutCache.get(layoutSig)!;
     } else {
       positions = computeLayout(visibleNodeIdsSorted, visibleEdges, snapshot);
+      if (layoutCache.size >= LAYOUT_CACHE_MAX_ENTRIES) {
+        const oldestKey = layoutCache.keys().next().value;
+        if (oldestKey !== undefined) layoutCache.delete(oldestKey);
+      }
       layoutCache.set(layoutSig, positions);
     }
 
@@ -904,7 +945,11 @@ export function createFlowProjectionService(): FlowProjectionService {
     display: PlanDisplayStateValue,
     visibleIds: ReadonlySet<string>,
   ): FlowLegendBundle {
-    const { colorLegend, sizeLegend } = buildLegends(snapshot, display);
+    const { colorLegend, sizeLegend } = buildLegends(
+      snapshot,
+      display,
+      visibleIds,
+    );
     const scheduleLegend = buildScheduleLegend(
       snapshot,
       display.scheduleOverlay,

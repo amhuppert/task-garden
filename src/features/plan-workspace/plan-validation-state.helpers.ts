@@ -26,7 +26,7 @@ export function getFailureTitle(failure: PlanProcessingFailure): string {
     case "parse":
       return "YAML syntax error";
     case "validation":
-      return "Invalid plan — schema errors";
+      return "Invalid plan";
   }
 }
 
@@ -36,6 +36,6 @@ export function getFailureDescription(failure: PlanProcessingFailure): string {
     case "parse":
       return "The YAML could not be parsed. Fix the syntax errors below and save the file to reload.";
     case "validation":
-      return "The plan failed schema validation. Fix the errors below in the YAML source file.";
+      return "The plan failed validation. Fix the errors below in the YAML source file.";
   }
 }

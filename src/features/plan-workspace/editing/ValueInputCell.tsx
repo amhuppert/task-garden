@@ -4,7 +4,6 @@ import type {
   EditApiResult,
   PatchPlanOptions,
 } from "../../../lib/plan/edit-api-client";
-import { formatValue } from "../plan-details-panel.helpers";
 import { FieldSaveIndicator } from "./FieldSaveIndicator";
 import { patchTargets } from "./patch-targets";
 import { useFieldDraft } from "./useFieldDraft";
@@ -84,7 +83,7 @@ export function ValueInputCell({
           step={1}
           aria-label="Value"
           data-testid="value-input"
-          value={Number.isInteger(value) ? value : formatValue(value)}
+          value={value}
           onChange={handleChange}
           onBlur={() => void commit()}
           onKeyDown={handleKeyDown}

@@ -79,7 +79,7 @@ export function useFieldDraft<T>(
       });
 
       const operationId = generateOperationId();
-      store.beginCommit(key, operationId);
+      store.beginCommit(key, operationId, valueToCommit);
       const patch = current.buildPatch(valueToCommit);
       let revisionForRequest = overrideBaseRevision ?? current.baseRevision;
       let result = await patchFn(patch, {
@@ -114,7 +114,12 @@ export function useFieldDraft<T>(
         result.error === "invalid_patch";
 
       if (shouldRollback) {
-        useEditStore.getState().clearDraft(key);
+        // Roll back only the rejected value — a newer draft typed while the
+        // request was in flight must survive.
+        const latestDraft = useEditStore.getState().drafts[key];
+        if (Object.is(latestDraft, valueToCommit)) {
+          useEditStore.getState().clearDraft(key);
+        }
       }
       useEditStore.getState().finishCommit(key, result);
     },

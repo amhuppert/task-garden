@@ -85,9 +85,8 @@ export interface PlanAnalysisSnapshot {
   metricRanges: Readonly<Record<MetricKey, { min: number; max: number }>>;
   /**
    * The estimate unit used for display labels. Estimate values are treated
-   * numerically the same regardless of unit; only labels differ. Derived from
-   * the most common unit among estimated items (first-seen wins ties); defaults
-   * to "days" when no item carries an estimate.
+   * numerically the same regardless of unit; only labels differ. Configured
+   * once at the plan level (plan.estimate_unit, default "days").
    */
   estimateUnit: EstimateUnit;
 }
@@ -233,29 +232,31 @@ export function createPlanAnalysisEngine(): PlanAnalysisEngineService {
       });
 
       // ------------------------------------------------------------------
-      // 8. Max downstream depth per node — needed for dependency_span
+      // 8. Downstream depth per node — needed for dependency_span
       //    Process in reverse topological order so successors are resolved first.
-      //    maxDownstreamDepth[n] = maximum level reachable from n (inclusive of n).
-      //    dependency_span = maxDownstreamDepth[n] - level[n]
+      //    downstreamDepth[n] = longest path (in edges) from n to any leaf.
+      //    This is a true "levels below this item" count; deriving it from
+      //    global levels would overcount whenever a descendant is deepened by
+      //    a path that bypasses n.
       // ------------------------------------------------------------------
-      const maxDownstreamDepth: Record<string, number> = {};
+      const downstreamDepth: Record<string, number> = {};
       const remainingDays: Record<string, number> = {};
       for (let i = topologicalOrder.length - 1; i >= 0; i--) {
         const nodeId = topologicalOrder[i];
         const succs = graph.outNeighbors(nodeId);
         const estimateDays = estimateDaysById[nodeId] ?? 0;
         if (succs.length === 0) {
-          maxDownstreamDepth[nodeId] = levels[nodeId];
+          downstreamDepth[nodeId] = 0;
           remainingDays[nodeId] = estimateDays;
         } else {
-          let max = -1;
+          let maxDepth = -1;
           let maxRemaining = -1;
           for (const s of succs) {
-            if (maxDownstreamDepth[s] > max) max = maxDownstreamDepth[s];
+            if (downstreamDepth[s] > maxDepth) maxDepth = downstreamDepth[s];
             if (remainingDays[s] > maxRemaining)
               maxRemaining = remainingDays[s];
           }
-          maxDownstreamDepth[nodeId] = max;
+          downstreamDepth[nodeId] = maxDepth + 1;
           remainingDays[nodeId] = estimateDays + maxRemaining;
         }
       }
@@ -338,12 +339,15 @@ export function createPlanAnalysisEngine(): PlanAnalysisEngineService {
             in_degree: graph.inDegree(id),
             out_degree: graph.outDegree(id),
             betweenness: betweenness[id] ?? 0,
-            dependency_span: maxDownstreamDepth[id] - level,
+            dependency_span: downstreamDepth[id],
             value: item.value,
+            // NaN marks "no estimate" — 0 would falsely rank the item as the
+            // worst value-per-effort in the plan. Consumers skip non-finite
+            // values when building ranges and render them neutrally.
             value_per_effort:
               estimateDays !== null && estimateDays > 0
                 ? item.value / estimateDays
-                : 0,
+                : Number.NaN,
             estimate_days: estimateDays ?? 0,
             remaining_days: remainingDays[id],
             downstream_effort_days: downstreamEffortDays[id],

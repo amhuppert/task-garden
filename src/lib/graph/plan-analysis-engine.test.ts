@@ -583,6 +583,49 @@ describe("PlanAnalysisEngine — task 3.2: metrics and longest dependency chain"
       expect(snap.analysisById["task-b"].metrics.dependency_span).toBe(1);
     });
 
+    it("dependency_span is the longest path below the item, not inflated by external paths", () => {
+      // a → c, m1 → m2 → m3 → m4 → c: c is deepened to level 4 by the m-chain,
+      // but the longest path below `a` is still a single edge (a → c).
+      const bareItem = (
+        id: string,
+        depends_on: string[],
+      ): TaskGardenPlan["work_items"][number] => ({
+        id,
+        title: id,
+        summary: id,
+        lane: "core",
+        status: "planned",
+        value: 10,
+        depends_on,
+        tags: [],
+        deliverables: [],
+        reuse_candidates: [],
+        links: [],
+      });
+      const plan = makePlan({
+        lanes: [{ id: "core", label: "Core" }],
+        work_items: [
+          bareItem("a", []),
+          bareItem("m1", []),
+          bareItem("m2", ["m1"]),
+          bareItem("m3", ["m2"]),
+          bareItem("m4", ["m3"]),
+          bareItem("c", ["a", "m4"]),
+        ],
+      });
+      const engine = createPlanAnalysisEngine();
+      const snap = engine.build(plan);
+      expect(snap.analysisById.a.metrics.dependency_span).toBe(1);
+      expect(snap.analysisById.m1.metrics.dependency_span).toBe(4);
+      expect(snap.analysisById.c.metrics.dependency_span).toBe(0);
+    });
+
+    it("value_per_effort is NaN (not 0) when an item has no estimate", () => {
+      const engine = createPlanAnalysisEngine();
+      const snap = engine.build(LINEAR_PLAN);
+      expect(snap.analysisById["task-a"].metrics.value_per_effort).toBeNaN();
+    });
+
     it("estimate_days is zero when an item has no day estimate", () => {
       const engine = createPlanAnalysisEngine();
       const snap = engine.build(LINEAR_PLAN);

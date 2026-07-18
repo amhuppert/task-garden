@@ -48,7 +48,8 @@ describe("PlanWorkspacePage", () => {
       />,
     );
 
-    expect(screen.getByText("Workspace Test")).toBeTruthy();
+    // The plan title renders in both the sidebar heading and the mobile bar.
+    expect(screen.getAllByText("Workspace Test").length).toBeGreaterThan(0);
   });
 
   it("renders the invalid-state UI when source is unparseable YAML", () => {

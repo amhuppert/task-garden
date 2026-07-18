@@ -102,10 +102,15 @@ function getBubbleColor(
     case "dependency_span": {
       const range = metricRanges[colorMode];
       if (range) {
-        accent = getMetricAccentColorForMode(
-          colorMode,
-          normalizeMetric(data.metricSummary[colorMode], range.min, range.max),
+        const norm = normalizeMetric(
+          data.metricSummary[colorMode],
+          range.min,
+          range.max,
         );
+        // Missing metric (no estimate) renders neutral, not "worst".
+        accent = Number.isNaN(norm)
+          ? "var(--color-node-stroke)"
+          : getMetricAccentColorForMode(colorMode, norm);
       }
       break;
     }
@@ -124,6 +129,7 @@ function getBubbleColor(
         range.min,
         range.max,
       );
+      if (Number.isNaN(norm)) return "var(--color-node-stroke)";
       return getMetricAccentColorForMode(sizeMode, norm);
     }
   }
@@ -145,12 +151,13 @@ function MetricBubbleNodeImpl({ data }: NodeProps<MetricBubbleNodeType>) {
 
   const isFocus = data.visibilityRole === "focus";
 
-  // Bubble diameter
+  // Bubble diameter — items missing the sized metric render at minimum size
   const range = sizeMode !== "uniform" ? metricRanges[sizeMode] : null;
-  const norm =
+  const rawNorm =
     range && sizeMode !== "uniform"
       ? normalizeMetric(data.metricSummary[sizeMode], range.min, range.max)
       : 0.5;
+  const norm = Number.isNaN(rawNorm) ? 0 : rawNorm;
   const diameter = MIN_BUBBLE_SIZE + norm * (MAX_BUBBLE_SIZE - MIN_BUBBLE_SIZE);
 
   const bubbleColor = getBubbleColor(colorMode, sizeMode, data, metricRanges);
@@ -351,15 +358,19 @@ function MetricBubbleNodeImpl({ data }: NodeProps<MetricBubbleNodeType>) {
               <div className="mt-1.5 border-t border-border pt-1.5">
                 <span className="text-xs text-muted-foreground">
                   {metricLabel}:{" "}
-                  {sizeMode === "value"
-                    ? formatValue(metricValue)
-                    : sizeMode === "value_per_effort"
-                      ? formatValueDensity(metricValue)
-                      : sizeMode === "estimate_days" ||
-                          sizeMode === "remaining_days" ||
-                          sizeMode === "downstream_effort_days"
-                        ? `${Number.isInteger(metricValue) ? metricValue : metricValue.toFixed(1)}${unitSuffix}`
-                        : metricValue.toFixed(1)}
+                  {!Number.isFinite(metricValue)
+                    ? "—"
+                    : sizeMode === "value"
+                      ? formatValue(metricValue)
+                      : sizeMode === "value_per_effort"
+                        ? formatValueDensity(metricValue)
+                        : sizeMode === "estimate_days" ||
+                            sizeMode === "remaining_days" ||
+                            sizeMode === "downstream_effort_days"
+                          ? `${Number.isInteger(metricValue) ? metricValue : metricValue.toFixed(1)}${unitSuffix}`
+                          : Number.isInteger(metricValue)
+                            ? String(metricValue)
+                            : metricValue.toFixed(2)}
                 </span>
               </div>
             )}

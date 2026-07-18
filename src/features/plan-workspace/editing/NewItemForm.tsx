@@ -22,6 +22,7 @@ import {
 } from "../../../lib/plan/task-garden-plan.schema";
 import { usePlanExplorerStore } from "../plan-explorer.store";
 import { CreateBar } from "./CreateBar";
+import { useEditStore } from "./edit.store";
 import { VALIDATION_COPY } from "./validation-copy";
 
 type PatchPlanFn = (
@@ -189,10 +190,15 @@ export function NewItemForm({
     const patchFn = patchPlan ?? defaultPatchPlan;
     const operationId = generateOperationId();
     const newItem = validation.data;
+    // Route the create through the shared write-status machinery so the
+    // footer reflects this operation instead of a stale earlier result.
+    const statusKey = `work_item:${newItem.id}:create`;
+    useEditStore.getState().beginCommit(statusKey, operationId, newItem);
     const result = await patchFn(
       { kind: "work_item.create", value: newItem },
       { operationId, baseRevision },
     );
+    useEditStore.getState().finishCommit(statusKey, result);
 
     setSubmitting(false);
     if (result.ok) {

@@ -22,7 +22,15 @@ function inferKind(target: string): "external_url" | "document_path" {
 }
 
 const chipClass =
-  "flex items-center gap-1.5 rounded-[var(--radius-sm)] border border-border bg-surface px-2.5 py-1 font-mono text-xs text-foreground transition-colors hover:border-border-strong hover:bg-surface-muted";
+  "flex max-w-full items-center gap-1.5 rounded-[var(--radius-sm)] border border-border bg-surface px-2.5 py-1 font-mono text-xs text-foreground transition-colors hover:border-border-strong hover:bg-surface-muted";
+
+function ChipLabel({ label, target }: { label: string; target: string }) {
+  return (
+    <span className="max-w-[24ch] truncate" title={`${label} — ${target}`}>
+      {label}
+    </span>
+  );
+}
 
 export function ResourceLink({
   label,
@@ -41,7 +49,7 @@ export function ResourceLink({
         className={`${chipClass} opacity-50 cursor-not-allowed bg-surface-muted`}
       >
         <ResourceLinkIcon preset={preset} />
-        {label}
+        <ChipLabel label={label} target={target} />
       </button>
     );
   }
@@ -61,7 +69,7 @@ export function ResourceLink({
         className={chipClass}
       >
         <ResourceLinkIcon preset={preset} />
-        {label}
+        <ChipLabel label={label} target={target} />
       </a>
     );
   }
@@ -73,7 +81,7 @@ export function ResourceLink({
       className={chipClass}
     >
       <ResourceLinkIcon preset={preset} />
-      {label}
+      <ChipLabel label={label} target={target} />
     </button>
   );
 }

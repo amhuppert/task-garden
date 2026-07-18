@@ -45,7 +45,7 @@ describe("PlanToolbar — search input debouncing", () => {
     );
 
     const input = getByPlaceholderText(
-      "Search title, tag, lane…",
+      "Search id, title, summary, tag, lane…",
     ) as HTMLInputElement;
 
     fireEvent.change(input, { target: { value: "a" } });
@@ -68,7 +68,7 @@ describe("PlanToolbar — search input debouncing", () => {
       />,
     );
 
-    const input = getByPlaceholderText("Search title, tag, lane…");
+    const input = getByPlaceholderText("Search id, title, summary, tag, lane…");
     fireEvent.change(input, { target: { value: "abc" } });
 
     act(() => {
@@ -91,7 +91,7 @@ describe("PlanToolbar — search input debouncing", () => {
     );
 
     const input = getByPlaceholderText(
-      "Search title, tag, lane…",
+      "Search id, title, summary, tag, lane…",
     ) as HTMLInputElement;
     expect(input.value).toBe("stale");
 

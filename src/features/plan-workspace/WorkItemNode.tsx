@@ -72,6 +72,9 @@ function getAccentColor(
         range.min,
         range.max,
       );
+      // Missing metric (e.g. no estimate for value_per_effort) — no accent
+      // rather than pretending the item sits at the bottom of the scale.
+      if (Number.isNaN(norm)) return null;
       return getMetricAccentColorForMode(colorMode, norm);
     }
     default:
@@ -92,6 +95,7 @@ function getSizeScale(
     range.min,
     range.max,
   );
+  if (Number.isNaN(norm)) return 1;
   // Scale between 0.85 (smallest) and 1.15 (largest)
   return 0.85 + norm * 0.3;
 }
@@ -111,13 +115,17 @@ function WorkItemNodeImpl({ data }: NodeProps<WorkItemNodeType>) {
   const accentColor = getAccentColor(colorMode, data, metricRanges);
   const sizeScale = getSizeScale(sizeMode, data, metricRanges);
 
-  const normalizedSizeMetric =
+  const rawSizeMetric =
     sizeMode !== "uniform" && metricRanges[sizeMode]
       ? normalizeMetric(
           data.metricSummary[sizeMode],
           metricRanges[sizeMode].min,
           metricRanges[sizeMode].max,
         )
+      : null;
+  const normalizedSizeMetric =
+    rawSizeMetric !== null && !Number.isNaN(rawSizeMetric)
+      ? rawSizeMetric
       : null;
   const hasEstimate = data.estimate != null;
   const unitSuffix = compactUnitSuffix(data.estimateUnit);
@@ -153,7 +161,7 @@ function WorkItemNodeImpl({ data }: NodeProps<WorkItemNodeType>) {
         transition: "opacity 220ms ease, transform 220ms ease",
         overflow: "hidden",
       }}
-      className={`atlas-node relative overflow-hidden rounded-[1.4rem]${data.isSelected ? " atlas-node-selected" : ""}`}
+      className={`atlas-node relative overflow-hidden rounded-[1.4rem] transition-colors hover:border-border-strong${data.isSelected ? " atlas-node-selected" : ""}`}
     >
       {/* Invisible connection handles */}
       <Handle
@@ -215,7 +223,9 @@ function WorkItemNodeImpl({ data }: NodeProps<WorkItemNodeType>) {
           </p>
           <div
             className="mt-1 line-clamp-2 text-[0.72rem] font-semibold leading-snug text-foreground"
-            title={data.title}
+            title={
+              data.summary ? `${data.title} — ${data.summary}` : data.title
+            }
           >
             {data.title}
           </div>
@@ -242,6 +252,18 @@ function WorkItemNodeImpl({ data }: NodeProps<WorkItemNodeType>) {
           <span className="atlas-microchip text-foreground">
             V{formatValue(data.value)}
           </span>
+          {data.isOnCriticalPath && !showCriticalPathOverlay && (
+            <span
+              className="atlas-microchip"
+              style={{
+                borderColor:
+                  "color-mix(in oklab, var(--color-pollen) 44%, transparent)",
+                color: "var(--color-pollen)",
+              }}
+            >
+              Critical
+            </span>
+          )}
         </div>
       </div>
 
@@ -265,18 +287,6 @@ function WorkItemNodeImpl({ data }: NodeProps<WorkItemNodeType>) {
             title={`Slack: ${slackValue}${unitSuffix} buffer`}
           >
             {slackLabel}
-          </span>
-        )}
-        {data.isOnCriticalPath && !showCriticalPathOverlay && (
-          <span
-            className="atlas-microchip"
-            style={{
-              borderColor:
-                "color-mix(in oklab, var(--color-pollen) 44%, transparent)",
-              color: "var(--color-pollen)",
-            }}
-          >
-            Critical
           </span>
         )}
         {data.metricSummary.remaining_days > 0 && (

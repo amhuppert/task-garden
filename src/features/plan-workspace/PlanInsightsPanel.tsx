@@ -19,6 +19,10 @@ import type {
   SizeEncodingMode,
 } from "./plan-display.store";
 import type { PlanExplorerStateValue } from "./plan-explorer.store";
+import {
+  getStatusAccentColor,
+  resolveLegendItemColor,
+} from "./plan-graph-canvas.helpers";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -228,6 +232,24 @@ function Section({
       </div>
       {children}
     </section>
+  );
+}
+
+function ProgressExplanation() {
+  return (
+    <>
+      <p>
+        How much of the plan is complete, by item count and — when estimates
+        exist — by estimated effort. Useful for a quick read on delivery state
+        without scanning every node.
+      </p>
+      <div className="rounded-[var(--radius-sm)] bg-surface-muted px-2.5 py-2">
+        <span className="font-semibold text-foreground/70">How it works: </span>
+        Count items per status. Done percent divides done items by all items.
+        Effort done divides the summed estimates of done items by the summed
+        estimates of all estimated items.
+      </div>
+    </>
   );
 }
 
@@ -539,7 +561,7 @@ function ReadyItemRow({ candidate, estimateUnit, onClick }: ReadyItemRowProps) {
       className="grid w-full grid-cols-[minmax(0,1fr)_auto] gap-3 rounded-[var(--radius-sm)] border border-border bg-surface px-3 py-2 text-left transition-colors hover:border-border-strong hover:bg-surface-muted disabled:cursor-default"
     >
       <div className="min-w-0">
-        <span className="truncate font-mono text-[0.65rem] text-muted-foreground">
+        <span className="block truncate font-mono text-[0.65rem] text-muted-foreground">
           {item.id}
         </span>
         <span className="mt-0.5 block truncate text-sm text-foreground">
@@ -646,7 +668,9 @@ function ReadyMode({ snapshot, onSelectWorkItem }: ReadyModeProps) {
               {estimatedCount}/{candidates.length}
             </span>
             <span className="mt-1 block text-[0.68rem] leading-snug text-muted-foreground">
-              Value density needs an estimate.
+              {estimatedCount === candidates.length
+                ? "All ready items have estimates."
+                : `${candidates.length - estimatedCount} need an estimate for value density.`}
             </span>
           </div>
         </div>
@@ -710,6 +734,27 @@ interface OverviewModeProps {
   onSelectWorkItem?: (id: string) => void;
 }
 
+const STATUS_LIFECYCLE_ORDER = [
+  "done",
+  "in_progress",
+  "ready",
+  "planned",
+  "blocked",
+  "future",
+] as const;
+
+const STATUS_DISPLAY_LABELS: Record<
+  (typeof STATUS_LIFECYCLE_ORDER)[number],
+  string
+> = {
+  done: "Done",
+  in_progress: "In Progress",
+  ready: "Ready",
+  planned: "Planned",
+  blocked: "Blocked",
+  future: "Future",
+};
+
 function OverviewMode({ snapshot, onSelectWorkItem }: OverviewModeProps) {
   const {
     plan,
@@ -724,6 +769,24 @@ function OverviewMode({ snapshot, onSelectWorkItem }: OverviewModeProps) {
 
   const totalItems = Object.keys(workItems).length;
   const laneCount = plan.lanes.length;
+
+  // Progress rollups — item counts per status, plus effort-weighted completion
+  const items = Object.values(workItems);
+  const statusSegments = STATUS_LIFECYCLE_ORDER.map((status) => ({
+    status,
+    count: items.filter((i) => i.status === status).length,
+  })).filter((s) => s.count > 0);
+  const doneCount = items.filter((i) => i.status === "done").length;
+  const donePercent = totalItems > 0 ? (doneCount / totalItems) * 100 : 0;
+  const estimatedTotalEffort = items.reduce(
+    (sum, i) => sum + (i.estimate ?? 0),
+    0,
+  );
+  const doneEffort = items
+    .filter((i) => i.status === "done")
+    .reduce((sum, i) => sum + (i.estimate ?? 0), 0);
+  const effortPercent =
+    estimatedTotalEffort > 0 ? (doneEffort / estimatedTotalEffort) * 100 : null;
 
   // High-importance items: top 5 by betweenness, then by degree as tiebreaker
   const highImportance = Object.values(workItems)
@@ -781,6 +844,65 @@ function OverviewMode({ snapshot, onSelectWorkItem }: OverviewModeProps) {
               <span className="font-mono text-lg text-foreground">{value}</span>
             </div>
           ))}
+        </div>
+      </Section>
+
+      {/* Progress */}
+      <Section label="Progress" description={<ProgressExplanation />}>
+        <div
+          className="flex h-2 w-full overflow-hidden rounded-full bg-surface-muted"
+          role="img"
+          aria-label={`Progress: ${doneCount} of ${totalItems} items done`}
+        >
+          {statusSegments.map((segment) => (
+            <div
+              key={segment.status}
+              style={{
+                width: `${(segment.count / totalItems) * 100}%`,
+                backgroundColor: getStatusAccentColor(segment.status),
+              }}
+            />
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-x-3 gap-y-1">
+          {statusSegments.map((segment) => (
+            <span
+              key={segment.status}
+              className="flex items-center gap-1.5 text-[0.68rem] text-muted-foreground"
+            >
+              <span
+                aria-hidden="true"
+                className="h-1.5 w-1.5 shrink-0 rounded-full"
+                style={{
+                  backgroundColor: getStatusAccentColor(segment.status),
+                }}
+              />
+              {STATUS_DISPLAY_LABELS[segment.status]} {segment.count}
+            </span>
+          ))}
+        </div>
+        <div className="atlas-metric-grid">
+          <div className="atlas-stat-card">
+            <span className="atlas-kicker text-[0.58rem]">Items Done</span>
+            <span className="mt-1 block font-mono text-base text-foreground">
+              {doneCount}/{totalItems}
+            </span>
+            <span className="mt-1 block text-[0.68rem] leading-snug text-muted-foreground">
+              {donePercent.toFixed(0)}% of items complete.
+            </span>
+          </div>
+          {effortPercent !== null && (
+            <div className="atlas-stat-card">
+              <span className="atlas-kicker text-[0.58rem]">Effort Done</span>
+              <span className="mt-1 block font-mono text-base text-foreground">
+                {formatCompactUnitValue(doneEffort, estimateUnit)}/
+                {formatCompactUnitValue(estimatedTotalEffort, estimateUnit)}
+              </span>
+              <span className="mt-1 block text-[0.68rem] leading-snug text-muted-foreground">
+                {effortPercent.toFixed(0)}% of estimated effort complete.
+              </span>
+            </div>
+          )}
         </div>
       </Section>
 
@@ -1083,7 +1205,7 @@ function OrderingMode({ snapshot, onSelectWorkItem }: OrderingModeProps) {
                 const item = workItems[id];
                 if (!item) return null;
                 const analysis = analysisById[id];
-                const pos = topologicalOrder.indexOf(id) + 1;
+                const pos = (analysis?.topologicalIndex ?? 0) + 1;
                 return (
                   <li key={id} className="flex items-center gap-2">
                     <span className="w-6 shrink-0 font-mono text-[0.65rem] text-muted-foreground text-right">
@@ -1172,6 +1294,8 @@ function MetricsMode({
     ) {
       return formatCompactUnitValue(value, estimateUnit);
     }
+    // Structural counts (degree, span, …) are integers — don't render "3.00".
+    if (Number.isInteger(value)) return String(value);
     return value.toFixed(2);
   };
 
@@ -1205,24 +1329,41 @@ function MetricsMode({
           </p>
         </div>
 
-        {/* Legend items from projection */}
-        {colorLegend && colorLegend.items.length > 0 && (
-          <div className="mt-1 flex flex-col gap-1">
-            {colorLegend.items.map((legendItem) => (
-              <div
-                key={legendItem.key}
-                className="flex items-center justify-between gap-2 rounded-[var(--radius-sm)] px-2 py-1"
-              >
-                <span className="text-xs text-muted-foreground">
-                  {legendItem.label}
-                </span>
-                <span className="font-mono text-[0.65rem] text-foreground">
-                  {legendItem.value}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
+        {/* Legend items from projection — color values render as swatches,
+            never as raw CSS variable strings */}
+        {colorLegend &&
+          colorLegend.items.length > 0 &&
+          colorMode !== "default" && (
+            <div className="mt-1 flex flex-col gap-1">
+              {colorLegend.items.map((legendItem) => {
+                const dotColor = resolveLegendItemColor(colorMode, legendItem);
+                const valueIsColor =
+                  colorMode === "lane" || colorMode === "status";
+                return (
+                  <div
+                    key={legendItem.key}
+                    className="flex items-center justify-between gap-2 rounded-[var(--radius-sm)] px-2 py-1"
+                  >
+                    <span className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+                      {dotColor && (
+                        <span
+                          aria-hidden="true"
+                          className="h-2 w-2 shrink-0 rounded-full"
+                          style={{ backgroundColor: dotColor }}
+                        />
+                      )}
+                      <span className="truncate">{legendItem.label}</span>
+                    </span>
+                    {!valueIsColor && (
+                      <span className="shrink-0 font-mono text-[0.65rem] text-foreground">
+                        {legendItem.value}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
         {colorLegend?.fallbackMessage && (
           <p className="mt-1 text-xs text-muted-foreground italic">
@@ -1356,7 +1497,7 @@ export function PlanInsightsPanel({
   const { insightMode } = display;
 
   return (
-    <article className="flex flex-col gap-5" aria-label="Plan Insights">
+    <article className="flex flex-col gap-6" aria-label="Plan Insights">
       {/* Mode selector */}
       <ModeSelector active={insightMode} onSelect={onSetInsightMode} />
 

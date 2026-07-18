@@ -89,6 +89,13 @@ export function LinksEditorCell({
     });
   };
 
+  // Enter commits immediately (via blur) so "Open link" and other actions
+  // never race a pending draft that only blur would have flushed.
+  const handleRowKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "Enter") return;
+    if (event.target instanceof HTMLElement) event.target.blur();
+  };
+
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-2">
@@ -109,6 +116,7 @@ export function LinksEditorCell({
             // biome-ignore lint/suspicious/noArrayIndexKey: rows lack stable identity
             key={index}
             onBlur={handleRowBlur}
+            onKeyDown={handleRowKeyDown}
             className="flex items-center gap-2 rounded-[var(--radius-md)] border border-border bg-surface px-2 py-1"
           >
             <input
@@ -119,7 +127,7 @@ export function LinksEditorCell({
               onChange={(event) =>
                 updateRow(index, { label: event.target.value })
               }
-              className="w-28 rounded border border-transparent bg-transparent px-1 py-0.5 text-sm text-foreground outline-none focus:border-moss"
+              className="w-24 shrink-0 rounded border border-transparent bg-transparent px-1 py-0.5 text-sm text-foreground outline-none focus:border-moss"
             />
             <input
               data-testid={`link-href-${index}`}
@@ -129,13 +137,13 @@ export function LinksEditorCell({
               onChange={(event) =>
                 updateRow(index, { href: event.target.value })
               }
-              className="flex-1 rounded border border-transparent bg-transparent px-1 py-0.5 text-sm text-foreground outline-none focus:border-moss"
+              className="min-w-0 flex-1 rounded border border-transparent bg-transparent px-1 py-0.5 text-sm text-foreground outline-none focus:border-moss"
             />
             <button
               type="button"
               aria-label={`Remove link ${row.label || index + 1}`}
               onClick={() => handleRemove(index)}
-              className="inline-flex items-center rounded p-1 text-muted-foreground hover:text-foreground"
+              className="inline-flex shrink-0 items-center rounded p-1 text-muted-foreground hover:text-foreground"
             >
               <CloseGlyph size={9} />
             </button>

@@ -361,8 +361,11 @@
   letter-spacing: -0.04em;
 }
 
+/* Speckle overlay. The host must already be positioned (relative/absolute) —
+   the utility deliberately sets no position of its own so it can't override
+   placement utilities like `absolute`. */
 @utility atlas-noise {
-  position: relative;
+  isolation: isolate;
 }
 
 @layer utilities {

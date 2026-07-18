@@ -9,7 +9,7 @@ import {
   useFloating,
   useInteractions,
 } from "@floating-ui/react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import {
   type FlowProjection,
@@ -189,6 +189,7 @@ export interface PlanWorkspacePageProps {
 export function PlanWorkspacePage({
   source,
   revision,
+  planFileName,
 }: PlanWorkspacePageProps) {
   const processingInput = useMemo(
     () => ({ source, revision }),
@@ -199,6 +200,7 @@ export function PlanWorkspacePage({
   // ── Local UI state (unconditional hooks — must come before early returns) ──
   const [previewPath, setPreviewPath] = useState<string | null>(null);
   const [rightTab, setRightTab] = useState<"details" | "insights">("details");
+  const rightPanelScrollRef = useRef<HTMLDivElement>(null);
   const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(false);
   const [newItemFormState, setNewItemFormState] = useState<{
@@ -215,6 +217,14 @@ export function PlanWorkspacePage({
 
   // ── Explorer store subscriptions ──────────────────────────────────────────
   const selectedWorkItemId = usePlanExplorerStore(selectSelectedWorkItemId);
+
+  // Reset the right panel's scroll when the shown content changes — otherwise
+  // switching items (or tabs) opens the new content at the old scroll offset
+  // with its header off-screen.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: deps are the reset triggers, not values read
+  useEffect(() => {
+    rightPanelScrollRef.current?.scrollTo({ top: 0 });
+  }, [selectedWorkItemId, rightTab]);
   const searchQuery = usePlanExplorerStore(selectSearchQuery);
   const activeScope = usePlanExplorerStore(selectActiveScope);
   const laneIds = usePlanExplorerStore(selectLaneIds);
@@ -287,16 +297,26 @@ export function PlanWorkspacePage({
     };
   }, [topology, legends]);
 
-  // Available filter options derived from plan data
+  // Available filter options derived from plan data. Statuses render in
+  // lifecycle order rather than plan-encounter order.
   const availableFilters: PlanToolbarAvailableFilters = useMemo(() => {
     if (!snapshot) {
       return { lanes: [], statuses: [], tags: [] };
     }
     const items = Object.values(snapshot.workItems);
+    const statusOrder: TaskGardenStatus[] = [
+      "planned",
+      "ready",
+      "in_progress",
+      "blocked",
+      "done",
+      "future",
+    ];
+    const present = new Set(items.map((i) => i.status));
     return {
       lanes: snapshot.plan.lanes,
-      statuses: [...new Set(items.map((i) => i.status))] as TaskGardenStatus[],
-      tags: [...new Set(items.flatMap((i) => i.tags))],
+      statuses: statusOrder.filter((s) => present.has(s)),
+      tags: [...new Set(items.flatMap((i) => i.tags))].sort(),
     };
   }, [snapshot]);
 
@@ -441,8 +461,11 @@ export function PlanWorkspacePage({
           aria-label="Plan controls"
         >
           {/* Compact plan header with info popover */}
-          <div className="flex shrink-0 items-center gap-2 border-b border-border px-5 py-3">
-            <h1 className="atlas-title min-w-0 flex-1 truncate text-lg text-foreground">
+          <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-3">
+            <h1
+              className="atlas-title min-w-0 flex-1 truncate text-lg text-foreground"
+              title={`${readySnapshot.plan.title} — ${planFileName}`}
+            >
               {readySnapshot.plan.title}
             </h1>
             <InfoPopoverButton
@@ -486,8 +509,8 @@ export function PlanWorkspacePage({
             >
               ☰ Controls
             </button>
-            <span className="atlas-title text-sm text-foreground">
-              Task Garden
+            <span className="atlas-title min-w-0 truncate px-2 text-sm text-foreground">
+              {readySnapshot.plan.title}
             </span>
             <button
               type="button"
@@ -565,6 +588,7 @@ export function PlanWorkspacePage({
 
               {/* Panel content */}
               <div
+                ref={rightPanelScrollRef}
                 className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-4"
                 role="tabpanel"
                 aria-label={

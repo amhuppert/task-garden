@@ -137,10 +137,7 @@ export function TagEditorCell({
         />
       </div>
       {error && (
-        <span
-          data-testid="tag-editor-error"
-          className="text-xs text-[color:var(--color-petal)]"
-        >
+        <span data-testid="tag-editor-error" className="text-xs text-petal">
           {error}
         </span>
       )}

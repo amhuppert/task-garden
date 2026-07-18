@@ -92,7 +92,13 @@ export function DependencyEditorCell({
   patchPlan,
   onBranchNewDependent,
 }: DependencyEditorCellProps) {
-  const key = `work_item:${workItemId}:depends_on`;
+  // The dependents cell renders a derived, read-only list — it must not share
+  // the depends_on draft slot, or an in-flight dependency edit would leak into
+  // the "Dependents" list.
+  const key =
+    mode === "upstream"
+      ? `work_item:${workItemId}:depends_on`
+      : `work_item:${workItemId}:dependents`;
 
   const buildPatch = useCallback(
     (next: readonly string[]) => patchTargets.workItemDepsOn(workItemId, next),
@@ -314,10 +320,7 @@ export function DependencyEditorCell({
       </div>
 
       {error && (
-        <span
-          data-testid="dep-editor-error"
-          className="text-xs text-[color:var(--color-petal)]"
-        >
+        <span data-testid="dep-editor-error" className="text-xs text-petal">
           {error.title} — {error.detail}
         </span>
       )}

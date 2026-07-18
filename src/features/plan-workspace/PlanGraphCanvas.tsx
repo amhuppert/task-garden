@@ -446,13 +446,14 @@ export function PlanGraphCanvas({
     return projection.nodes.map((node) => {
       if (isBubbleMode) {
         const range = metricRanges[sizeMode];
-        const norm = range
+        const rawNorm = range
           ? normalizeMetric(
               node.data.metricSummary[sizeMode],
               range.min,
               range.max,
             )
           : 0.5;
+        const norm = Number.isNaN(rawNorm) ? 0 : rawNorm;
         const diameter = 28 + norm * 44;
         return {
           id: node.id,

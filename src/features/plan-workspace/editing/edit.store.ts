@@ -22,9 +22,15 @@ export interface SelfOpRecord {
 
 export type RetryFn = () => Promise<void>;
 
+export interface InflightCommit {
+  operationId: string;
+  /** The draft value the in-flight PATCH is carrying. */
+  value: unknown;
+}
+
 export interface EditStateValue {
   drafts: Record<DraftKey, unknown>;
-  inflight: Record<DraftKey, string>;
+  inflight: Record<DraftKey, InflightCommit>;
   lastWriteResult: LastWriteResult;
   recentSelfOps: SelfOpRecord[];
   retryFn: RetryFn | null;
@@ -34,7 +40,7 @@ interface EditActions {
   setDraft(key: DraftKey, value: unknown): void;
   clearDraft(key: DraftKey): void;
   rollbackAll(): void;
-  beginCommit(key: DraftKey, operationId: string): void;
+  beginCommit(key: DraftKey, operationId: string, value: unknown): void;
   finishCommit(key: DraftKey, result: EditApiResult): void;
   rememberSelfOp(operationId: string): void;
   hasSeenSelfOp(operationId: string): boolean;
@@ -81,6 +87,7 @@ function copyForErrorResult(
     case "write_failed":
       return resolveValidationCopy("write_failed");
     case "invalid_patch":
+      return resolveValidationCopy("invalid_patch");
     case "missing_operation_id":
     case "method_not_allowed":
       return resolveValidationCopy(undefined);
@@ -134,20 +141,26 @@ export const useEditStore = create<EditStore>((set, get) => ({
     });
   },
 
-  beginCommit(key, operationId) {
+  beginCommit(key, operationId, value) {
     set((s) => ({
-      inflight: { ...s.inflight, [key]: operationId },
+      inflight: { ...s.inflight, [key]: { operationId, value } },
       lastWriteResult: { phase: "saving", key, operationId },
     }));
   },
 
   finishCommit(key, result) {
     set((s) => {
+      const committed = s.inflight[key];
       const inflight = omitKey(s.inflight, key);
       if (result.ok) {
+        // Only clear the draft when it still matches the value we committed.
+        // The user may have kept editing while the PATCH was in flight; that
+        // newer draft must survive so the next blur can commit it.
+        const draftUnchanged =
+          committed === undefined || Object.is(s.drafts[key], committed.value);
         return {
           inflight,
-          drafts: omitKey(s.drafts, key),
+          drafts: draftUnchanged ? omitKey(s.drafts, key) : s.drafts,
           lastWriteResult: { phase: "saved", key, at: Date.now() },
           retryFn: null,
         };
@@ -214,7 +227,7 @@ export const useEditDraft = (key: DraftKey): unknown =>
   useEditStore((s) => s.drafts[key]);
 
 export const useEditInflight = (key: DraftKey): string | undefined =>
-  useEditStore((s) => s.inflight[key]);
+  useEditStore((s) => s.inflight[key]?.operationId);
 
 export const useLastWriteResult = (): LastWriteResult =>
   useEditStore((s) => s.lastWriteResult);

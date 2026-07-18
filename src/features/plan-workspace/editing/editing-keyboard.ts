@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
+import { usePlanExplorerStore } from "../plan-explorer.store";
 import { useEditStore } from "./edit.store";
 
 export interface NewItemFormPrefill {
@@ -16,18 +17,6 @@ export interface UseEditingHotkeysOptions {
   firstLaneId: string | null;
   /** Open the right-panel details tab and focus the editable title cell. */
   openDetailsAndFocusTitle?: () => void;
-}
-
-/**
- * Returns true when the keyboard event originated inside a text-input region
- * (an <input>, <textarea>, or contentEditable element). The N/E hotkeys are
- * suppressed in those cases so the user can type those letters into fields.
- */
-export function isEventInsideTextInput(event: KeyboardEvent): boolean {
-  const target = event.target;
-  if (!(target instanceof HTMLElement)) return false;
-  if (target.isContentEditable) return false;
-  return true;
 }
 
 function isInsideTextField(target: EventTarget | null): boolean {
@@ -80,9 +69,17 @@ export function useEditingHotkeys(opts: UseEditingHotkeysOptions): void {
   );
 
   const handleEscapeRollback = useCallback((_event: KeyboardEvent) => {
-    useEditStore.getState().rollbackAll();
+    const editState = useEditStore.getState();
+    const hadDrafts = Object.keys(editState.drafts).length > 0;
+    const hadError = editState.lastWriteResult.phase === "error";
+    editState.rollbackAll();
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent(EDITING_ROLLBACK_EVENT));
+    }
+    // With nothing to roll back, Escape deselects — a second press after a
+    // rollback therefore clears the selection.
+    if (!hadDrafts && !hadError) {
+      usePlanExplorerStore.getState().clearSelection();
     }
   }, []);
 

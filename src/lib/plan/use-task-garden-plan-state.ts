@@ -34,6 +34,9 @@ export function useTaskGardenPlanState(
 
     const setReady = (snapshot: PlanStateSnapshot) => {
       if (cancelled) return;
+      // A slow initial/reconnect fetch can resolve after the SSE stream has
+      // already delivered a newer revision — never regress to older state.
+      if (snapshot.revision <= lastAppliedRevision) return;
       lastAppliedRevision = snapshot.revision;
       setState({ phase: "ready", snapshot });
     };
