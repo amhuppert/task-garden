@@ -1,4 +1,12 @@
-import { memo, useEffect, useId, useRef, useState } from "react";
+import {
+  type ReactNode,
+  memo,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { STATUS_LABELS } from "../../lib/plan/status-presentation";
 import type {
@@ -42,10 +50,10 @@ import {
   getScopeLabel,
   getSizeModeLabel,
 } from "./plan-toolbar.helpers";
-import { ChipRadioGroup } from "./ui/ChipRadioGroup";
-import { FilterChipGroup } from "./ui/FilterChipGroup";
+import { FilterListGroup } from "./ui/FilterListGroup";
 import { LiveRegion } from "./ui/LiveRegion";
 import { Popover } from "./ui/Popover";
+import { Select } from "./ui/Select";
 
 const METRIC_SIZE_MODES: readonly MetricSizeMode[] = SIZE_MODE_OPTIONS.filter(
   (mode): mode is MetricSizeMode => mode !== "uniform",
@@ -160,6 +168,36 @@ function ScheduleOverlayInfoModal() {
         })}
       </dl>
     </SectionInfoModal>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Section header — kicker label + optional active-count badge + info slot
+// ---------------------------------------------------------------------------
+
+interface FilterSectionHeaderProps {
+  labelId: string;
+  label: string;
+  activeCount: number;
+}
+
+function FilterSectionHeader({
+  labelId,
+  label,
+  activeCount,
+}: FilterSectionHeaderProps) {
+  return (
+    <span className="atlas-kicker mb-1.5 flex items-center gap-1.5">
+      <span id={labelId}>{label}</span>
+      {activeCount > 0 && (
+        <span
+          className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-moss px-1 font-mono text-[0.58rem] text-primary-foreground"
+          aria-label={`${activeCount} active`}
+        >
+          {activeCount}
+        </span>
+      )}
+    </span>
   );
 }
 
@@ -310,7 +348,7 @@ function LaneEditPopover({ lane, baseRevision }: LaneEditPopoverProps) {
           type="button"
           aria-label={`Edit lane ${lane.label}`}
           data-testid={`lane-edit-${lane.id}`}
-          className="ml-0.5 inline-flex items-center rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100 focus:opacity-100"
+          className="ml-0.5 inline-flex shrink-0 items-center rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100 focus:opacity-100"
         >
           <PencilGlyph size={10} />
         </button>
@@ -331,7 +369,7 @@ function LaneEditPopover({ lane, baseRevision }: LaneEditPopoverProps) {
 }
 
 interface LaneFilterSectionProps {
-  lanes: readonly TaskGardenLane[];
+  lanes: readonly { lane: TaskGardenLane; count: number }[];
   baseRevision: number;
 }
 
@@ -345,13 +383,16 @@ const LaneFilterSection = memo(function LaneFilterSection({
   if (lanes.length === 0) return null;
   return (
     <section>
-      <span id={labelId} className="atlas-kicker mb-2 block">
-        Lane
-      </span>
-      <FilterChipGroup
-        options={lanes.map((lane) => ({
+      <FilterSectionHeader
+        labelId={labelId}
+        label="Lane"
+        activeCount={activeLaneIds.length}
+      />
+      <FilterListGroup
+        options={lanes.map(({ lane, count }) => ({
           value: lane.id,
           label: lane.label,
+          count,
           trailing: <LaneEditPopover lane={lane} baseRevision={baseRevision} />,
         }))}
         values={[...activeLaneIds]}
@@ -366,7 +407,7 @@ const LaneFilterSection = memo(function LaneFilterSection({
 });
 
 interface StatusFilterSectionProps {
-  availableStatuses: readonly TaskGardenStatus[];
+  availableStatuses: readonly { status: TaskGardenStatus; count: number }[];
 }
 
 const StatusFilterSection = memo(function StatusFilterSection({
@@ -378,13 +419,16 @@ const StatusFilterSection = memo(function StatusFilterSection({
   if (availableStatuses.length === 0) return null;
   return (
     <section>
-      <span id={labelId} className="atlas-kicker mb-2 block">
-        Status
-      </span>
-      <FilterChipGroup
-        options={availableStatuses.map((status) => ({
+      <FilterSectionHeader
+        labelId={labelId}
+        label="Status"
+        activeCount={activeStatuses.length}
+      />
+      <FilterListGroup
+        options={availableStatuses.map(({ status, count }) => ({
           value: status,
           label: STATUS_LABELS[status],
+          count,
         }))}
         values={[...activeStatuses]}
         onValuesChange={(next) => {
@@ -398,8 +442,12 @@ const StatusFilterSection = memo(function StatusFilterSection({
   );
 });
 
+/** Tag lists can be arbitrarily long — show an inline narrowing input once
+    the list is big enough that scanning the scroll region gets slow. */
+const TAG_QUERY_THRESHOLD = 8;
+
 interface TagFilterSectionProps {
-  availableTags: readonly string[];
+  availableTags: readonly { tag: string; count: number }[];
 }
 
 const TagFilterSection = memo(function TagFilterSection({
@@ -407,68 +455,84 @@ const TagFilterSection = memo(function TagFilterSection({
 }: TagFilterSectionProps) {
   const activeTags = usePlanExplorerStore(selectTags);
   const toggleTagFilter = usePlanExplorerStore((s) => s.toggleTagFilter);
-  const [tagsExpanded, setTagsExpanded] = useState(
-    () => availableTags.length <= 5,
-  );
+  const [tagQuery, setTagQuery] = useState("");
   const labelId = useId();
-  const chipsId = useId();
-  if (availableTags.length === 0) return null;
 
-  const visibleTags = (() => {
-    if (tagsExpanded) return availableTags;
-    const active = availableTags.filter((t) => activeTags.includes(t));
-    return active.length > 0 ? active : availableTags.slice(0, 3);
-  })();
-  const hiddenCount = tagsExpanded
-    ? 0
-    : availableTags.length - visibleTags.length;
+  const visibleTags = useMemo(() => {
+    const query = tagQuery.trim().toLowerCase();
+    if (query === "") return availableTags;
+    return availableTags.filter(({ tag }) => tag.toLowerCase().includes(query));
+  }, [availableTags, tagQuery]);
+
+  if (availableTags.length === 0) return null;
 
   return (
     <section>
-      <button
-        type="button"
-        onClick={() => setTagsExpanded((v) => !v)}
-        aria-expanded={tagsExpanded}
-        aria-controls={chipsId}
-        className="atlas-kicker mb-2 flex w-full items-center justify-between"
-      >
-        <span id={labelId}>Tags</span>
-        <svg
-          width="12"
-          height="12"
-          viewBox="0 0 12 12"
-          fill="none"
-          aria-hidden="true"
-          className={`text-muted-foreground transition-transform duration-200${tagsExpanded ? " rotate-180" : ""}`}
-        >
-          <path
-            d="M3 4.5L6 7.5L9 4.5"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </button>
-      <div id={chipsId} className="flex flex-wrap items-center gap-1.5">
-        <FilterChipGroup
-          options={visibleTags.map((tag) => ({ value: tag, label: tag }))}
-          values={[...activeTags]}
-          onValuesChange={(next) => {
-            const toggled = findToggled(activeTags, next);
-            if (toggled !== null) toggleTagFilter(toggled);
-          }}
-          labelId={labelId}
+      <FilterSectionHeader
+        labelId={labelId}
+        label="Tags"
+        activeCount={activeTags.length}
+      />
+      {availableTags.length > TAG_QUERY_THRESHOLD && (
+        <input
+          type="search"
+          value={tagQuery}
+          onChange={(e) => setTagQuery(e.target.value)}
+          placeholder={`Narrow ${availableTags.length} tags…`}
+          aria-label="Narrow tag list"
+          className="atlas-field-focus mb-1.5 h-7 w-full rounded-[var(--radius-sm)] border border-border bg-surface px-2 text-xs text-foreground placeholder:text-muted-foreground"
         />
-        {hiddenCount > 0 && (
-          <span className="self-center text-xs text-muted-foreground">
-            +{hiddenCount} more
-          </span>
-        )}
-      </div>
+      )}
+      <FilterListGroup
+        options={visibleTags.map(({ tag, count }) => ({
+          value: tag,
+          label: tag,
+          count,
+        }))}
+        values={[...activeTags]}
+        onValuesChange={(next) => {
+          const toggled = findToggled(activeTags, next);
+          if (toggled !== null) toggleTagFilter(toggled);
+        }}
+        labelId={labelId}
+      />
+      {visibleTags.length === 0 && (
+        <p className="text-xs text-muted-foreground">
+          No tags match "{tagQuery}"
+        </p>
+      )}
     </section>
   );
 });
+
+// ---------------------------------------------------------------------------
+// Display sections — single-select dropdowns keep each control at a fixed
+// height no matter how many options it offers.
+// ---------------------------------------------------------------------------
+
+interface SelectSectionShellProps {
+  label: string;
+  labelId: string;
+  info: ReactNode;
+  children: ReactNode;
+}
+
+function SelectSectionShell({
+  label,
+  labelId,
+  info,
+  children,
+}: SelectSectionShellProps) {
+  return (
+    <section>
+      <span className="atlas-kicker mb-1.5 flex items-center gap-1.5">
+        <span id={labelId}>{label}</span>
+        {info}
+      </span>
+      {children}
+    </section>
+  );
+}
 
 function ScopeSection() {
   const activeScope = usePlanExplorerStore(selectActiveScope);
@@ -478,33 +542,30 @@ function ScopeSection() {
   const hintId = useId();
   const hasSelection = selectedWorkItemId !== null;
   return (
-    <section>
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="atlas-kicker flex shrink-0 items-center gap-1.5 whitespace-nowrap">
-          <span id={labelId}>Scope</span>
-          <ScopeInfoModal />
-        </span>
-        <span className="min-w-0 truncate whitespace-nowrap font-mono text-xs text-muted-foreground">
-          {getScopeLabel(activeScope)}
-        </span>
-      </div>
-      {!hasSelection && (
-        <p id={hintId} className="mb-2 text-xs text-muted-foreground">
-          Select an item to scope the view
-        </p>
-      )}
-      <ChipRadioGroup
+    <SelectSectionShell
+      label="Scope"
+      labelId={labelId}
+      info={<ScopeInfoModal />}
+    >
+      <Select
+        value={activeScope}
+        onValueChange={(value) => setScope(value as GraphScope)}
         options={SCOPE_OPTIONS.map((scope) => ({
           value: scope,
           label: getScopeLabel(scope),
           disabled: !hasSelection && scope !== "all",
         }))}
-        value={activeScope}
-        onValueChange={(value) => setScope(value as GraphScope)}
+        ariaLabel="Scope"
         labelId={labelId}
         describedById={hasSelection ? undefined : hintId}
+        testId="scope-select"
       />
-    </section>
+      {!hasSelection && (
+        <p id={hintId} className="mt-1.5 text-xs text-muted-foreground">
+          Select an item to scope the view
+        </p>
+      )}
+    </SelectSectionShell>
   );
 }
 
@@ -513,26 +574,23 @@ function ColorEncodingSection() {
   const setColorMode = usePlanDisplayStore((s) => s.setColorMode);
   const labelId = useId();
   return (
-    <section>
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="atlas-kicker flex shrink-0 items-center gap-1.5 whitespace-nowrap">
-          <span id={labelId}>Color</span>
-          <ColorInfoModal />
-        </span>
-        <span className="min-w-0 truncate whitespace-nowrap font-mono text-xs text-muted-foreground">
-          {getColorModeLabel(colorMode)}
-        </span>
-      </div>
-      <ChipRadioGroup
+    <SelectSectionShell
+      label="Color"
+      labelId={labelId}
+      info={<ColorInfoModal />}
+    >
+      <Select
+        value={colorMode}
+        onValueChange={(value) => setColorMode(value as ColorEncodingMode)}
         options={COLOR_MODE_OPTIONS.map((mode) => ({
           value: mode,
           label: getColorModeLabel(mode),
         }))}
-        value={colorMode}
-        onValueChange={(value) => setColorMode(value as ColorEncodingMode)}
+        ariaLabel="Color"
         labelId={labelId}
+        testId="color-mode-select"
       />
-    </section>
+    </SelectSectionShell>
   );
 }
 
@@ -541,28 +599,25 @@ function ScheduleOverlaySection() {
   const setScheduleOverlay = usePlanDisplayStore((s) => s.setScheduleOverlay);
   const labelId = useId();
   return (
-    <section>
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="atlas-kicker flex shrink-0 items-center gap-1.5 whitespace-nowrap">
-          <span id={labelId}>Schedule Overlay</span>
-          <ScheduleOverlayInfoModal />
-        </span>
-        <span className="min-w-0 truncate whitespace-nowrap font-mono text-xs text-muted-foreground">
-          {getScheduleOverlayLabel(scheduleOverlay)}
-        </span>
-      </div>
-      <ChipRadioGroup
-        options={SCHEDULE_OVERLAY_OPTIONS.map((mode) => ({
-          value: mode,
-          label: getScheduleOverlayLabel(mode),
-        }))}
+    <SelectSectionShell
+      label="Schedule Overlay"
+      labelId={labelId}
+      info={<ScheduleOverlayInfoModal />}
+    >
+      <Select
         value={scheduleOverlay}
         onValueChange={(value) =>
           setScheduleOverlay(value as ScheduleOverlayMode)
         }
+        options={SCHEDULE_OVERLAY_OPTIONS.map((mode) => ({
+          value: mode,
+          label: getScheduleOverlayLabel(mode),
+        }))}
+        ariaLabel="Schedule Overlay"
         labelId={labelId}
+        testId="schedule-overlay-select"
       />
-    </section>
+    </SelectSectionShell>
   );
 }
 
@@ -571,26 +626,23 @@ function SizeEncodingSection() {
   const setSizeMode = usePlanDisplayStore((s) => s.setSizeMode);
   const labelId = useId();
   return (
-    <section>
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="atlas-kicker flex shrink-0 items-center gap-1.5 whitespace-nowrap">
-          <span id={labelId}>Node Size</span>
-          <SizeInfoModal />
-        </span>
-        <span className="min-w-0 truncate whitespace-nowrap font-mono text-xs text-muted-foreground">
-          {getSizeModeLabel(sizeMode)}
-        </span>
-      </div>
-      <ChipRadioGroup
+    <SelectSectionShell
+      label="Node Size"
+      labelId={labelId}
+      info={<SizeInfoModal />}
+    >
+      <Select
+        value={sizeMode}
+        onValueChange={(value) => setSizeMode(value as SizeEncodingMode)}
         options={SIZE_MODE_OPTIONS.map((mode) => ({
           value: mode,
           label: getSizeModeLabel(mode),
         }))}
-        value={sizeMode}
-        onValueChange={(value) => setSizeMode(value as SizeEncodingMode)}
+        ariaLabel="Node Size"
         labelId={labelId}
+        testId="size-mode-select"
       />
-    </section>
+    </SelectSectionShell>
   );
 }
 
@@ -599,9 +651,9 @@ function SizeEncodingSection() {
 // ---------------------------------------------------------------------------
 
 export interface PlanToolbarAvailableFilters {
-  lanes: readonly TaskGardenLane[];
-  statuses: readonly TaskGardenStatus[];
-  tags: readonly string[];
+  lanes: readonly { lane: TaskGardenLane; count: number }[];
+  statuses: readonly { status: TaskGardenStatus; count: number }[];
+  tags: readonly { tag: string; count: number }[];
 }
 
 export interface PlanToolbarProjectionSummary {

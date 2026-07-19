@@ -24,7 +24,9 @@ test.describe("startup — valid plan", () => {
     await expect(
       page.locator('[aria-label="Plan graph visualization"]'),
     ).toBeVisible();
-    await expect(page.getByText("Task Garden V1")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Task Garden V1" }),
+    ).toBeVisible();
   });
 
   test("plan summary is visible in the overview header", async ({ page }) => {
@@ -60,7 +62,11 @@ test.describe("startup — valid plan", () => {
     await expect(
       page.locator('[aria-label="Plan graph visualization"]'),
     ).toBeVisible();
-    await expect(page.getByRole("alert")).not.toBeVisible();
+    // Persistent live regions stay mounted (empty) by design, so "no error
+    // state" means every alert region is contentless.
+    for (const text of await page.getByRole("alert").allTextContents()) {
+      expect(text).toBe("");
+    }
     await expect(
       page.getByRole("status", { name: "Loading plan" }),
     ).not.toBeVisible();

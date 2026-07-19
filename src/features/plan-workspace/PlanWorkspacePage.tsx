@@ -56,7 +56,6 @@ import {
   usePlanExplorerStore,
 } from "./plan-explorer.store";
 import { Popover } from "./ui/Popover";
-import { TabPanel, Tabs } from "./ui/Tabs";
 import { ToastViewport } from "./ui/Toast";
 import { TooltipProvider } from "./ui/Tooltip";
 
@@ -171,12 +170,11 @@ export function PlanWorkspacePage({
 
   // ── Local UI state (unconditional hooks — must come before early returns) ──
   const [previewPath, setPreviewPath] = useState<string | null>(null);
-  const [rightTab, setRightTab] = useState<"details" | "insights">("details");
-  // One ref per tabpanel: Radix keeps every panel element mounted (hidden), so
-  // a shared ref would permanently point at the last-rendered panel and the
-  // scroll reset would never reach the Details panel.
+  // Whether the Insights (browse) pane is shown next to the always-present
+  // Details pane. Selecting an item never closes it — that's the point: keep
+  // the ordered lists on screen while navigating the graph.
+  const [insightsOpen, setInsightsOpen] = useState(false);
   const detailsScrollRef = useRef<HTMLDivElement>(null);
-  const insightsScrollRef = useRef<HTMLDivElement>(null);
   const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(false);
   const [newItemFormState, setNewItemFormState] = useState<{
@@ -194,17 +192,14 @@ export function PlanWorkspacePage({
   // ── Explorer store subscriptions ──────────────────────────────────────────
   const selectedWorkItemId = usePlanExplorerStore(selectSelectedWorkItemId);
 
-  // Reset the right panel's scroll when the shown content changes — otherwise
-  // switching items (or tabs) opens the new content at the old scroll offset
-  // with its header off-screen.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: deps are the reset triggers, not values read
+  // Reset the details pane's scroll when the shown item changes — otherwise
+  // the new item opens at the old scroll offset with its header off-screen.
+  // The insights pane deliberately keeps its scroll position so browsing a
+  // list while selecting items doesn't lose the reader's place.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the selected id is the reset trigger, not a value read
   useEffect(() => {
-    const panel =
-      rightTab === "details"
-        ? detailsScrollRef.current
-        : insightsScrollRef.current;
-    panel?.scrollTo({ top: 0 });
-  }, [selectedWorkItemId, rightTab]);
+    detailsScrollRef.current?.scrollTo({ top: 0 });
+  }, [selectedWorkItemId]);
   const searchQuery = usePlanExplorerStore(selectSearchQuery);
   const activeScope = usePlanExplorerStore(selectActiveScope);
   const laneIds = usePlanExplorerStore(selectLaneIds);
@@ -277,18 +272,33 @@ export function PlanWorkspacePage({
     };
   }, [topology, legends]);
 
-  // Available filter options derived from plan data. Statuses render in
-  // lifecycle order rather than plan-encounter order.
+  // Available filter options (with per-option item counts) derived from plan
+  // data. Statuses render in lifecycle order rather than plan-encounter order.
   const availableFilters: PlanToolbarAvailableFilters = useMemo(() => {
     if (!snapshot) {
       return { lanes: [], statuses: [], tags: [] };
     }
-    const items = Object.values(snapshot.workItems);
-    const present = new Set(items.map((i) => i.status));
+    const laneCounts = new Map<string, number>();
+    const statusCounts = new Map<string, number>();
+    const tagCounts = new Map<string, number>();
+    for (const item of Object.values(snapshot.workItems)) {
+      laneCounts.set(item.lane, (laneCounts.get(item.lane) ?? 0) + 1);
+      statusCounts.set(item.status, (statusCounts.get(item.status) ?? 0) + 1);
+      for (const tag of item.tags) {
+        tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1);
+      }
+    }
     return {
-      lanes: snapshot.plan.lanes,
-      statuses: STATUS_FILTER_ORDER.filter((s) => present.has(s)),
-      tags: [...new Set(items.flatMap((i) => i.tags))].sort(),
+      lanes: snapshot.plan.lanes.map((lane) => ({
+        lane,
+        count: laneCounts.get(lane.id) ?? 0,
+      })),
+      statuses: STATUS_FILTER_ORDER.filter((s) => statusCounts.has(s)).map(
+        (status) => ({ status, count: statusCounts.get(status) ?? 0 }),
+      ),
+      tags: [...tagCounts.keys()]
+        .sort()
+        .map((tag) => ({ tag, count: tagCounts.get(tag) ?? 0 })),
     };
   }, [snapshot]);
 
@@ -300,11 +310,12 @@ export function PlanWorkspacePage({
 
   const closePreview = useCallback(() => setPreviewPath(null), []);
 
+  // Selecting an item updates the graph + details pane but never dismisses
+  // the insights pane — browsing a list and inspecting items coexist.
   const handleSelectWorkItem = useCallback(
     (id: string) => {
       navPush(id);
       selectWorkItem(id);
-      setRightTab("details");
     },
     [navPush, selectWorkItem],
   );
@@ -317,7 +328,6 @@ export function PlanWorkspacePage({
     const id = navGoBack();
     if (id) {
       selectWorkItem(id);
-      setRightTab("details");
     }
   }, [navGoBack, selectWorkItem]);
 
@@ -325,7 +335,6 @@ export function PlanWorkspacePage({
     const id = navGoForward();
     if (id) {
       selectWorkItem(id);
-      setRightTab("details");
     }
   }, [navGoForward, selectWorkItem]);
 
@@ -346,7 +355,6 @@ export function PlanWorkspacePage({
   const activeLaneScope = laneIds.length === 1 ? laneIds[0] : null;
   const firstLaneId = snapshot?.plan.lanes[0]?.id ?? null;
   const openDetailsAndFocusTitle = useCallback(() => {
-    setRightTab("details");
     setRightOpen(true);
     // Defer focus until the details panel paints the editable title.
     requestAnimationFrame(() => {
@@ -368,7 +376,7 @@ export function PlanWorkspacePage({
   const handleSetInsightMode = useCallback(
     (mode: InsightMode) => {
       setInsightMode(mode);
-      setRightTab("insights");
+      setInsightsOpen(true);
     },
     [setInsightMode],
   );
@@ -525,74 +533,133 @@ export function PlanWorkspacePage({
               </main>
 
               {/* ──────────────────────────────────────────────────── */}
-              {/* Right panel — Details / Insights                     */}
+              {/* Right panel — Insights (toggleable) beside Details   */}
               {/* ──────────────────────────────────────────────────── */}
               <aside
                 className={[
                   "flex flex-col border-l border-border",
-                  "fixed inset-y-0 right-0 z-40 w-80 bg-panel/98 backdrop-blur-xl",
+                  "fixed inset-y-0 right-0 z-40 w-[min(100vw-2rem,26rem)] bg-panel/98 backdrop-blur-xl",
                   "transition-transform duration-300 ease-in-out",
                   rightOpen ? "translate-x-0" : "translate-x-full",
-                  "lg:relative lg:z-auto lg:translate-x-0 lg:bg-panel lg:backdrop-blur-none",
+                  "lg:relative lg:z-auto lg:w-auto lg:translate-x-0 lg:bg-panel lg:backdrop-blur-none",
                 ].join(" ")}
                 aria-label="Details and insights"
               >
-                <Tabs
-                  value={rightTab}
-                  onValueChange={(value) =>
-                    setRightTab(value as "details" | "insights")
-                  }
-                  tabs={[
-                    { value: "details", label: "Details" },
-                    { value: "insights", label: "Insights" },
-                  ]}
-                  ariaLabel="Right panel tabs"
-                  className="flex min-h-0 flex-1 flex-col"
-                  listClassName="flex shrink-0 border-b border-border [&>button]:border-b-2 [&>button]:border-transparent [&>button]:px-4 [&>button]:py-3 [&>button]:text-xs [&>button]:font-semibold [&>button]:uppercase [&>button]:tracking-[0.14em] [&>button[data-state=active]]:border-moss"
-                >
-                  <TabPanel
-                    value="details"
-                    scrollRef={detailsScrollRef}
-                    className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-4"
+                {/* Insights pane stacks above Details on narrow viewports and
+                    sits beside it on desktop. Selecting an item in a list only
+                    updates the graph + details — the list stays open. */}
+                <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+                  {insightsOpen && (
+                    <section
+                      aria-label="Plan insights panel"
+                      className="flex min-h-0 flex-1 flex-col border-b border-border lg:w-80 lg:flex-none lg:border-b-0 lg:border-r"
+                    >
+                      <header className="flex shrink-0 items-center justify-between border-b border-border px-4 py-2.5">
+                        <span className="atlas-kicker">Insights</span>
+                        <button
+                          type="button"
+                          onClick={() => setInsightsOpen(false)}
+                          aria-label="Close insights panel"
+                          className="flex h-6 w-6 items-center justify-center rounded-[var(--radius-sm)] text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground"
+                        >
+                          <svg
+                            width="12"
+                            height="12"
+                            viewBox="0 0 12 12"
+                            fill="none"
+                            aria-hidden="true"
+                          >
+                            <path
+                              d="M3 3L9 9M9 3L3 9"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                            />
+                          </svg>
+                        </button>
+                      </header>
+                      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-4">
+                        <PlanInsightsPanel
+                          snapshot={readySnapshot}
+                          display={displayState}
+                          explorer={explorerState}
+                          projection={readyProjection}
+                          onSelectWorkItem={handleSelectWorkItem}
+                          onSetInsightMode={handleSetInsightMode}
+                        />
+                      </div>
+                    </section>
+                  )}
+
+                  <section
+                    aria-label="Details panel"
+                    className="flex min-h-0 flex-1 flex-col lg:w-96 lg:flex-none"
                   >
-                    <PlanDetailsPanel
-                      snapshot={readySnapshot}
-                      explorer={explorerState}
-                      baseRevision={processingState.input.revision}
-                      selectedNodeFilteredOut={
-                        readyProjection.summary.selectedNodeFilteredOut
-                      }
-                      onSelectWorkItem={handleSelectWorkItem}
-                      onDocumentPreview={handleDocumentPreview}
-                      onBranchNewDependent={
-                        selectedWorkItemId
-                          ? () =>
-                              openNewItemForm({
-                                dependsOn: [selectedWorkItemId],
-                              })
-                          : undefined
-                      }
-                      canGoBack={canGoBack}
-                      canGoForward={canGoForward}
-                      onGoBack={handleGoBack}
-                      onGoForward={handleGoForward}
-                    />
-                  </TabPanel>
-                  <TabPanel
-                    value="insights"
-                    scrollRef={insightsScrollRef}
-                    className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-4"
-                  >
-                    <PlanInsightsPanel
-                      snapshot={readySnapshot}
-                      display={displayState}
-                      explorer={explorerState}
-                      projection={readyProjection}
-                      onSelectWorkItem={handleSelectWorkItem}
-                      onSetInsightMode={handleSetInsightMode}
-                    />
-                  </TabPanel>
-                </Tabs>
+                    <header className="flex shrink-0 items-center justify-between border-b border-border px-4 py-2.5">
+                      <span className="atlas-kicker">Details</span>
+                      {!insightsOpen && (
+                        <button
+                          type="button"
+                          onClick={() => setInsightsOpen(true)}
+                          aria-expanded={insightsOpen}
+                          aria-label="Open insights panel"
+                          className="flex items-center gap-1.5 rounded-[var(--radius-sm)] border border-border px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground"
+                        >
+                          <svg
+                            width="12"
+                            height="12"
+                            viewBox="0 0 12 12"
+                            fill="none"
+                            aria-hidden="true"
+                          >
+                            <rect
+                              x="1"
+                              y="1.5"
+                              width="10"
+                              height="9"
+                              rx="1.5"
+                              stroke="currentColor"
+                              strokeWidth="1.2"
+                            />
+                            <path
+                              d="M4.5 1.5V10.5"
+                              stroke="currentColor"
+                              strokeWidth="1.2"
+                            />
+                          </svg>
+                          Insights
+                        </button>
+                      )}
+                    </header>
+                    <div
+                      ref={detailsScrollRef}
+                      className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-4"
+                    >
+                      <PlanDetailsPanel
+                        snapshot={readySnapshot}
+                        explorer={explorerState}
+                        baseRevision={processingState.input.revision}
+                        selectedNodeFilteredOut={
+                          readyProjection.summary.selectedNodeFilteredOut
+                        }
+                        onSelectWorkItem={handleSelectWorkItem}
+                        onDocumentPreview={handleDocumentPreview}
+                        onBranchNewDependent={
+                          selectedWorkItemId
+                            ? () =>
+                                openNewItemForm({
+                                  dependsOn: [selectedWorkItemId],
+                                })
+                            : undefined
+                        }
+                        canGoBack={canGoBack}
+                        canGoForward={canGoForward}
+                        onGoBack={handleGoBack}
+                        onGoForward={handleGoForward}
+                      />
+                    </div>
+                  </section>
+                </div>
 
                 {/* Write-through footer — always mounted so phase transitions are visible */}
                 <div className="shrink-0 border-t border-border bg-panel">

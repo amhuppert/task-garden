@@ -6,6 +6,7 @@ export type SelectOption = {
   label: string;
   swatchColor?: string; // lane color / status accent; omitted → no swatch
   swatchShape?: "dot" | "bar"; // status dot vs lane bar; default "dot"
+  disabled?: boolean;
 };
 
 export type SelectProps = {
@@ -16,6 +17,8 @@ export type SelectProps = {
   ariaLabel: string;
   /** id of the visible kicker label; when given it takes over trigger labelling. */
   labelId?: string;
+  /** id of an optional hint paragraph describing the control. */
+  describedById?: string;
   /** Stamped on the trigger (e.g. status-picker-chip). */
   testId?: string;
 };
@@ -52,6 +55,7 @@ export function Select({
   options,
   ariaLabel,
   labelId,
+  describedById,
   testId,
 }: SelectProps) {
   const selected = options.find((option) => option.value === value);
@@ -61,6 +65,7 @@ export function Select({
       <RadixSelect.Trigger
         aria-label={ariaLabel}
         aria-labelledby={labelId}
+        aria-describedby={describedById}
         data-testid={testId}
         className="flex w-full items-center justify-between gap-2 rounded-[var(--radius-md)] border border-border bg-surface px-3 py-2 text-sm transition-colors hover:border-border-strong data-[state=open]:border-moss"
       >
@@ -94,11 +99,12 @@ export function Select({
               <RadixSelect.Item
                 key={option.value}
                 value={option.value}
+                disabled={option.disabled}
                 // Radix computes aria-selected as selected && highlighted, so
                 // no option exposes the current value once the user arrows
                 // away; APG requires the selected option to keep it.
                 aria-selected={option.value === value}
-                className="flex cursor-default items-center gap-2 rounded-[var(--radius-sm)] px-2 py-1.5 text-left text-xs outline-none transition-colors data-[highlighted]:bg-surface-muted data-[state=checked]:bg-[color-mix(in_oklab,var(--color-lichen)_20%,transparent)] data-[state=checked]:font-semibold"
+                className="flex cursor-default items-center gap-2 rounded-[var(--radius-sm)] px-2 py-1.5 text-left text-xs outline-none transition-colors data-[highlighted]:bg-surface-muted data-[disabled]:opacity-40 data-[state=checked]:bg-[color-mix(in_oklab,var(--color-lichen)_20%,transparent)] data-[state=checked]:font-semibold"
               >
                 <Swatch option={option} />
                 <RadixSelect.ItemText>{option.label}</RadixSelect.ItemText>

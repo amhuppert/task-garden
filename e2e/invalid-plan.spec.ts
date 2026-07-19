@@ -28,10 +28,14 @@ test.describe("invalid plan — schema validation failure", () => {
     ).not.toBeVisible();
   });
 
-  test("validation alert contains failure heading", async ({ page }) => {
-    await expect(page.getByRole("alert")).toBeVisible();
-    // PlanValidationState shows the failure type heading derived from getFailureTitle().
-    await expect(page.getByRole("alert").locator("h2")).toBeVisible();
+  test("validation summary and failure heading are shown", async ({ page }) => {
+    // The alert carries a brief summary (title + issue count); the heading
+    // renders as ordinary navigable content outside the alert region.
+    await expect(page.getByRole("alert")).toContainText("Invalid plan");
+    await expect(page.getByRole("alert")).toContainText(/\d+ issues? found/);
+    await expect(
+      page.getByRole("heading", { name: "Invalid plan" }),
+    ).toBeVisible();
   });
 
   test("validation feedback includes the failing work item", async ({
@@ -44,11 +48,9 @@ test.describe("invalid plan — schema validation failure", () => {
 
   test("at least one validation issue is listed", async ({ page }) => {
     await expect(page.getByRole("alert")).toBeVisible();
-    // The invalid plan has a work item referencing a non-existent lane, so
-    // at least one validation issue entry should appear in the alert region.
-    const alertRegion = page.getByRole("alert");
-    // ValidationIssueList renders individual issue rows inside the alert.
-    const issueItems = alertRegion.locator("li");
-    await expect(issueItems.first()).toBeVisible();
+    // The invalid plan has a work item referencing a non-existent lane, so at
+    // least one validation issue row renders (as navigable content outside the
+    // alert region).
+    await expect(page.locator("li").first()).toBeVisible();
   });
 });

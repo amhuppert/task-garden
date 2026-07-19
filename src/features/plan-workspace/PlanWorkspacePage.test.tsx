@@ -4,25 +4,41 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { PlanWorkspacePage } from "./PlanWorkspacePage";
 import { useEditStore } from "./editing/edit.store";
+import { usePlanDisplayStore } from "./plan-display.store";
+import { usePlanExplorerStore } from "./plan-explorer.store";
 import { installRadixDomShims } from "./ui/test/radix-dom-shims";
 
 installRadixDomShims();
 
-function resetEditStore() {
+function resetStores() {
   useEditStore.setState({
     drafts: {},
     inflight: {},
     lastWriteResult: { phase: "idle" },
     recentSelfOps: [],
   });
+  usePlanExplorerStore.setState({
+    selectedWorkItemId: null,
+    searchQuery: "",
+    activeScope: "all",
+    laneIds: [],
+    statuses: [],
+    tags: [],
+  });
+  usePlanDisplayStore.setState({
+    colorMode: "default",
+    sizeMode: "uniform",
+    scheduleOverlay: "none",
+    insightMode: "overview",
+  });
 }
 
 beforeEach(() => {
-  resetEditStore();
+  resetStores();
 });
 afterEach(() => {
   cleanup();
-  resetEditStore();
+  resetStores();
 });
 
 const validPlanYaml = `version: 1
@@ -98,7 +114,7 @@ describe("PlanWorkspacePage", () => {
     expect(screen.queryByRole("dialog", { name: "Plan details" })).toBeNull();
   });
 
-  it("switches the right panel between Details and Insights tabs", async () => {
+  it("toggles the insights pane open beside the always-present details pane", async () => {
     const user = userEvent.setup();
     render(
       <PlanWorkspacePage
@@ -108,17 +124,51 @@ describe("PlanWorkspacePage", () => {
       />,
     );
 
-    const tablist = screen.getByRole("tablist", { name: "Right panel tabs" });
-    const detailsTab = within(tablist).getByRole("tab", { name: "Details" });
-    const insightsTab = within(tablist).getByRole("tab", { name: "Insights" });
-    expect(detailsTab.getAttribute("aria-selected")).toBe("true");
+    // Details pane is always mounted; insights starts closed.
+    expect(screen.getByLabelText("Details panel")).toBeTruthy();
+    expect(screen.queryByLabelText("Plan insights panel")).toBeNull();
 
-    await user.click(insightsTab);
+    await user.click(
+      screen.getByRole("button", { name: "Open insights panel" }),
+    );
 
-    expect(insightsTab.getAttribute("aria-selected")).toBe("true");
-    expect(detailsTab.getAttribute("aria-selected")).toBe("false");
-    // Insights tabpanel content replaces the details panel
+    // Both panes are now visible at once.
+    expect(screen.getByLabelText("Plan insights panel")).toBeTruthy();
     expect(screen.getByLabelText("Plan Insights")).toBeTruthy();
+    expect(screen.getByLabelText("Details panel")).toBeTruthy();
+
+    await user.click(
+      screen.getByRole("button", { name: "Close insights panel" }),
+    );
+    expect(screen.queryByLabelText("Plan insights panel")).toBeNull();
+  });
+
+  it("keeps the insights list open when a listed item is selected, while details update", async () => {
+    const user = userEvent.setup();
+    usePlanDisplayStore.setState({ insightMode: "ready" });
+    render(
+      <PlanWorkspacePage
+        source={validPlanYaml}
+        revision={1}
+        planFileName="ws-test.yaml"
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Open insights panel" }),
+    );
+    const insightsPane = screen.getByLabelText("Plan insights panel");
+
+    // Item A is status "ready", so the Ready mode lists it as a clickable row
+    // (in both ranked lists — click the first).
+    await user.click(
+      within(insightsPane).getAllByRole("button", { name: /Item A/ })[0],
+    );
+
+    // The list stays open and the details pane now shows the selected item.
+    expect(screen.getByLabelText("Plan insights panel")).toBeTruthy();
+    const detailsPane = screen.getByLabelText("Details panel");
+    expect(within(detailsPane).getByLabelText("Details: Item A")).toBeTruthy();
   });
 
   it("mounts the write-through status footer in the ready state", () => {

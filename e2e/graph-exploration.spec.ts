@@ -54,8 +54,10 @@ test.describe("graph exploration — node selection", () => {
     const detailsPanel = page.locator('[aria-label="Details and insights"]');
     // ID rendered as mono text above the title.
     await expect(detailsPanel.getByText("plan-runtime-config")).toBeVisible();
-    // Status chip: item has status "done".
-    await expect(detailsPanel.getByText("Done")).toBeVisible();
+    // Status picker reflects the item's "done" status.
+    await expect(detailsPanel.getByTestId("status-picker-chip")).toHaveText(
+      /Done/,
+    );
   });
 
   test("clicking a dependency in details panel selects that item", async ({
@@ -115,13 +117,15 @@ test.describe("graph exploration — search", () => {
   test("search input is visible in the controls sidebar", async ({ page }) => {
     const sidebar = page.locator('[aria-label="Plan controls"]');
     await expect(
-      sidebar.getByPlaceholder("Search title, tag, lane…"),
+      sidebar.getByPlaceholder("Search id, title, summary, tag, lane…"),
     ).toBeVisible();
   });
 
   test("typing in search filters graph to matching items", async ({ page }) => {
     const sidebar = page.locator('[aria-label="Plan controls"]');
-    const searchInput = sidebar.getByPlaceholder("Search title, tag, lane…");
+    const searchInput = sidebar.getByPlaceholder(
+      "Search id, title, summary, tag, lane…",
+    );
 
     await searchInput.fill("runtime");
 
@@ -135,7 +139,9 @@ test.describe("graph exploration — search", () => {
     page,
   }) => {
     const sidebar = page.locator('[aria-label="Plan controls"]');
-    const searchInput = sidebar.getByPlaceholder("Search title, tag, lane…");
+    const searchInput = sidebar.getByPlaceholder(
+      "Search id, title, summary, tag, lane…",
+    );
 
     await searchInput.fill("something");
 
@@ -146,7 +152,9 @@ test.describe("graph exploration — search", () => {
 
   test("clearing filters restores full graph", async ({ page }) => {
     const sidebar = page.locator('[aria-label="Plan controls"]');
-    const searchInput = sidebar.getByPlaceholder("Search title, tag, lane…");
+    const searchInput = sidebar.getByPlaceholder(
+      "Search id, title, summary, tag, lane…",
+    );
 
     await searchInput.fill("runtime");
     await sidebar.getByRole("button", { name: "Clear all filters" }).click();
@@ -166,7 +174,7 @@ test.describe("graph exploration — lane filter", () => {
     ).toBeVisible();
   });
 
-  test("lane filter buttons are visible in the controls sidebar", async ({
+  test("lane filter rows are visible in the controls sidebar", async ({
     page,
   }) => {
     const sidebar = page.locator('[aria-label="Plan controls"]');
@@ -179,7 +187,7 @@ test.describe("graph exploration — lane filter", () => {
     ).toBeVisible();
   });
 
-  test("activating a lane filter shows the button as active", async ({
+  test("activating a lane filter shows the row as pressed", async ({
     page,
   }) => {
     const sidebar = page.locator('[aria-label="Plan controls"]');
@@ -190,8 +198,7 @@ test.describe("graph exploration — lane filter", () => {
 
     await laneBtn.click();
 
-    // The atlas-chip-active class is applied to active filter chips.
-    await expect(laneBtn).toHaveClass(/atlas-chip-active/);
+    await expect(laneBtn).toHaveAttribute("aria-pressed", "true");
   });
 
   test("activating a lane filter filters nodes to that lane", async ({
@@ -215,20 +222,26 @@ test.describe("graph exploration — scope controls", () => {
     ).toBeVisible();
   });
 
-  test("scope buttons other than 'All items' are disabled without a selection", async ({
+  test("scope options other than 'All items' are disabled without a selection", async ({
     page,
   }) => {
     const sidebar = page.locator('[aria-label="Plan controls"]');
-    // Without a selection, only "All items" scope is enabled.
+    // Without a selection the scope select explains why scoping is unavailable.
     await expect(
-      sidebar.getByRole("button", { name: "Upstream" }),
-    ).toBeDisabled();
+      sidebar.getByText("Select an item to scope the view"),
+    ).toBeVisible();
+
+    await sidebar.getByRole("combobox", { name: "Scope" }).click();
     await expect(
-      sidebar.getByRole("button", { name: "Downstream" }),
-    ).toBeDisabled();
+      page.getByRole("option", { name: "Upstream" }),
+    ).toHaveAttribute("data-disabled", "");
+    await expect(
+      page.getByRole("option", { name: "Downstream" }),
+    ).toHaveAttribute("data-disabled", "");
+    await page.keyboard.press("Escape");
   });
 
-  test("scope buttons are enabled after a node is selected", async ({
+  test("scope options are enabled and selectable after a node is selected", async ({
     page,
   }) => {
     const node = page.locator(
@@ -237,28 +250,28 @@ test.describe("graph exploration — scope controls", () => {
     await node.click();
 
     const sidebar = page.locator('[aria-label="Plan controls"]');
-    await expect(
-      sidebar.getByRole("button", { name: "Upstream" }),
-    ).toBeEnabled();
-    await expect(
-      sidebar.getByRole("button", { name: "Downstream" }),
-    ).toBeEnabled();
+    await sidebar.getByRole("combobox", { name: "Scope" }).click();
+    await page.getByRole("option", { name: "Upstream" }).click();
+
+    await expect(sidebar.getByRole("combobox", { name: "Scope" })).toHaveText(
+      /Upstream/,
+    );
   });
 
-  test("clicking All items scope shows all nodes", async ({ page }) => {
+  test("picking All items scope shows all nodes", async ({ page }) => {
     const node = page.locator(
       '.react-flow__node[data-id="plan-source-subscription"]',
     );
     await node.click();
 
     const sidebar = page.locator('[aria-label="Plan controls"]');
-    await sidebar.getByRole("button", { name: "Upstream" }).click();
-    await sidebar.getByRole("button", { name: "All items" }).click();
+    const scopeSelect = sidebar.getByRole("combobox", { name: "Scope" });
+    await scopeSelect.click();
+    await page.getByRole("option", { name: "Upstream" }).click();
+    await scopeSelect.click();
+    await page.getByRole("option", { name: "All items" }).click();
 
-    // All items scope: All items button should be active (aria-pressed=true).
-    await expect(
-      sidebar.getByRole("button", { name: "All items" }),
-    ).toHaveAttribute("aria-pressed", "true");
+    await expect(scopeSelect).toHaveText(/All items/);
   });
 
   test("clearing selection resets scope to All items", async ({ page }) => {
@@ -273,13 +286,12 @@ test.describe("graph exploration — scope controls", () => {
       .click({ position: { x: 50, y: 50 } });
 
     const sidebar = page.locator('[aria-label="Plan controls"]');
-    // After clearing, All items scope button should be aria-pressed=true.
+    await expect(sidebar.getByRole("combobox", { name: "Scope" })).toHaveText(
+      /All items/,
+    );
+    // The scoping-unavailable hint returns.
     await expect(
-      sidebar.getByRole("button", { name: "All items" }),
-    ).toHaveAttribute("aria-pressed", "true");
-    // Other scope buttons should be disabled.
-    await expect(
-      sidebar.getByRole("button", { name: "Upstream" }),
-    ).toBeDisabled();
+      sidebar.getByText("Select an item to scope the view"),
+    ).toBeVisible();
   });
 });

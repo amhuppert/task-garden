@@ -32,7 +32,9 @@ export function ItemRow({
         <span className="truncate font-mono text-[0.65rem] text-muted-foreground">
           {id}
         </span>
-        <span className="truncate text-sm text-foreground">{title}</span>
+        <span className="line-clamp-2 text-sm leading-snug text-foreground">
+          {title}
+        </span>
       </div>
       {badge !== undefined && (
         <span className="shrink-0 font-mono text-[0.65rem] text-muted-foreground">

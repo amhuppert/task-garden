@@ -15,15 +15,22 @@ test.describe("ready work insights", () => {
     ).toBeVisible();
   });
 
-  test("Ready tab shows unblocked work and value-effort rankings", async ({
+  test("Ready mode shows unblocked work and value-effort rankings", async ({
     page,
   }) => {
     const rightPanel = page.locator('[aria-label="Details and insights"]');
 
-    await rightPanel.getByRole("tab", { name: "Insights" }).click();
+    await rightPanel
+      .getByRole("button", { name: "Open insights panel" })
+      .click();
     const insights = page.locator('[aria-label="Plan Insights"]');
 
     await insights.getByRole("tab", { name: "Ready" }).click();
+
+    // The details pane stays visible alongside the insights lists.
+    await expect(
+      rightPanel.locator('[aria-label="Details panel"]'),
+    ).toBeVisible();
 
     await expect(
       insights.getByRole("heading", { name: "Ready Work" }),

@@ -5,35 +5,38 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
-import type { UserEvent } from "@testing-library/user-event";
 import userEvent from "@testing-library/user-event";
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type {
-  TaskGardenLane,
-  TaskGardenStatus,
-} from "../../lib/plan/task-garden-plan.schema";
-import { PlanToolbar } from "./PlanToolbar";
+import type { TaskGardenStatus } from "../../lib/plan/task-garden-plan.schema";
+import { PlanToolbar, type PlanToolbarAvailableFilters } from "./PlanToolbar";
 import { usePlanDisplayStore } from "./plan-display.store";
 import { usePlanExplorerStore } from "./plan-explorer.store";
 import { installRadixDomShims } from "./ui/test/radix-dom-shims";
 
 installRadixDomShims();
 
-const LANES: TaskGardenLane[] = [
-  { id: "backend", label: "Backend" },
-  { id: "frontend", label: "Frontend" },
+const LANES: PlanToolbarAvailableFilters["lanes"] = [
+  { lane: { id: "backend", label: "Backend" }, count: 4 },
+  { lane: { id: "frontend", label: "Frontend" }, count: 2 },
 ];
-const STATUSES: TaskGardenStatus[] = ["planned", "in_progress", "done"];
-const TAGS = ["alpha", "beta", "gamma", "delta", "epsilon", "zeta"];
+const STATUSES: PlanToolbarAvailableFilters["statuses"] = (
+  ["planned", "in_progress", "done"] as TaskGardenStatus[]
+).map((status, i) => ({ status, count: i + 1 }));
+const TAG_NAMES = ["alpha", "beta", "gamma", "delta", "epsilon", "zeta"];
+const TAGS: PlanToolbarAvailableFilters["tags"] = TAG_NAMES.map((tag, i) => ({
+  tag,
+  count: i + 1,
+}));
 
-const emptyFilters = {
+const emptyFilters: PlanToolbarAvailableFilters = {
   lanes: [],
   statuses: [],
   tags: [],
 };
-const fullFilters = {
+const fullFilters: PlanToolbarAvailableFilters = {
   lanes: LANES,
   statuses: STATUSES,
   tags: TAGS,
@@ -66,15 +69,6 @@ function renderToolbar(props?: Partial<Parameters<typeof PlanToolbar>[0]>) {
       {...props}
     />,
   );
-}
-
-/** Radix RadioGroup moves focus in a deferred task and selects only while the
-    arrow key is still held; user-event's instant release does not span that
-    task — so press, flush, then release. */
-async function pressArrow(user: UserEvent, key: "ArrowRight" | "ArrowLeft") {
-  await user.keyboard(`{${key}>}`);
-  await act(() => new Promise<void>((resolve) => setTimeout(resolve, 0)));
-  await user.keyboard(`{/${key}}`);
 }
 
 describe("PlanToolbar — search input debouncing", () => {
@@ -189,119 +183,111 @@ describe("PlanToolbar — visibility summary live regions", () => {
   });
 });
 
-describe("PlanToolbar — exclusive display sections (radio groups)", () => {
+describe("PlanToolbar — display selects (scope / color / overlay / size)", () => {
   beforeEach(resetStores);
   afterEach(cleanup);
 
-  it("renders the four exclusive sections as labelled radiogroups", () => {
+  it("renders the four display controls as labelled comboboxes showing the active value", () => {
     renderToolbar();
-    for (const name of ["Scope", "Color", "Schedule Overlay", "Node Size"]) {
-      expect(screen.getByRole("radiogroup", { name })).toBeTruthy();
+    const expectations: [string, string][] = [
+      ["Scope", "All items"],
+      ["Color", "Default"],
+      ["Schedule Overlay", "Off"],
+      ["Node Size", "Uniform"],
+    ];
+    for (const [name, activeLabel] of expectations) {
+      const trigger = screen.getByRole("combobox", { name });
+      expect(trigger.textContent).toContain(activeLabel);
     }
   });
 
-  it("marks the active option aria-checked instead of aria-pressed", () => {
-    usePlanDisplayStore.setState({ scheduleOverlay: "critical_path" });
+  it("disables scoping options and describes why when nothing is selected", async () => {
+    const user = userEvent.setup();
     renderToolbar();
-    const active = screen.getByRole("radio", { name: "Critical Path" });
-    expect(active.getAttribute("aria-checked")).toBe("true");
-    expect(active.hasAttribute("aria-pressed")).toBe(false);
-    expect(
-      screen.getByRole("radio", { name: "Off" }).getAttribute("aria-checked"),
-    ).toBe("false");
-  });
 
-  it("disables scope options (except All items) and describes why when nothing is selected", () => {
-    renderToolbar();
-    const group = screen.getByRole("radiogroup", { name: "Scope" });
-    const describedBy = group.getAttribute("aria-describedby");
+    const trigger = screen.getByRole("combobox", { name: "Scope" });
+    const describedBy = trigger.getAttribute("aria-describedby");
     expect(describedBy).toBeTruthy();
     expect(document.getElementById(describedBy as string)?.textContent).toBe(
       "Select an item to scope the view",
     );
-    expect(
-      (screen.getByRole("radio", { name: "All items" }) as HTMLButtonElement)
-        .disabled,
-    ).toBe(false);
+
+    await user.click(trigger);
+    const listbox = await screen.findByRole("listbox", { name: "Scope" });
     for (const name of ["Upstream", "Downstream", "Full chain"]) {
       expect(
-        (screen.getByRole("radio", { name }) as HTMLButtonElement).disabled,
-      ).toBe(true);
+        within(listbox)
+          .getByRole("option", { name })
+          .getAttribute("data-disabled"),
+      ).not.toBeNull();
     }
+    expect(
+      within(listbox)
+        .getByRole("option", { name: /All items/ })
+        .getAttribute("data-disabled"),
+    ).toBeNull();
   });
 
-  it("enables scope options once an item is selected and sets scope on click", async () => {
+  it("enables scope options once an item is selected and sets scope on pick", async () => {
     usePlanExplorerStore.setState({ selectedWorkItemId: "item-1" });
     const user = userEvent.setup();
     renderToolbar();
-    expect(
-      screen
-        .getByRole("radiogroup", { name: "Scope" })
-        .getAttribute("aria-describedby"),
-    ).toBeNull();
-    await user.click(screen.getByRole("radio", { name: "Upstream" }));
+
+    const trigger = screen.getByRole("combobox", { name: "Scope" });
+    expect(trigger.getAttribute("aria-describedby")).toBeNull();
+
+    await user.click(trigger);
+    await user.click(await screen.findByRole("option", { name: "Upstream" }));
+
     expect(usePlanExplorerStore.getState().activeScope).toBe("upstream");
+    expect(trigger.textContent).toContain("Upstream");
   });
 
-  it("sets the color mode when a color radio is clicked", async () => {
+  it("sets the color mode when a color option is picked", async () => {
     const user = userEvent.setup();
     renderToolbar();
-    await user.click(screen.getByRole("radio", { name: "By Lane" }));
+
+    await user.click(screen.getByRole("combobox", { name: "Color" }));
+    await user.click(await screen.findByRole("option", { name: "By Lane" }));
+
     expect(usePlanDisplayStore.getState().colorMode).toBe("lane");
     expect(
-      screen
-        .getByRole("radio", { name: "By Lane" })
-        .getAttribute("aria-checked"),
-    ).toBe("true");
+      screen.getByRole("combobox", { name: "Color" }).textContent,
+    ).toContain("By Lane");
   });
 
-  it("uses a roving tabindex: Tab enters on the checked option and a second Tab leaves the group", async () => {
-    usePlanDisplayStore.setState({ colorMode: "status" });
+  it("sets the schedule overlay when an overlay option is picked", async () => {
     const user = userEvent.setup();
     renderToolbar();
-    const group = screen.getByRole("radiogroup", { name: "Color" });
-    // The info-modal trigger is the last focusable before the color radios.
-    screen.getByRole("button", { name: "Color Encoding explanation" }).focus();
 
-    await user.tab();
-    expect(document.activeElement).toBe(
-      screen.getByRole("radio", { name: "By Status" }),
+    await user.click(
+      screen.getByRole("combobox", { name: "Schedule Overlay" }),
+    );
+    await user.click(
+      await screen.findByRole("option", { name: "Critical Path" }),
     );
 
-    await user.tab();
-    expect(group.contains(document.activeElement)).toBe(false);
-  });
-
-  it("ArrowRight moves focus to the next option and selects it", async () => {
-    const user = userEvent.setup();
-    renderToolbar();
-    // COLOR_MODE_OPTIONS starts ["default", "lane", ...]
-    screen.getByRole("radio", { name: "Default" }).focus();
-    await pressArrow(user, "ArrowRight");
-    const next = screen.getByRole("radio", { name: "By Lane" });
-    expect(document.activeElement).toBe(next);
-    expect(usePlanDisplayStore.getState().colorMode).toBe("lane");
-    expect(next.getAttribute("aria-checked")).toBe("true");
-  });
-
-  it("ArrowLeft from the first schedule option wraps to the last", async () => {
-    const user = userEvent.setup();
-    renderToolbar();
-    screen.getByRole("radio", { name: "Off" }).focus();
-    await pressArrow(user, "ArrowLeft");
-    const last = screen.getByRole("radio", { name: "Slack Heatmap" });
-    expect(document.activeElement).toBe(last);
     expect(usePlanDisplayStore.getState().scheduleOverlay).toBe(
-      "slack_heatmap",
+      "critical_path",
     );
+  });
+
+  it("sets the size mode when a size option is picked", async () => {
+    const user = userEvent.setup();
+    renderToolbar();
+
+    await user.click(screen.getByRole("combobox", { name: "Node Size" }));
+    await user.click(await screen.findByRole("option", { name: "By Degree" }));
+
+    expect(usePlanDisplayStore.getState().sizeMode).toBe("degree");
   });
 });
 
-describe("PlanToolbar — filter chip groups", () => {
+describe("PlanToolbar — filter lists", () => {
   beforeEach(resetStores);
   afterEach(cleanup);
 
-  it("renders lane/status/tag sections as labelled groups of toggle buttons", () => {
+  it("renders lane/status/tag sections as labelled groups of toggle rows", () => {
     renderToolbar({ availableFilters: fullFilters });
     for (const name of ["Lane", "Status", "Tags"]) {
       expect(screen.getByRole("group", { name })).toBeTruthy();
@@ -317,19 +303,26 @@ describe("PlanToolbar — filter chip groups", () => {
     }
   });
 
+  it("shows per-option item counts without polluting accessible names", () => {
+    renderToolbar({ availableFilters: fullFilters });
+    const backend = screen.getByRole("button", { name: "Backend" });
+    // The count renders inside the row but stays out of the accessible name.
+    expect(backend.textContent).toContain("4");
+  });
+
   it("toggles a lane filter on and off, reflected in aria-pressed", async () => {
     const user = userEvent.setup();
     renderToolbar({ availableFilters: fullFilters });
-    const chip = screen.getByRole("button", { name: "Backend" });
-    expect(chip.getAttribute("aria-pressed")).toBe("false");
+    const row = screen.getByRole("button", { name: "Backend" });
+    expect(row.getAttribute("aria-pressed")).toBe("false");
 
-    await user.click(chip);
+    await user.click(row);
     expect(usePlanExplorerStore.getState().laneIds).toEqual(["backend"]);
-    expect(chip.getAttribute("aria-pressed")).toBe("true");
+    expect(row.getAttribute("aria-pressed")).toBe("true");
 
-    await user.click(chip);
+    await user.click(row);
     expect(usePlanExplorerStore.getState().laneIds).toEqual([]);
-    expect(chip.getAttribute("aria-pressed")).toBe("false");
+    expect(row.getAttribute("aria-pressed")).toBe("false");
   });
 
   it("toggles status filters through the store", async () => {
@@ -345,62 +338,78 @@ describe("PlanToolbar — filter chip groups", () => {
     await user.click(screen.getByRole("button", { name: "alpha" }));
     expect(usePlanExplorerStore.getState().tags).toEqual(["alpha"]);
   });
+
+  it("shows an active-count badge on sections with active filters", () => {
+    usePlanExplorerStore.setState({ tags: ["alpha", "beta"] });
+    renderToolbar({ availableFilters: fullFilters });
+    expect(screen.getByLabelText("2 active")).toBeTruthy();
+  });
 });
 
-describe("PlanToolbar — tag disclosure", () => {
+describe("PlanToolbar — tag list narrowing", () => {
   beforeEach(resetStores);
   afterEach(cleanup);
 
-  it("collapses to the first three tags with a hidden-count hint when many tags and none active", () => {
+  const manyTags: PlanToolbarAvailableFilters["tags"] = [
+    ...TAG_NAMES,
+    "eta",
+    "theta",
+    "iota",
+  ].map((tag, i) => ({ tag, count: i + 1 }));
+
+  it("renders every tag as a row without a narrowing input for small tag sets", () => {
     renderToolbar({ availableFilters: fullFilters });
     const tagGroup = screen.getByRole("group", { name: "Tags" });
-    const chips = tagGroup.querySelectorAll("button");
-    expect(Array.from(chips).map((c) => c.textContent)).toEqual([
-      "alpha",
-      "beta",
-      "gamma",
-    ]);
-    expect(screen.getByText("+3 more")).toBeTruthy();
+    expect(within(tagGroup).getAllByRole("button")).toHaveLength(
+      TAG_NAMES.length,
+    );
+    expect(screen.queryByLabelText("Narrow tag list")).toBeNull();
   });
 
-  it("shows only active tags when collapsed with an active tag filter", () => {
-    usePlanExplorerStore.setState({ tags: ["epsilon"] });
-    renderToolbar({ availableFilters: fullFilters });
-    const tagGroup = screen.getByRole("group", { name: "Tags" });
-    const chips = tagGroup.querySelectorAll("button");
-    expect(Array.from(chips).map((c) => c.textContent)).toEqual(["epsilon"]);
-    expect(screen.getByText("+5 more")).toBeTruthy();
-  });
-
-  it("expands via a disclosure button wired with aria-expanded/aria-controls", async () => {
+  it("offers a narrowing input for large tag sets that filters the visible rows", async () => {
     const user = userEvent.setup();
-    renderToolbar({ availableFilters: fullFilters });
-    const disclosure = screen.getByRole("button", { name: "Tags" });
-    expect(disclosure.getAttribute("aria-expanded")).toBe("false");
-    const controlsId = disclosure.getAttribute("aria-controls");
-    expect(controlsId).toBeTruthy();
+    renderToolbar({
+      availableFilters: { ...fullFilters, tags: manyTags },
+    });
 
-    await user.click(disclosure);
+    const narrowInput = screen.getByLabelText("Narrow tag list");
+    const tagGroup = screen.getByRole("group", { name: "Tags" });
+    expect(within(tagGroup).getAllByRole("button")).toHaveLength(
+      manyTags.length,
+    );
 
-    expect(disclosure.getAttribute("aria-expanded")).toBe("true");
-    const region = document.getElementById(controlsId as string);
-    expect(region).toBeTruthy();
-    const chips = screen
-      .getByRole("group", { name: "Tags" })
-      .querySelectorAll("button");
-    expect(chips).toHaveLength(TAGS.length);
-    expect(screen.queryByText(/more$/)).toBeNull();
+    await user.type(narrowInput, "eta");
+
+    // "eta" matches beta, zeta, eta, theta.
+    expect(
+      within(tagGroup)
+        .getAllByRole("button")
+        .map((b) => b.textContent?.replace(/\d+$/, "")),
+    ).toEqual(["beta", "zeta", "eta", "theta"]);
   });
 
-  it("starts expanded when five or fewer tags are available", () => {
+  it("keeps active tags selected in the store while they are narrowed out of view", async () => {
+    usePlanExplorerStore.setState({ tags: ["alpha"] });
+    const user = userEvent.setup();
     renderToolbar({
-      availableFilters: { ...fullFilters, tags: TAGS.slice(0, 4) },
+      availableFilters: { ...fullFilters, tags: manyTags },
     });
-    expect(
-      screen
-        .getByRole("button", { name: "Tags" })
-        .getAttribute("aria-expanded"),
-    ).toBe("true");
+
+    await user.type(screen.getByLabelText("Narrow tag list"), "iota");
+    await user.click(screen.getByRole("button", { name: "iota" }));
+
+    expect(usePlanExplorerStore.getState().tags).toEqual(["alpha", "iota"]);
+  });
+
+  it("reports when no tags match the narrowing query", async () => {
+    const user = userEvent.setup();
+    renderToolbar({
+      availableFilters: { ...fullFilters, tags: manyTags },
+    });
+
+    await user.type(screen.getByLabelText("Narrow tag list"), "nomatch");
+
+    expect(screen.getByText('No tags match "nomatch"')).toBeTruthy();
   });
 });
 
