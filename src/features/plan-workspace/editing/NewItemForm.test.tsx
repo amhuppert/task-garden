@@ -7,19 +7,13 @@ import {
   screen,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { PlanPatch } from "../../../../cli/shared/patch-schema";
 import type {
   EditApiResult,
-  PatchPlanOptions,
+  PatchPlanFn,
 } from "../../../lib/plan/edit-api-client";
 import type { TaskGardenLane } from "../../../lib/plan/task-garden-plan.schema";
 import { usePlanExplorerStore } from "../plan-explorer.store";
 import { NewItemForm } from "./NewItemForm";
-
-type PatchPlanFn = (
-  patch: PlanPatch,
-  opts: PatchPlanOptions,
-) => Promise<EditApiResult>;
 
 const LANES: readonly TaskGardenLane[] = [
   { id: "backend", label: "Backend" },
@@ -34,6 +28,25 @@ function okPatch(): PatchPlanFn {
   });
 }
 
+function fillRequiredFields() {
+  fireEvent.change(screen.getByTestId("nif-id"), {
+    target: { value: "ship-it" },
+  });
+  fireEvent.change(screen.getByTestId("nif-title"), {
+    target: { value: "Ship the thing" },
+  });
+  fireEvent.change(screen.getByTestId("nif-summary"), {
+    target: { value: "Tighten the bolts." },
+  });
+}
+
+/** Radix arms its outside-press listeners on a timeout after open. */
+async function outsideListenersArmed() {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+}
+
 function resetExplorer() {
   usePlanExplorerStore.setState({ selectedWorkItemId: null });
 }
@@ -42,6 +55,22 @@ beforeEach(resetExplorer);
 afterEach(cleanup);
 
 describe("NewItemForm", () => {
+  it("renders a modal dialog whose visible title names it", () => {
+    render(
+      <NewItemForm
+        open
+        onClose={vi.fn()}
+        lanes={LANES}
+        baseRevision={1}
+        patchPlan={okPatch()}
+      />,
+    );
+
+    const dialog = screen.getByRole("dialog", { name: "New work item" });
+    expect(dialog.getAttribute("aria-modal")).toBe("true");
+    expect(screen.getByText("New work item")).toBeTruthy();
+  });
+
   it("disables the primary button when the draft is invalid (empty id/title)", () => {
     render(
       <NewItemForm
@@ -59,6 +88,51 @@ describe("NewItemForm", () => {
     expect(primary.disabled).toBe(true);
   });
 
+  it("announces the unresolved-fields hint through a status live region", () => {
+    render(
+      <NewItemForm
+        open
+        onClose={vi.fn()}
+        lanes={LANES}
+        baseRevision={1}
+        patchPlan={okPatch()}
+      />,
+    );
+
+    const hint = screen.getByTestId("nif-validity");
+    const region = hint.closest('[aria-live="polite"]');
+    expect(region).not.toBeNull();
+  });
+
+  it("associates field errors with their inputs via aria-describedby and aria-invalid", () => {
+    render(
+      <NewItemForm
+        open
+        onClose={vi.fn()}
+        lanes={LANES}
+        baseRevision={1}
+        patchPlan={okPatch()}
+      />,
+    );
+
+    const idInput = screen.getByTestId("nif-id");
+    // Errors only surface after the field is touched.
+    expect(idInput.getAttribute("aria-invalid")).toBeNull();
+    expect(idInput.getAttribute("aria-describedby")).toBeNull();
+
+    fireEvent.blur(idInput);
+
+    const error = screen.getByTestId("nif-id-error");
+    expect(error.textContent).not.toBe("");
+    expect(idInput.getAttribute("aria-invalid")).toBe("true");
+    expect(idInput.getAttribute("aria-describedby")).toBe(error.id);
+
+    // A valid entry clears the invalid state and the association.
+    fireEvent.change(idInput, { target: { value: "ship-it" } });
+    expect(idInput.getAttribute("aria-invalid")).toBeNull();
+    expect(idInput.getAttribute("aria-describedby")).toBeNull();
+  });
+
   it("enables the primary button once required fields are filled", () => {
     render(
       <NewItemForm
@@ -70,12 +144,7 @@ describe("NewItemForm", () => {
       />,
     );
 
-    const idInput = screen.getByTestId("nif-id") as HTMLInputElement;
-    const titleInput = screen.getByTestId("nif-title") as HTMLInputElement;
-    const summary = screen.getByTestId("nif-summary") as HTMLTextAreaElement;
-    fireEvent.change(idInput, { target: { value: "ship-it" } });
-    fireEvent.change(titleInput, { target: { value: "Ship the thing" } });
-    fireEvent.change(summary, { target: { value: "Tighten the bolts." } });
+    fillRequiredFields();
 
     const primary = screen.getByTestId(
       "create-bar-primary",
@@ -96,15 +165,8 @@ describe("NewItemForm", () => {
       />,
     );
 
-    fireEvent.change(screen.getByTestId("nif-id"), {
-      target: { value: "ship-it" },
-    });
-    fireEvent.change(screen.getByTestId("nif-title"), {
-      target: { value: "Ship the thing" },
-    });
-    fireEvent.change(screen.getByTestId("nif-summary"), {
-      target: { value: "Tighten the bolts." },
-    });
+    fillRequiredFields();
+    // fireEvent.change on the native lane <select> must keep working.
     fireEvent.change(screen.getByTestId("nif-lane"), {
       target: { value: "frontend" },
     });
@@ -133,6 +195,41 @@ describe("NewItemForm", () => {
 
     expect(usePlanExplorerStore.getState().selectedWorkItemId).toBe("ship-it");
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("marks the primary button busy while the create is in flight", async () => {
+    let resolvePatch: (result: EditApiResult) => void = () => {};
+    const patchPlan: PatchPlanFn = vi.fn(
+      () =>
+        new Promise<EditApiResult>((resolve) => {
+          resolvePatch = resolve;
+        }),
+    );
+    render(
+      <NewItemForm
+        open
+        onClose={vi.fn()}
+        lanes={LANES}
+        baseRevision={1}
+        patchPlan={patchPlan}
+      />,
+    );
+
+    fillRequiredFields();
+    fireEvent.click(screen.getByTestId("create-bar-primary"));
+
+    const primary = screen.getByTestId(
+      "create-bar-primary",
+    ) as HTMLButtonElement;
+    expect(primary.getAttribute("aria-busy")).toBe("true");
+    expect(primary.textContent).toBe("Saving…");
+    expect(primary.disabled).toBe(true);
+
+    await act(async () => {
+      resolvePatch({ ok: true, operationId: "op-1", revision: 2 });
+      await Promise.resolve();
+    });
+    expect(primary.getAttribute("aria-busy")).toBeNull();
   });
 
   it("populates the lane select from the prefill", () => {
@@ -192,15 +289,7 @@ describe("NewItemForm", () => {
       />,
     );
 
-    fireEvent.change(screen.getByTestId("nif-id"), {
-      target: { value: "ship-it" },
-    });
-    fireEvent.change(screen.getByTestId("nif-title"), {
-      target: { value: "Ship" },
-    });
-    fireEvent.change(screen.getByTestId("nif-summary"), {
-      target: { value: "Tighten the bolts." },
-    });
+    fillRequiredFields();
 
     await act(async () => {
       fireEvent.click(screen.getByTestId("create-bar-primary"));
@@ -214,8 +303,78 @@ describe("NewItemForm", () => {
     expect(usePlanExplorerStore.getState().selectedWorkItemId).toBeNull();
   });
 
+  it("does not close on outside pointer press", async () => {
+    const onClose = vi.fn();
+    render(
+      <NewItemForm
+        open
+        onClose={onClose}
+        lanes={LANES}
+        baseRevision={1}
+        patchPlan={okPatch()}
+      />,
+    );
+    await outsideListenersArmed();
+
+    fireEvent.pointerDown(document.body);
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog", { name: "New work item" })).toBeTruthy();
+  });
+
+  it("requests close on Escape", () => {
+    const onClose = vi.fn();
+    render(
+      <NewItemForm
+        open
+        onClose={onClose}
+        lanes={LANES}
+        baseRevision={1}
+        patchPlan={okPatch()}
+      />,
+    );
+
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("exposes a header close control whose accessible name matches its purpose", () => {
+    const onClose = vi.fn();
+    render(
+      <NewItemForm
+        open
+        onClose={onClose}
+        lanes={LANES}
+        baseRevision={1}
+        patchPlan={okPatch()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("requests close via the Cancel secondary action", () => {
+    const onClose = vi.fn();
+    render(
+      <NewItemForm
+        open
+        onClose={onClose}
+        lanes={LANES}
+        baseRevision={1}
+        patchPlan={okPatch()}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("create-bar-secondary"));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it("renders nothing when open is false", () => {
-    const { container } = render(
+    render(
       <NewItemForm
         open={false}
         onClose={vi.fn()}
@@ -224,6 +383,7 @@ describe("NewItemForm", () => {
         patchPlan={okPatch()}
       />,
     );
-    expect(container.querySelector('[data-testid="new-item-form"]')).toBeNull();
+    expect(screen.queryByTestId("new-item-form")).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });

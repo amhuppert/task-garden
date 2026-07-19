@@ -7,18 +7,9 @@ import {
   screen,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { PlanPatch } from "../../../../cli/shared/patch-schema";
-import type {
-  EditApiResult,
-  PatchPlanOptions,
-} from "../../../lib/plan/edit-api-client";
+import type { PatchPlanFn } from "../../../lib/plan/edit-api-client";
 import { StringListEditorCell } from "./StringListEditorCell";
 import { useEditStore } from "./edit.store";
-
-type PatchPlanFn = (
-  patch: PlanPatch,
-  opts: PatchPlanOptions,
-) => Promise<EditApiResult>;
 
 function reset() {
   useEditStore.setState({
@@ -122,6 +113,77 @@ describe("StringListEditorCell", () => {
       field: "deliverables",
       value: ["two"],
     });
+  });
+
+  it("moves focus to the previous row's remove button after removing a later item", async () => {
+    const patchPlan = okPatch();
+    render(
+      <StringListEditorCell
+        workItemId="a"
+        committedValue={["one", "two"]}
+        baseRevision={1}
+        field="deliverables"
+        patchPlan={patchPlan}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText("Remove item two"));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(document.activeElement).toBe(
+      screen.getByLabelText("Remove item one"),
+    );
+  });
+
+  it("moves focus to the next row's remove button after removing the first item", async () => {
+    const patchPlan = okPatch();
+    render(
+      <StringListEditorCell
+        workItemId="a"
+        committedValue={["one", "two"]}
+        baseRevision={1}
+        field="deliverables"
+        patchPlan={patchPlan}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText("Remove item one"));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // The surviving row slides into the removed row's place; focus must land
+    // on its remove control, not skip past the list to the Add button.
+    // (Looked up via the row container: the fixture's committedValue restores
+    // both rows once the ok-commit resolves, so value-based labels shift.)
+    const firstRow = screen.getByTestId("string-list-row-0");
+    const rowButtons = firstRow.querySelectorAll("button");
+    expect(document.activeElement).toBe(rowButtons[rowButtons.length - 1]);
+  });
+
+  it("moves focus to the Add button after removing the only item", async () => {
+    const patchPlan = okPatch();
+    render(
+      <StringListEditorCell
+        workItemId="a"
+        committedValue={["one"]}
+        baseRevision={1}
+        field="deliverables"
+        patchPlan={patchPlan}
+      />,
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText("Remove item one"));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(document.activeElement).toBe(screen.getByTestId("string-list-add"));
   });
 
   it("filters whitespace-only entries before commit", async () => {

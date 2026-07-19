@@ -28,7 +28,10 @@ export function DocumentLink() {
       <ResourceLink
         label="Design System"
         target="memory-bank/botanical-systems-atlas.md"
-        result={docPath("Design System", "memory-bank/botanical-systems-atlas.md")}
+        result={docPath(
+          "Design System",
+          "memory-bank/botanical-systems-atlas.md",
+        )}
       />
     </div>
   );

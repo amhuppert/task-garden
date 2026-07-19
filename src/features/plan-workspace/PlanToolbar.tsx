@@ -1,17 +1,6 @@
-import {
-  FloatingFocusManager,
-  FloatingPortal,
-  autoUpdate,
-  flip,
-  offset,
-  shift,
-  useClick,
-  useDismiss,
-  useFloating,
-  useInteractions,
-} from "@floating-ui/react";
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useId, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
+import { STATUS_LABELS } from "../../lib/plan/status-presentation";
 import type {
   TaskGardenLane,
   TaskGardenStatus,
@@ -20,12 +9,16 @@ import { SectionInfoModal } from "./SectionInfoModal";
 import { LaneInlineEditor } from "./editing/LaneInlineEditor";
 import { PencilGlyph } from "./editing/glyphs";
 import {
+  type ColorEncodingMode,
+  type ScheduleOverlayMode,
+  type SizeEncodingMode,
   selectColorMode,
   selectScheduleOverlay,
   selectSizeMode,
   usePlanDisplayStore,
 } from "./plan-display.store";
 import {
+  type GraphScope,
   selectActiveScope,
   selectHasActiveFilters,
   selectLaneIds,
@@ -49,23 +42,27 @@ import {
   getScopeLabel,
   getSizeModeLabel,
 } from "./plan-toolbar.helpers";
+import { ChipRadioGroup } from "./ui/ChipRadioGroup";
+import { FilterChipGroup } from "./ui/FilterChipGroup";
+import { LiveRegion } from "./ui/LiveRegion";
+import { Popover } from "./ui/Popover";
 
-// ---------------------------------------------------------------------------
-// Display maps
-// ---------------------------------------------------------------------------
+const METRIC_SIZE_MODES: readonly MetricSizeMode[] = SIZE_MODE_OPTIONS.filter(
+  (mode): mode is MetricSizeMode => mode !== "uniform",
+);
 
-const STATUS_LABELS: Record<TaskGardenStatus, string> = {
-  planned: "Planned",
-  ready: "Ready",
-  blocked: "Blocked",
-  in_progress: "In Progress",
-  done: "Done",
-  future: "Future",
-};
-
-const METRIC_SIZE_MODES = Object.keys(
-  METRIC_SIZE_DESCRIPTIONS,
-) as MetricSizeMode[];
+/** ToggleGroup reports the whole next selection; the store exposes per-value
+    toggle actions, so recover the single value that flipped. */
+function findToggled(
+  previous: readonly string[],
+  next: readonly string[],
+): string | null {
+  return (
+    next.find((value) => !previous.includes(value)) ??
+    previous.find((value) => !next.includes(value)) ??
+    null
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Info modals (static — never re-render with store changes)
@@ -176,35 +173,58 @@ interface VisibilitySummarySectionProps {
   selectedNodeFilteredOut: boolean;
 }
 
+const SUMMARY_BOX_CLASS =
+  "flex items-center gap-2 rounded-[var(--radius-md)] border border-border bg-surface-muted px-3 py-2 text-xs";
+
 const VisibilitySummarySection = memo(function VisibilitySummarySection({
   hiddenNodeCount,
   selectedNodeFilteredOut,
 }: VisibilitySummarySectionProps) {
-  if (hiddenNodeCount === 0 && !selectedNodeFilteredOut) return null;
+  const showHiddenCount = hiddenNodeCount > 0;
+  const showAnything = showHiddenCount || selectedNodeFilteredOut;
   return (
-    <div className="flex flex-col gap-2">
-      {hiddenNodeCount > 0 && (
-        <output className="flex items-center gap-2 rounded-[var(--radius-md)] border border-border bg-surface-muted px-3 py-2 text-xs text-muted-foreground">
-          <span
-            className="h-2 w-2 shrink-0 rounded-full bg-pollen"
-            aria-hidden="true"
-          />
-          {hiddenNodeCount} item{hiddenNodeCount !== 1 ? "s" : ""} hidden by
-          filters
-        </output>
-      )}
-      {selectedNodeFilteredOut && (
-        <div
-          role="alert"
-          className="flex items-center gap-2 rounded-[var(--radius-md)] border border-border bg-surface-muted px-3 py-2 text-xs text-petal"
-        >
-          <span
-            className="h-2 w-2 shrink-0 rounded-full bg-petal"
-            aria-hidden="true"
-          />
-          Selected item is hidden by active filters
-        </div>
-      )}
+    // Live regions only announce mutations inside an already-mounted region,
+    // so both regions stay mounted. Empty regions go `sr-only` (out of flow)
+    // and the wrapper `contents`, keeping layout identical to the previous
+    // conditional rendering.
+    <div className={showAnything ? "flex flex-col gap-2" : "contents"}>
+      <LiveRegion
+        kind="status"
+        className={
+          showHiddenCount
+            ? `${SUMMARY_BOX_CLASS} text-muted-foreground`
+            : "sr-only"
+        }
+      >
+        {showHiddenCount && (
+          <>
+            <span
+              className="h-2 w-2 shrink-0 rounded-full bg-pollen"
+              aria-hidden="true"
+            />
+            {hiddenNodeCount} item{hiddenNodeCount !== 1 ? "s" : ""} hidden by
+            filters
+          </>
+        )}
+      </LiveRegion>
+      <LiveRegion
+        kind="alert"
+        className={
+          selectedNodeFilteredOut
+            ? `${SUMMARY_BOX_CLASS} text-petal`
+            : "sr-only"
+        }
+      >
+        {selectedNodeFilteredOut && (
+          <>
+            <span
+              className="h-2 w-2 shrink-0 rounded-full bg-petal"
+              aria-hidden="true"
+            />
+            Selected item is hidden by active filters
+          </>
+        )}
+      </LiveRegion>
     </div>
   );
 });
@@ -248,7 +268,8 @@ function SearchSection() {
         </span>
         <input
           ref={inputRef}
-          type="text"
+          type="search"
+          aria-keyshortcuts="/"
           className="atlas-field atlas-field-focus"
           placeholder="Search id, title, summary, tag, lane…"
           value={searchInput}
@@ -274,68 +295,38 @@ function ClearFiltersButton() {
   );
 }
 
-interface LaneChipProps {
+interface LaneEditPopoverProps {
   lane: TaskGardenLane;
-  active: boolean;
-  onToggle: () => void;
   baseRevision: number;
 }
 
-function LaneChip({ lane, active, onToggle, baseRevision }: LaneChipProps) {
+function LaneEditPopover({ lane, baseRevision }: LaneEditPopoverProps) {
+  // Controlled so LaneInlineEditor unmounts (drops its draft) on dismiss.
   const [editorOpen, setEditorOpen] = useState(false);
-  const { refs, floatingStyles, context } = useFloating({
-    open: editorOpen,
-    onOpenChange: setEditorOpen,
-    placement: "bottom-start",
-    whileElementsMounted: autoUpdate,
-    middleware: [offset(6), flip(), shift({ padding: 8 })],
-  });
-  const click = useClick(context);
-  const dismiss = useDismiss(context);
-  const { getReferenceProps, getFloatingProps } = useInteractions([
-    click,
-    dismiss,
-  ]);
-
   return (
-    <span className="group relative inline-flex items-center">
-      <button
-        type="button"
-        onClick={onToggle}
-        className={`atlas-chip hover:border-border-strong${active ? " atlas-chip-active" : ""}`}
-      >
-        {lane.label}
-      </button>
-      <button
-        ref={refs.setReference}
-        type="button"
-        aria-label={`Edit lane ${lane.label}`}
-        data-testid={`lane-edit-${lane.id}`}
-        className="ml-0.5 inline-flex items-center rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100 focus:opacity-100"
-        {...getReferenceProps()}
-      >
-        <PencilGlyph size={10} />
-      </button>
-      {editorOpen && (
-        <FloatingPortal>
-          <FloatingFocusManager context={context} modal={false}>
-            <div
-              ref={refs.setFloating}
-              style={floatingStyles}
-              className="atlas-panel z-50 w-64"
-              aria-label={`Edit lane ${lane.label}`}
-              {...getFloatingProps()}
-            >
-              <LaneInlineEditor
-                laneId={lane.id}
-                committedLane={lane}
-                baseRevision={baseRevision}
-              />
-            </div>
-          </FloatingFocusManager>
-        </FloatingPortal>
-      )}
-    </span>
+    <Popover
+      trigger={
+        <button
+          type="button"
+          aria-label={`Edit lane ${lane.label}`}
+          data-testid={`lane-edit-${lane.id}`}
+          className="ml-0.5 inline-flex items-center rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100 focus:opacity-100"
+        >
+          <PencilGlyph size={10} />
+        </button>
+      }
+      ariaLabel={`Edit lane ${lane.label}`}
+      open={editorOpen}
+      onOpenChange={setEditorOpen}
+    >
+      <div className="w-64">
+        <LaneInlineEditor
+          laneId={lane.id}
+          committedLane={lane}
+          baseRevision={baseRevision}
+        />
+      </div>
+    </Popover>
   );
 }
 
@@ -350,21 +341,26 @@ const LaneFilterSection = memo(function LaneFilterSection({
 }: LaneFilterSectionProps) {
   const activeLaneIds = usePlanExplorerStore(selectLaneIds);
   const toggleLaneFilter = usePlanExplorerStore((s) => s.toggleLaneFilter);
+  const labelId = useId();
   if (lanes.length === 0) return null;
   return (
     <section>
-      <span className="atlas-kicker mb-2 block">Lane</span>
-      <div className="flex flex-wrap gap-1.5">
-        {lanes.map((lane) => (
-          <LaneChip
-            key={lane.id}
-            lane={lane}
-            active={activeLaneIds.includes(lane.id)}
-            onToggle={() => toggleLaneFilter(lane.id)}
-            baseRevision={baseRevision}
-          />
-        ))}
-      </div>
+      <span id={labelId} className="atlas-kicker mb-2 block">
+        Lane
+      </span>
+      <FilterChipGroup
+        options={lanes.map((lane) => ({
+          value: lane.id,
+          label: lane.label,
+          trailing: <LaneEditPopover lane={lane} baseRevision={baseRevision} />,
+        }))}
+        values={[...activeLaneIds]}
+        onValuesChange={(next) => {
+          const toggled = findToggled(activeLaneIds, next);
+          if (toggled !== null) toggleLaneFilter(toggled);
+        }}
+        labelId={labelId}
+      />
     </section>
   );
 });
@@ -378,22 +374,26 @@ const StatusFilterSection = memo(function StatusFilterSection({
 }: StatusFilterSectionProps) {
   const activeStatuses = usePlanExplorerStore(selectStatuses);
   const toggleStatusFilter = usePlanExplorerStore((s) => s.toggleStatusFilter);
+  const labelId = useId();
   if (availableStatuses.length === 0) return null;
   return (
     <section>
-      <span className="atlas-kicker mb-2 block">Status</span>
-      <div className="flex flex-wrap gap-1.5">
-        {availableStatuses.map((status) => (
-          <button
-            key={status}
-            type="button"
-            onClick={() => toggleStatusFilter(status)}
-            className={`atlas-chip hover:border-border-strong${activeStatuses.includes(status) ? " atlas-chip-active" : ""}`}
-          >
-            {STATUS_LABELS[status]}
-          </button>
-        ))}
-      </div>
+      <span id={labelId} className="atlas-kicker mb-2 block">
+        Status
+      </span>
+      <FilterChipGroup
+        options={availableStatuses.map((status) => ({
+          value: status,
+          label: STATUS_LABELS[status],
+        }))}
+        values={[...activeStatuses]}
+        onValuesChange={(next) => {
+          const toggled = findToggled(activeStatuses, next);
+          // Values originate from availableStatuses, so the cast is sound.
+          if (toggled !== null) toggleStatusFilter(toggled as TaskGardenStatus);
+        }}
+        labelId={labelId}
+      />
     </section>
   );
 });
@@ -410,6 +410,8 @@ const TagFilterSection = memo(function TagFilterSection({
   const [tagsExpanded, setTagsExpanded] = useState(
     () => availableTags.length <= 5,
   );
+  const labelId = useId();
+  const chipsId = useId();
   if (availableTags.length === 0) return null;
 
   const visibleTags = (() => {
@@ -426,9 +428,11 @@ const TagFilterSection = memo(function TagFilterSection({
       <button
         type="button"
         onClick={() => setTagsExpanded((v) => !v)}
+        aria-expanded={tagsExpanded}
+        aria-controls={chipsId}
         className="atlas-kicker mb-2 flex w-full items-center justify-between"
       >
-        <span>Tags</span>
+        <span id={labelId}>Tags</span>
         <svg
           width="12"
           height="12"
@@ -446,19 +450,18 @@ const TagFilterSection = memo(function TagFilterSection({
           />
         </svg>
       </button>
-      <div className="flex flex-wrap gap-1.5">
-        {visibleTags.map((tag) => (
-          <button
-            key={tag}
-            type="button"
-            onClick={() => toggleTagFilter(tag)}
-            className={`atlas-chip hover:border-border-strong${activeTags.includes(tag) ? " atlas-chip-active" : ""}`}
-          >
-            {tag}
-          </button>
-        ))}
+      <div id={chipsId} className="flex flex-wrap items-center gap-1.5">
+        <FilterChipGroup
+          options={visibleTags.map((tag) => ({ value: tag, label: tag }))}
+          values={[...activeTags]}
+          onValuesChange={(next) => {
+            const toggled = findToggled(activeTags, next);
+            if (toggled !== null) toggleTagFilter(toggled);
+          }}
+          labelId={labelId}
+        />
         {hiddenCount > 0 && (
-          <span className="text-xs text-muted-foreground self-center">
+          <span className="self-center text-xs text-muted-foreground">
             +{hiddenCount} more
           </span>
         )}
@@ -471,12 +474,14 @@ function ScopeSection() {
   const activeScope = usePlanExplorerStore(selectActiveScope);
   const selectedWorkItemId = usePlanExplorerStore(selectSelectedWorkItemId);
   const setScope = usePlanExplorerStore((s) => s.setScope);
+  const labelId = useId();
+  const hintId = useId();
   const hasSelection = selectedWorkItemId !== null;
   return (
     <section>
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className="atlas-kicker flex shrink-0 items-center gap-1.5 whitespace-nowrap">
-          Scope
+          <span id={labelId}>Scope</span>
           <ScopeInfoModal />
         </span>
         <span className="min-w-0 truncate whitespace-nowrap font-mono text-xs text-muted-foreground">
@@ -484,27 +489,21 @@ function ScopeSection() {
         </span>
       </div>
       {!hasSelection && (
-        <p className="mb-2 text-xs text-muted-foreground">
+        <p id={hintId} className="mb-2 text-xs text-muted-foreground">
           Select an item to scope the view
         </p>
       )}
-      <div className="flex flex-wrap gap-1.5">
-        {SCOPE_OPTIONS.map((scope) => {
-          const isDisabled = !hasSelection && scope !== "all";
-          return (
-            <button
-              key={scope}
-              type="button"
-              onClick={() => setScope(scope)}
-              disabled={isDisabled}
-              aria-pressed={activeScope === scope}
-              className={`atlas-chip hover:border-border-strong disabled:cursor-not-allowed disabled:opacity-40${activeScope === scope ? " atlas-chip-active" : ""}`}
-            >
-              {getScopeLabel(scope)}
-            </button>
-          );
-        })}
-      </div>
+      <ChipRadioGroup
+        options={SCOPE_OPTIONS.map((scope) => ({
+          value: scope,
+          label: getScopeLabel(scope),
+          disabled: !hasSelection && scope !== "all",
+        }))}
+        value={activeScope}
+        onValueChange={(value) => setScope(value as GraphScope)}
+        labelId={labelId}
+        describedById={hasSelection ? undefined : hintId}
+      />
     </section>
   );
 }
@@ -512,30 +511,27 @@ function ScopeSection() {
 function ColorEncodingSection() {
   const colorMode = usePlanDisplayStore(selectColorMode);
   const setColorMode = usePlanDisplayStore((s) => s.setColorMode);
+  const labelId = useId();
   return (
     <section>
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className="atlas-kicker flex shrink-0 items-center gap-1.5 whitespace-nowrap">
-          Color
+          <span id={labelId}>Color</span>
           <ColorInfoModal />
         </span>
         <span className="min-w-0 truncate whitespace-nowrap font-mono text-xs text-muted-foreground">
           {getColorModeLabel(colorMode)}
         </span>
       </div>
-      <div className="flex flex-wrap gap-1.5">
-        {COLOR_MODE_OPTIONS.map((mode) => (
-          <button
-            key={mode}
-            type="button"
-            onClick={() => setColorMode(mode)}
-            aria-pressed={colorMode === mode}
-            className={`atlas-chip hover:border-border-strong${colorMode === mode ? " atlas-chip-active" : ""}`}
-          >
-            {getColorModeLabel(mode)}
-          </button>
-        ))}
-      </div>
+      <ChipRadioGroup
+        options={COLOR_MODE_OPTIONS.map((mode) => ({
+          value: mode,
+          label: getColorModeLabel(mode),
+        }))}
+        value={colorMode}
+        onValueChange={(value) => setColorMode(value as ColorEncodingMode)}
+        labelId={labelId}
+      />
     </section>
   );
 }
@@ -543,30 +539,29 @@ function ColorEncodingSection() {
 function ScheduleOverlaySection() {
   const scheduleOverlay = usePlanDisplayStore(selectScheduleOverlay);
   const setScheduleOverlay = usePlanDisplayStore((s) => s.setScheduleOverlay);
+  const labelId = useId();
   return (
     <section>
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className="atlas-kicker flex shrink-0 items-center gap-1.5 whitespace-nowrap">
-          Schedule Overlay
+          <span id={labelId}>Schedule Overlay</span>
           <ScheduleOverlayInfoModal />
         </span>
         <span className="min-w-0 truncate whitespace-nowrap font-mono text-xs text-muted-foreground">
           {getScheduleOverlayLabel(scheduleOverlay)}
         </span>
       </div>
-      <div className="flex flex-wrap gap-1.5">
-        {SCHEDULE_OVERLAY_OPTIONS.map((mode) => (
-          <button
-            key={mode}
-            type="button"
-            onClick={() => setScheduleOverlay(mode)}
-            aria-pressed={scheduleOverlay === mode}
-            className={`atlas-chip hover:border-border-strong${scheduleOverlay === mode ? " atlas-chip-active" : ""}`}
-          >
-            {getScheduleOverlayLabel(mode)}
-          </button>
-        ))}
-      </div>
+      <ChipRadioGroup
+        options={SCHEDULE_OVERLAY_OPTIONS.map((mode) => ({
+          value: mode,
+          label: getScheduleOverlayLabel(mode),
+        }))}
+        value={scheduleOverlay}
+        onValueChange={(value) =>
+          setScheduleOverlay(value as ScheduleOverlayMode)
+        }
+        labelId={labelId}
+      />
     </section>
   );
 }
@@ -574,30 +569,27 @@ function ScheduleOverlaySection() {
 function SizeEncodingSection() {
   const sizeMode = usePlanDisplayStore(selectSizeMode);
   const setSizeMode = usePlanDisplayStore((s) => s.setSizeMode);
+  const labelId = useId();
   return (
     <section>
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className="atlas-kicker flex shrink-0 items-center gap-1.5 whitespace-nowrap">
-          Node Size
+          <span id={labelId}>Node Size</span>
           <SizeInfoModal />
         </span>
         <span className="min-w-0 truncate whitespace-nowrap font-mono text-xs text-muted-foreground">
           {getSizeModeLabel(sizeMode)}
         </span>
       </div>
-      <div className="flex flex-wrap gap-1.5">
-        {SIZE_MODE_OPTIONS.map((mode) => (
-          <button
-            key={mode}
-            type="button"
-            onClick={() => setSizeMode(mode)}
-            aria-pressed={sizeMode === mode}
-            className={`atlas-chip hover:border-border-strong${sizeMode === mode ? " atlas-chip-active" : ""}`}
-          >
-            {getSizeModeLabel(mode)}
-          </button>
-        ))}
-      </div>
+      <ChipRadioGroup
+        options={SIZE_MODE_OPTIONS.map((mode) => ({
+          value: mode,
+          label: getSizeModeLabel(mode),
+        }))}
+        value={sizeMode}
+        onValueChange={(value) => setSizeMode(value as SizeEncodingMode)}
+        labelId={labelId}
+      />
     </section>
   );
 }

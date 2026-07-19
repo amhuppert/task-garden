@@ -1,22 +1,16 @@
-import { useCallback } from "react";
-import type { PlanPatch } from "../../../../cli/shared/patch-schema";
-import type {
-  EditApiResult,
-  PatchPlanOptions,
-} from "../../../lib/plan/edit-api-client";
+import { useCallback, useId } from "react";
+import type { PatchPlanFn } from "../../../lib/plan/edit-api-client";
 import type {
   TaskGardenLink,
   TaskGardenPlan,
 } from "../../../lib/plan/task-garden-plan.schema";
+import { FieldShell } from "../ui/FieldShell";
+import { RowListEditor } from "../ui/RowListEditor";
 import { FieldSaveIndicator } from "./FieldSaveIndicator";
-import { CloseGlyph, PlusGlyph } from "./glyphs";
+import { draftKeys } from "./edit.store";
+import { CloseGlyph } from "./glyphs";
 import { patchTargets } from "./patch-targets";
 import { useFieldDraft } from "./useFieldDraft";
-
-type PatchPlanFn = (
-  patch: PlanPatch,
-  opts: PatchPlanOptions,
-) => Promise<EditApiResult>;
 
 export interface PlanOverviewEditorProps {
   plan: TaskGardenPlan;
@@ -47,7 +41,8 @@ function PlanScalarField({
   testId: string;
   type?: string;
 }) {
-  const key = `plan:${fieldKey}`;
+  const key = draftKeys.plan(fieldKey);
+  const inputId = useId();
   const buildPatch = useCallback(
     (next: string) => patchTargets.planField(field, next),
     [field],
@@ -74,22 +69,16 @@ function PlanScalarField({
   };
 
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-2">
-        <span className="atlas-kicker">{label}</span>
-        {isDirty && (
-          <span
-            aria-hidden="true"
-            className="inline-block h-1.5 w-1.5 rounded-full"
-            style={{ backgroundColor: "var(--color-pollen)" }}
-          />
-        )}
-        <FieldSaveIndicator stateKey={key} />
-      </div>
+    <FieldShell
+      label={label}
+      htmlFor={inputId}
+      dirty={isDirty}
+      status={<FieldSaveIndicator stateKey={key} />}
+    >
       {multiline ? (
         <textarea
+          id={inputId}
           data-testid={testId}
-          aria-label={label}
           value={value}
           onChange={handleChange}
           onBlur={handleBlur}
@@ -98,8 +87,8 @@ function PlanScalarField({
         />
       ) : (
         <input
+          id={inputId}
           data-testid={testId}
-          aria-label={label}
           type={type ?? "text"}
           value={value}
           onChange={handleChange}
@@ -107,7 +96,7 @@ function PlanScalarField({
           className="rounded-[var(--radius-sm)] border border-border bg-surface px-2 py-1 text-sm text-foreground outline-none focus:border-moss"
         />
       )}
-    </div>
+    </FieldShell>
   );
 }
 
@@ -121,6 +110,7 @@ function PlanReferencesField({
   patchPlan?: PatchPlanFn;
 }) {
   const key = "plan:references";
+  const labelId = useId();
 
   const buildPatch = useCallback(
     (next: readonly DraftLink[]) =>
@@ -147,63 +137,33 @@ function PlanReferencesField({
     patchPlan,
   });
 
-  const updateRow = (index: number, patch: Partial<DraftLink>) => {
-    const arr = value.map((row, i) =>
-      i === index ? { ...row, ...patch } : row,
-    );
-    setDraft(arr);
-  };
-
-  const handleAdd = () => {
-    setDraft([...value, { label: "", href: "" }]);
-  };
-
-  const handleRemove = (index: number) => {
-    const arr = value.filter((_, i) => i !== index);
-    setDraft(arr);
-    queueMicrotask(() => {
-      void commit();
-    });
-  };
-
-  // Commit only when focus leaves the row entirely (not when moving between
-  // the row's own label/href inputs).
-  const handleRowBlur = (event: React.FocusEvent<HTMLDivElement>) => {
-    const next = event.relatedTarget as Node | null;
-    if (next && event.currentTarget.contains(next)) return;
-    queueMicrotask(() => {
-      void commit();
-    });
-  };
-
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-2">
-        <span className="atlas-kicker">Plan References</span>
-        {isDirty && (
-          <span
-            aria-hidden="true"
-            className="inline-block h-1.5 w-1.5 rounded-full"
-            style={{ backgroundColor: "var(--color-pollen)" }}
-          />
-        )}
-        <FieldSaveIndicator stateKey={key} />
-      </div>
-      <div className="flex flex-col gap-1.5">
-        {value.map((row, index) => (
-          <div
-            // biome-ignore lint/suspicious/noArrayIndexKey: rows lack stable identity
-            key={index}
-            onBlur={handleRowBlur}
-            className="flex items-center gap-2 rounded-[var(--radius-md)] border border-border bg-surface px-2 py-1"
-          >
+    <FieldShell
+      label="Plan References"
+      labelId={labelId}
+      dirty={isDirty}
+      status={<FieldSaveIndicator stateKey={key} />}
+    >
+      <RowListEditor<DraftLink>
+        rows={value}
+        onRowsChange={setDraft}
+        onCommit={() => {
+          void commit();
+        }}
+        commitOn="row-blur"
+        makeEmptyRow={() => ({ label: "", href: "" })}
+        addLabel="Add reference"
+        labelId={labelId}
+        testIdPrefix="plan-ref-"
+        renderRow={(row, index, api) => (
+          <>
             <input
               data-testid={`plan-ref-label-${index}`}
               aria-label={`Reference label ${index + 1}`}
               placeholder="Label"
               value={row.label}
               onChange={(event) =>
-                updateRow(index, { label: event.target.value })
+                api.update({ ...row, label: event.target.value })
               }
               className="w-28 rounded border border-transparent bg-transparent px-1 py-0.5 text-sm text-foreground outline-none focus:border-moss"
             />
@@ -213,31 +173,22 @@ function PlanReferencesField({
               placeholder="https://... or file path"
               value={row.href}
               onChange={(event) =>
-                updateRow(index, { href: event.target.value })
+                api.update({ ...row, href: event.target.value })
               }
               className="flex-1 rounded border border-transparent bg-transparent px-1 py-0.5 text-sm text-foreground outline-none focus:border-moss"
             />
             <button
               type="button"
               aria-label={`Remove reference ${row.label || index + 1}`}
-              onClick={() => handleRemove(index)}
+              onClick={api.remove}
               className="inline-flex items-center rounded p-1 text-muted-foreground hover:text-foreground"
             >
               <CloseGlyph size={9} />
             </button>
-          </div>
-        ))}
-        <button
-          type="button"
-          data-testid="plan-ref-add"
-          onClick={handleAdd}
-          className="flex items-center gap-2 rounded-[var(--radius-md)] border border-dashed border-border-strong bg-transparent px-3 py-1.5 text-left text-sm text-muted-foreground hover:text-foreground"
-        >
-          <PlusGlyph size={9} />
-          Add reference
-        </button>
-      </div>
-    </div>
+          </>
+        )}
+      />
+    </FieldShell>
   );
 }
 

@@ -1,20 +1,22 @@
 import dagre from "@dagrejs/dagre";
-import { compactUnitSuffix } from "../../features/plan-workspace/plan-details-panel.helpers";
-import type {
-  ColorEncodingMode,
-  PlanDisplayStateValue,
-  ScheduleOverlayMode,
-  SizeEncodingMode,
-} from "../../features/plan-workspace/plan-display.store";
-import type {
-  GraphScope,
-  PlanExplorerStateValue,
-} from "../../features/plan-workspace/plan-explorer.store";
-import { getLanePaletteColor } from "../../features/plan-workspace/plan-graph-canvas.helpers";
+import { ALL_STATUSES, STATUS_LABELS } from "../plan/status-presentation";
 import type { TaskGardenWorkItem } from "../plan/task-garden-plan.schema";
 import type {
+  GraphScope,
+  PlanDisplayStateValue,
+  PlanExplorerStateValue,
+  ScheduleOverlayMode,
+} from "./graph-view-state";
+import { getLanePaletteColor } from "./lane-palette";
+import {
+  type ColorEncodingMode,
+  type MetricKey,
+  type SizeEncodingMode,
+  compactUnitSuffix,
+  formatMetricValue,
+} from "./metric-registry";
+import type {
   EstimateUnit,
-  MetricKey,
   PlanAnalysisSnapshot,
   WorkItemAnalysis,
 } from "./plan-analysis-engine";
@@ -47,6 +49,11 @@ export interface FlowNodeData {
 export interface FlowNode {
   id: string;
   position: { x: number; y: number };
+  /**
+   * Accessible name for the focusable node React Flow renders (role=group
+   * computes no name from contents, so without this the tab stop is unnamed).
+   */
+  ariaLabel: string;
   data: FlowNodeData;
 }
 
@@ -485,18 +492,6 @@ function buildColorLegend(
   colorMode: ColorEncodingMode,
   visibleIds: ReadonlySet<string>,
 ): DisplayLegend {
-  const unitSuffix = compactUnitSuffix(snapshot.estimateUnit);
-  const formatMetricValue = (metric: MetricKey, value: number): string => {
-    if (
-      metric === "estimate_days" ||
-      metric === "remaining_days" ||
-      metric === "downstream_effort_days"
-    ) {
-      return `${Number.isInteger(value) ? value : value.toFixed(1)}${unitSuffix}`;
-    }
-    return value.toFixed(2);
-  };
-
   switch (colorMode) {
     case "default":
       return {
@@ -519,17 +514,9 @@ function buildColorLegend(
     }
 
     case "status": {
-      const statuses: TaskGardenWorkItem["status"][] = [
-        "planned",
-        "ready",
-        "blocked",
-        "in_progress",
-        "done",
-        "future",
-      ];
       return {
         title: "Status",
-        items: statuses.map((s) => ({
+        items: ALL_STATUSES.map((s) => ({
           key: s,
           label: s.replace(/_/g, " "),
           value: s,
@@ -537,14 +524,8 @@ function buildColorLegend(
       };
     }
 
-    case "value":
-    case "value_per_effort":
-    case "estimate_days":
-    case "remaining_days":
-    case "downstream_effort_days":
-    case "degree":
-    case "betweenness":
-    case "dependency_span": {
+    // Remaining modes are metric encodings; the registry narrows the union.
+    default: {
       const stats = computeVisibleMetricStats(snapshot, colorMode, visibleIds);
       if (stats === null || stats.min === stats.max) {
         return {
@@ -559,12 +540,20 @@ function buildColorLegend(
           {
             key: "low",
             label: "Low",
-            value: formatMetricValue(colorMode, stats.min),
+            value: formatMetricValue(
+              colorMode,
+              stats.min,
+              snapshot.estimateUnit,
+            ),
           },
           {
             key: "high",
             label: "High",
-            value: formatMetricValue(colorMode, stats.max),
+            value: formatMetricValue(
+              colorMode,
+              stats.max,
+              snapshot.estimateUnit,
+            ),
           },
         ],
       };
@@ -578,20 +567,6 @@ function buildSizeLegend(
   visibleIds: ReadonlySet<string>,
 ): DisplayLegend | null {
   if (sizeMode === "uniform") return null;
-  const unitSuffix = compactUnitSuffix(snapshot.estimateUnit);
-  const formatMetricValue = (
-    metric: SizeEncodingMode,
-    value: number,
-  ): string => {
-    if (
-      metric === "estimate_days" ||
-      metric === "remaining_days" ||
-      metric === "downstream_effort_days"
-    ) {
-      return `${Number.isInteger(value) ? value : value.toFixed(1)}${unitSuffix}`;
-    }
-    return value.toFixed(2);
-  };
   const stats = computeVisibleMetricStats(snapshot, sizeMode, visibleIds);
   if (stats === null || stats.min === stats.max) {
     return {
@@ -600,24 +575,15 @@ function buildSizeLegend(
       fallbackMessage: `All visible nodes have the same ${sizeMode.replace(/_/g, " ")} value; size encoding is not meaningful.`,
     };
   }
+  const min = formatMetricValue(sizeMode, stats.min, snapshot.estimateUnit);
+  const mean = formatMetricValue(sizeMode, stats.mean, snapshot.estimateUnit);
+  const max = formatMetricValue(sizeMode, stats.max, snapshot.estimateUnit);
   return {
     title: `Size: ${sizeMode.replace(/_/g, " ")}`,
     items: [
-      {
-        key: "min",
-        label: formatMetricValue(sizeMode, stats.min),
-        value: formatMetricValue(sizeMode, stats.min),
-      },
-      {
-        key: "mean",
-        label: formatMetricValue(sizeMode, stats.mean),
-        value: formatMetricValue(sizeMode, stats.mean),
-      },
-      {
-        key: "max",
-        label: formatMetricValue(sizeMode, stats.max),
-        value: formatMetricValue(sizeMode, stats.max),
-      },
+      { key: "min", label: min, value: min },
+      { key: "mean", label: mean, value: mean },
+      { key: "max", label: max, value: max },
     ],
   };
 }
@@ -871,9 +837,21 @@ export function createFlowProjectionService(): FlowProjectionService {
       const analysis = analysisById[nodeId]!;
       const lane = snapshot.plan.lanes.find((l) => l.id === item.lane);
       const laneIndex = snapshot.laneOrder.indexOf(item.lane);
+      const labelParts = [
+        item.title,
+        lane?.label ?? item.lane,
+        STATUS_LABELS[item.status],
+      ];
+      if (item.estimate !== undefined) {
+        labelParts.push(`estimate ${item.estimate} ${snapshot.estimateUnit}`);
+      }
+      if (analysis.schedule.isOnCriticalPath) {
+        labelParts.push("critical path");
+      }
       return {
         id: nodeId,
         position: positions.get(nodeId) ?? { x: 0, y: 0 },
+        ariaLabel: labelParts.join(", "),
         data: {
           id: nodeId,
           title: item.title,

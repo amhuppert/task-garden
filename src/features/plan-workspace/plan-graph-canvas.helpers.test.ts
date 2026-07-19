@@ -25,6 +25,7 @@ function makeNode(
   return {
     id,
     position: { x, y },
+    ariaLabel: `Item ${id}, ${laneLabel}, Planned`,
     data: {
       id,
       title: `Item ${id}`,

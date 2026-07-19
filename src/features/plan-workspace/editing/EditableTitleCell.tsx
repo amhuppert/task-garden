@@ -1,17 +1,11 @@
-import { useCallback, useLayoutEffect, useRef, useState } from "react";
-import type { PlanPatch } from "../../../../cli/shared/patch-schema";
-import type {
-  EditApiResult,
-  PatchPlanOptions,
-} from "../../../lib/plan/edit-api-client";
+import { useCallback } from "react";
+import type { PatchPlanFn } from "../../../lib/plan/edit-api-client";
+import { FieldShell } from "../ui/FieldShell";
+import { InlineTextEditor } from "../ui/InlineTextEditor";
 import { FieldSaveIndicator } from "./FieldSaveIndicator";
+import { draftKeys } from "./edit.store";
 import { patchTargets } from "./patch-targets";
 import { useFieldDraft } from "./useFieldDraft";
-
-type PatchPlanFn = (
-  patch: PlanPatch,
-  opts: PatchPlanOptions,
-) => Promise<EditApiResult>;
 
 export interface EditableTitleCellProps {
   workItemId: string;
@@ -26,7 +20,7 @@ export function EditableTitleCell({
   baseRevision,
   patchPlan,
 }: EditableTitleCellProps) {
-  const key = `work_item:${workItemId}:title`;
+  const key = draftKeys.workItemField(workItemId, "title");
 
   const buildPatch = useCallback(
     (next: string) => patchTargets.workItemField(workItemId, "title", next),
@@ -41,83 +35,21 @@ export function EditableTitleCell({
     patchPlan,
   });
 
-  const [focused, setFocused] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  // Sync the DOM imperatively rather than rendering {value} as a JSX child.
-  // Rendering it as a child causes React to reconcile the text node on every
-  // keystroke (each input → setDraft → re-render), which writes to nodeValue
-  // and collapses the caret to position 0 in real browsers.
-  useLayoutEffect(() => {
-    if (focused) return;
-    const el = ref.current;
-    if (!el) return;
-    if (el.textContent !== value) {
-      el.textContent = value;
-    }
-  }, [value, focused]);
-
-  const handleInput = (event: React.FormEvent<HTMLDivElement>) => {
-    setDraft(event.currentTarget.textContent ?? "");
-  };
-
-  const handleFocus = () => setFocused(true);
-
-  const handleBlur = () => {
-    setFocused(false);
-    void commit();
-  };
-
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      event.currentTarget.blur();
-    } else if (event.key === "Escape") {
-      event.preventDefault();
-      rollback();
-      const el = ref.current;
-      if (el) {
-        el.textContent = committedValue;
-      }
-      event.currentTarget.blur();
-    }
-  };
-
-  const stateClasses = focused
-    ? "border-moss bg-[color-mix(in_oklab,var(--color-lichen)_12%,transparent)]"
-    : "border-transparent hover:border-[color-mix(in_oklab,var(--color-border-strong)_70%,transparent)] hover:border-dashed";
-
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-2">
-        <span className="atlas-kicker">Title</span>
-        {isDirty && (
-          <span
-            aria-hidden="true"
-            className="inline-block h-1.5 w-1.5 rounded-full"
-            style={{ backgroundColor: "var(--color-pollen)" }}
-            data-testid="title-dirty-dot"
-          />
-        )}
-        <FieldSaveIndicator stateKey={key} />
-      </div>
-      <div
-        ref={ref}
-        // biome-ignore lint/a11y/useSemanticElements: contentEditable is required for inline title editing
-        role="textbox"
-        tabIndex={0}
-        aria-label="Work item title"
-        aria-multiline="false"
-        data-testid="editable-title"
-        contentEditable
-        suppressContentEditableWarning
-        spellCheck={false}
-        onFocus={handleFocus}
-        onBlur={handleBlur}
-        onInput={handleInput}
-        onKeyDown={handleKeyDown}
-        className={`atlas-title text-xl leading-tight text-foreground rounded-[var(--radius-sm)] border px-1 py-0.5 -mx-1 outline-none transition-colors ${stateClasses}`}
+    <FieldShell
+      label="Title"
+      dirty={isDirty}
+      status={<FieldSaveIndicator stateKey={key} />}
+    >
+      <InlineTextEditor
+        value={value}
+        onInput={setDraft}
+        onCommit={() => void commit()}
+        onCancel={rollback}
+        ariaLabel="Work item title"
+        testId="editable-title"
+        className="atlas-title text-xl leading-tight text-foreground rounded-[var(--radius-sm)] border-transparent px-1 py-0.5 -mx-1"
       />
-    </div>
+    </FieldShell>
   );
 }

@@ -1,17 +1,7 @@
-import {
-  FloatingPortal,
-  autoUpdate,
-  flip,
-  offset,
-  shift,
-  useDismiss,
-  useFloating,
-  useHover,
-  useInteractions,
-} from "@floating-ui/react";
 import { Handle, type Node, type NodeProps, Position } from "@xyflow/react";
-import { memo, useContext, useState } from "react";
+import { memo, useContext } from "react";
 import type { FlowNodeData } from "../../lib/graph/flow-projection-service";
+import { STATUS_LABELS } from "../../lib/plan/status-presentation";
 import {
   compactUnitSuffix,
   formatCompactUnitValue,
@@ -32,6 +22,7 @@ import {
   getStatusAccentColor,
   normalizeMetric,
 } from "./plan-graph-canvas.helpers";
+import { Tooltip } from "./ui/Tooltip";
 
 // ---------------------------------------------------------------------------
 // Node type declaration
@@ -49,15 +40,6 @@ const MAX_BUBBLE_SIZE = 72;
 // ---------------------------------------------------------------------------
 // Display labels
 // ---------------------------------------------------------------------------
-
-const STATUS_LABELS: Record<FlowNodeData["status"], string> = {
-  planned: "Planned",
-  ready: "Ready",
-  blocked: "Blocked",
-  in_progress: "In Progress",
-  done: "Done",
-  future: "Future",
-};
 
 const METRIC_LABELS: Record<string, string> = {
   value: "Value",
@@ -186,21 +168,92 @@ function MetricBubbleNodeImpl({ data }: NodeProps<MetricBubbleNodeType>) {
     scheduleOverlay === "slack_heatmap" && hasEstimate && slackColor !== null;
   const slackLabel = `${Number.isInteger(data.slackDays) ? data.slackDays : data.slackDays.toFixed(1)}${unitSuffix} buffer`;
 
-  // Floating UI tooltip
-  const [isOpen, setIsOpen] = useState(false);
-  const { refs, floatingStyles, context } = useFloating({
-    open: isOpen,
-    onOpenChange: setIsOpen,
-    placement: "top",
-    middleware: [offset(8), flip(), shift({ padding: 8 })],
-    whileElementsMounted: autoUpdate,
-  });
-  const hover = useHover(context, { delay: { open: 200, close: 0 } });
-  const dismiss = useDismiss(context);
-  const { getReferenceProps, getFloatingProps } = useInteractions([
-    hover,
-    dismiss,
-  ]);
+  const tooltipContent = (
+    <>
+      <p className="mb-1 text-sm font-semibold text-foreground">{data.title}</p>
+      <div className="mb-1 flex items-center gap-1.5">
+        <span
+          className="h-1.5 w-1.5 rounded-full"
+          style={{ backgroundColor: getStatusAccentColor(data.status) }}
+        />
+        <span className="text-xs text-muted-foreground">
+          {STATUS_LABELS[data.status]}
+        </span>
+      </div>
+      <div className="flex items-center justify-between gap-2">
+        <span className="truncate text-xs text-muted-foreground">
+          {data.laneLabel}
+        </span>
+        <span className="font-mono text-xs font-bold text-foreground">
+          V{formatValue(data.value)}
+        </span>
+      </div>
+      {(compactEstimate || data.isOnCriticalPath) && (
+        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+          {compactEstimate && (
+            <span className="atlas-microchip text-foreground">
+              {compactEstimate}
+            </span>
+          )}
+          {showCriticalPathOverlay ? (
+            <span
+              className="atlas-microchip"
+              style={{
+                borderColor:
+                  "color-mix(in oklab, var(--color-pollen) 44%, transparent)",
+                color: "var(--color-pollen)",
+              }}
+            >
+              Path {data.criticalPathOrder! + 1}
+            </span>
+          ) : data.isOnCriticalPath ? (
+            <span
+              className="atlas-microchip"
+              style={{
+                borderColor:
+                  "color-mix(in oklab, var(--color-pollen) 44%, transparent)",
+                color: "var(--color-pollen)",
+              }}
+            >
+              Critical
+            </span>
+          ) : null}
+        </div>
+      )}
+      {showSlackHeatOverlay && slackColor && (
+        <div className="mt-1 flex items-center gap-1.5">
+          <span
+            aria-hidden="true"
+            className="h-2 w-2 rounded-full"
+            style={{ backgroundColor: slackColor }}
+          />
+          <span className="text-xs text-muted-foreground">
+            Slack: {slackLabel}
+          </span>
+        </div>
+      )}
+      {sizeMode !== "uniform" && (
+        <div className="mt-1.5 border-t border-border pt-1.5">
+          <span className="text-xs text-muted-foreground">
+            {metricLabel}:{" "}
+            {!Number.isFinite(metricValue)
+              ? "—"
+              : sizeMode === "value"
+                ? formatValue(metricValue)
+                : sizeMode === "value_per_effort"
+                  ? formatValueDensity(metricValue)
+                  : sizeMode === "estimate_days" ||
+                      sizeMode === "remaining_days" ||
+                      sizeMode === "downstream_effort_days"
+                    ? `${Number.isInteger(metricValue) ? metricValue : metricValue.toFixed(1)}${unitSuffix}`
+                    : Number.isInteger(metricValue)
+                      ? String(metricValue)
+                      : metricValue.toFixed(2)}
+          </span>
+        </div>
+      )}
+    </>
+  );
 
   return (
     <div
@@ -227,46 +280,50 @@ function MetricBubbleNodeImpl({ data }: NodeProps<MetricBubbleNodeType>) {
         style={{ opacity: 0, pointerEvents: "none" }}
       />
 
-      {/* Bubble circle */}
-      <div
-        ref={refs.setReference}
-        {...getReferenceProps()}
-        style={{
-          width: diameter,
-          height: diameter,
-          backgroundColor: bubbleColor,
-          borderRadius: "50%",
-          border: "1px solid var(--color-node-stroke)",
-          boxShadow: "var(--shadow-specimen)",
-          flexShrink: 0,
-          cursor: "pointer",
-          position: "relative",
-          overflow: "hidden",
-        }}
-      >
-        {showSlackHeatOverlay && (
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-[2px] rounded-full"
-            style={{
-              border: `1px solid color-mix(in oklab, ${slackColor} 30%, transparent)`,
-              background: `radial-gradient(circle at 30% 28%, color-mix(in oklab, ${slackColor} 22%, transparent), transparent 58%)`,
-              boxShadow: `inset 0 0 0 1px color-mix(in oklab, ${slackColor} 10%, transparent), 0 18px 34px color-mix(in oklab, ${slackColor} 10%, transparent)`,
-            }}
-          />
-        )}
+      {/* Bubble circle — a focusable trigger so the detail tooltip opens on
+          keyboard focus, not just hover (200ms matches the old hover delay). */}
+      <Tooltip content={tooltipContent} delayDuration={200}>
+        <button
+          type="button"
+          aria-label={data.title}
+          style={{
+            width: diameter,
+            height: diameter,
+            padding: 0,
+            backgroundColor: bubbleColor,
+            borderRadius: "50%",
+            border: "1px solid var(--color-node-stroke)",
+            boxShadow: "var(--shadow-specimen)",
+            flexShrink: 0,
+            cursor: "pointer",
+            position: "relative",
+            overflow: "hidden",
+          }}
+        >
+          {showSlackHeatOverlay && (
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-[2px] rounded-full"
+              style={{
+                border: `1px solid color-mix(in oklab, ${slackColor} 30%, transparent)`,
+                background: `radial-gradient(circle at 30% 28%, color-mix(in oklab, ${slackColor} 22%, transparent), transparent 58%)`,
+                boxShadow: `inset 0 0 0 1px color-mix(in oklab, ${slackColor} 10%, transparent), 0 18px 34px color-mix(in oklab, ${slackColor} 10%, transparent)`,
+              }}
+            />
+          )}
 
-        {showCriticalPathOverlay && (
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-[2px] rounded-full"
-            style={{
-              border: `2px solid color-mix(in oklab, ${criticalPathAccent} 44%, transparent)`,
-              boxShadow: `inset 0 0 0 1px color-mix(in oklab, ${criticalPathAccent} 14%, transparent), 0 18px 34px color-mix(in oklab, ${criticalPathAccent} 12%, transparent)`,
-            }}
-          />
-        )}
-      </div>
+          {showCriticalPathOverlay && (
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-[2px] rounded-full"
+              style={{
+                border: `2px solid color-mix(in oklab, ${criticalPathAccent} 44%, transparent)`,
+                boxShadow: `inset 0 0 0 1px color-mix(in oklab, ${criticalPathAccent} 14%, transparent), 0 18px 34px color-mix(in oklab, ${criticalPathAccent} 12%, transparent)`,
+              }}
+            />
+          )}
+        </button>
+      </Tooltip>
 
       {showCriticalPathOverlay && (
         <span
@@ -279,103 +336,6 @@ function MetricBubbleNodeImpl({ data }: NodeProps<MetricBubbleNodeType>) {
         >
           {data.criticalPathOrder! + 1}
         </span>
-      )}
-
-      {/* Tooltip via FloatingPortal */}
-      {isOpen && (
-        <FloatingPortal>
-          <div
-            ref={refs.setFloating}
-            {...getFloatingProps()}
-            style={{ ...floatingStyles, zIndex: 50, maxWidth: 220 }}
-            className="atlas-panel px-3 py-2.5"
-          >
-            <p className="mb-1 text-sm font-semibold text-foreground">
-              {data.title}
-            </p>
-            <div className="mb-1 flex items-center gap-1.5">
-              <span
-                className="h-1.5 w-1.5 rounded-full"
-                style={{ backgroundColor: getStatusAccentColor(data.status) }}
-              />
-              <span className="text-xs text-muted-foreground">
-                {STATUS_LABELS[data.status]}
-              </span>
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <span className="truncate text-xs text-muted-foreground">
-                {data.laneLabel}
-              </span>
-              <span className="font-mono text-xs font-bold text-foreground">
-                V{formatValue(data.value)}
-              </span>
-            </div>
-            {(compactEstimate || data.isOnCriticalPath) && (
-              <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                {compactEstimate && (
-                  <span className="atlas-microchip text-foreground">
-                    {compactEstimate}
-                  </span>
-                )}
-                {showCriticalPathOverlay ? (
-                  <span
-                    className="atlas-microchip"
-                    style={{
-                      borderColor:
-                        "color-mix(in oklab, var(--color-pollen) 44%, transparent)",
-                      color: "var(--color-pollen)",
-                    }}
-                  >
-                    Path {data.criticalPathOrder! + 1}
-                  </span>
-                ) : data.isOnCriticalPath ? (
-                  <span
-                    className="atlas-microchip"
-                    style={{
-                      borderColor:
-                        "color-mix(in oklab, var(--color-pollen) 44%, transparent)",
-                      color: "var(--color-pollen)",
-                    }}
-                  >
-                    Critical
-                  </span>
-                ) : null}
-              </div>
-            )}
-            {showSlackHeatOverlay && slackColor && (
-              <div className="mt-1 flex items-center gap-1.5">
-                <span
-                  aria-hidden="true"
-                  className="h-2 w-2 rounded-full"
-                  style={{ backgroundColor: slackColor }}
-                />
-                <span className="text-xs text-muted-foreground">
-                  Slack: {slackLabel}
-                </span>
-              </div>
-            )}
-            {sizeMode !== "uniform" && (
-              <div className="mt-1.5 border-t border-border pt-1.5">
-                <span className="text-xs text-muted-foreground">
-                  {metricLabel}:{" "}
-                  {!Number.isFinite(metricValue)
-                    ? "—"
-                    : sizeMode === "value"
-                      ? formatValue(metricValue)
-                      : sizeMode === "value_per_effort"
-                        ? formatValueDensity(metricValue)
-                        : sizeMode === "estimate_days" ||
-                            sizeMode === "remaining_days" ||
-                            sizeMode === "downstream_effort_days"
-                          ? `${Number.isInteger(metricValue) ? metricValue : metricValue.toFixed(1)}${unitSuffix}`
-                          : Number.isInteger(metricValue)
-                            ? String(metricValue)
-                            : metricValue.toFixed(2)}
-                </span>
-              </div>
-            )}
-          </div>
-        </FloatingPortal>
       )}
     </div>
   );

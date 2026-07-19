@@ -3,7 +3,9 @@
 Single-user planning tool for software development projects. Loads YAML project plans, validates them as DAGs, and renders an interactive dependency graph. V1 is read-only.
 
 **Stack**: TypeScript, React, Vite, Bun, Tailwind CSS, React Flow, graphology, Zustand, Zod
-**Dev commands**: `bun run dev` | `bun test` | `bun run lint` | `bun run typecheck` | `bun run build`
+**Dev commands**: `bun run dev` | `bun run test` | `bun run lint` | `bun run typecheck` | `bun run build`
+
+Always use `bun run test` (vitest). Bare `bun test` invokes Bun's native runner, which ignores `@vitest-environment` pragmas and picks up Playwright e2e specs, producing hundreds of false failures.
 
 ## Steering
 

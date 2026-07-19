@@ -1,3 +1,4 @@
+import { getMetricLabel } from "../../lib/graph/metric-registry";
 import type {
   ColorEncodingMode,
   ScheduleOverlayMode,
@@ -24,22 +25,17 @@ export function getScopeLabel(scope: GraphScope): string {
 // Encoding labels
 // ---------------------------------------------------------------------------
 
-const COLOR_MODE_LABELS: Record<ColorEncodingMode, string> = {
-  default: "Default",
-  lane: "By Lane",
-  status: "By Status",
-  value: "By Value",
-  value_per_effort: "By Value / Effort",
-  estimate_days: "By Estimate",
-  remaining_days: "By Remaining Chain",
-  downstream_effort_days: "By Unlocked Effort",
-  degree: "By Degree",
-  betweenness: "By Betweenness",
-  dependency_span: "By Dependency Span",
-};
-
 export function getColorModeLabel(mode: ColorEncodingMode): string {
-  return COLOR_MODE_LABELS[mode];
+  switch (mode) {
+    case "default":
+      return "Default";
+    case "lane":
+      return "By Lane";
+    case "status":
+      return "By Status";
+    default:
+      return `By ${getMetricLabel(mode)}`;
+  }
 }
 
 export const COLOR_MODE_DESCRIPTIONS: Record<
@@ -120,20 +116,8 @@ export function getColorModeDescription(mode: ColorEncodingMode): {
   return COLOR_MODE_DESCRIPTIONS[mode];
 }
 
-const SIZE_MODE_LABELS: Record<SizeEncodingMode, string> = {
-  uniform: "Uniform",
-  value: "By Value",
-  value_per_effort: "By Value / Effort",
-  estimate_days: "By Estimate",
-  remaining_days: "By Remaining Chain",
-  downstream_effort_days: "By Unlocked Effort",
-  degree: "By Degree",
-  betweenness: "By Betweenness",
-  dependency_span: "By Dependency Span",
-};
-
 export function getSizeModeLabel(mode: SizeEncodingMode): string {
-  return SIZE_MODE_LABELS[mode];
+  return mode === "uniform" ? "Uniform" : `By ${getMetricLabel(mode)}`;
 }
 
 const SCHEDULE_OVERLAY_LABELS: Record<ScheduleOverlayMode, string> = {
@@ -157,31 +141,10 @@ export const SCOPE_OPTIONS: readonly GraphScope[] = [
   "chain",
 ];
 
-export const COLOR_MODE_OPTIONS: readonly ColorEncodingMode[] = [
-  "default",
-  "lane",
-  "status",
-  "value",
-  "value_per_effort",
-  "estimate_days",
-  "remaining_days",
-  "downstream_effort_days",
-  "degree",
-  "betweenness",
-  "dependency_span",
-];
-
-export const SIZE_MODE_OPTIONS: readonly SizeEncodingMode[] = [
-  "uniform",
-  "value",
-  "value_per_effort",
-  "estimate_days",
-  "remaining_days",
-  "downstream_effort_days",
-  "degree",
-  "betweenness",
-  "dependency_span",
-];
+export {
+  COLOR_MODE_OPTIONS,
+  SIZE_MODE_OPTIONS,
+} from "../../lib/graph/metric-registry";
 
 export const SCHEDULE_OVERLAY_OPTIONS: readonly ScheduleOverlayMode[] = [
   "none",

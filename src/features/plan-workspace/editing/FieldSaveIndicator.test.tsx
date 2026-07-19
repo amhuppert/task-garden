@@ -55,4 +55,28 @@ describe("FieldSaveIndicator", () => {
 
     expect(container.textContent).toBe("");
   });
+
+  it("keeps the status region mounted across phase changes, swapping only text", () => {
+    render(<FieldSaveIndicator stateKey="k" />);
+    const region = screen.getByRole("status");
+    expect(region.textContent).toBe("");
+
+    act(() => {
+      useEditStore.setState({
+        lastWriteResult: { phase: "saving", key: "k", operationId: "op-1" },
+      });
+    });
+
+    expect(screen.getByRole("status")).toBe(region);
+    expect(region.textContent).toMatch(/saving/i);
+
+    act(() => {
+      useEditStore.setState({
+        lastWriteResult: { phase: "saved", key: "k", at: Date.now() },
+      });
+    });
+
+    expect(screen.getByRole("status")).toBe(region);
+    expect(region.textContent).toMatch(/saved/i);
+  });
 });

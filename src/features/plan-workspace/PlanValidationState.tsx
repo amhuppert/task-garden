@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type {
   PlanProcessingFailure,
   PlanProcessingState,
@@ -8,6 +9,7 @@ import {
   getFailureDescription,
   getFailureTitle,
 } from "./plan-validation-state.helpers";
+import { LiveRegion } from "./ui/LiveRegion";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -89,14 +91,23 @@ function FailureBody({ failure }: { failure: PlanProcessingFailure }) {
  * workspace surfaces handle that.
  */
 export function PlanValidationState({ state }: PlanValidationStateProps) {
+  // A live region only announces changes to content already in the DOM, so
+  // the loading message must be swapped in after the (initially empty) status
+  // region has mounted rather than mounted together with it.
+  const [loadingAnnouncement, setLoadingAnnouncement] = useState("");
+  const loading = state.status === "loading";
+  useEffect(() => {
+    setLoadingAnnouncement(loading ? "Loading plan" : "");
+  }, [loading]);
+
   if (state.status === "ready") return null;
 
   if (state.status === "loading") {
     return (
-      <output
-        className="flex flex-col items-center justify-center gap-4 py-16 text-center"
-        aria-label="Loading plan"
-      >
+      <div className="flex flex-col items-center justify-center gap-4 py-16 text-center">
+        <LiveRegion kind="status" className="sr-only">
+          {loadingAnnouncement}
+        </LiveRegion>
         <div
           className="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-moss"
           aria-hidden="true"
@@ -104,15 +115,22 @@ export function PlanValidationState({ state }: PlanValidationStateProps) {
         <div>
           <p className="text-sm font-medium text-foreground">Loading plan</p>
         </div>
-      </output>
+      </div>
     );
   }
 
   // status === "invalid"
   const title = getFailureTitle(state.failure);
+  const issueCount = state.failure.issues.length;
 
   return (
-    <div className="mx-auto max-w-xl py-10" role="alert" aria-live="polite">
+    <div className="mx-auto max-w-xl py-10">
+      {/* role=alert announces on insertion, so mounting with content is
+          correct here — but only this brief summary belongs in the alert; the
+          issue list stays ordinary navigable content below. */}
+      <LiveRegion kind="alert" className="sr-only">
+        {`${title}. ${issueCount} issue${issueCount === 1 ? "" : "s"} found.`}
+      </LiveRegion>
       <div className="atlas-panel px-6 py-6">
         {/* Header */}
         <div className="flex items-start gap-3">

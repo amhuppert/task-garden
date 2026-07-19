@@ -5,6 +5,7 @@ import type {
 import { isSafeRelativeReferencePath } from "../../lib/plan/reference-target";
 import { detectLinkPreset } from "../../lib/plan/resource-link-preset";
 import { ResourceLinkIcon } from "./ResourceLinkIcon";
+import { Tooltip } from "./ui/Tooltip";
 
 type ClassifyResult =
   | { ok: true; value: ReferenceClassification }
@@ -24,12 +25,8 @@ function inferKind(target: string): "external_url" | "document_path" {
 const chipClass =
   "flex max-w-full items-center gap-1.5 rounded-[var(--radius-sm)] border border-border bg-surface px-2.5 py-1 font-mono text-xs text-foreground transition-colors hover:border-border-strong hover:bg-surface-muted";
 
-function ChipLabel({ label, target }: { label: string; target: string }) {
-  return (
-    <span className="max-w-[24ch] truncate" title={`${label} — ${target}`}>
-      {label}
-    </span>
-  );
+function ChipLabel({ label }: { label: string }) {
+  return <span className="max-w-[24ch] truncate">{label}</span>;
 }
 
 export function ResourceLink({
@@ -41,16 +38,19 @@ export function ResourceLink({
   if (!result.ok) {
     const kind = inferKind(target);
     const preset = detectLinkPreset(target, kind);
+    // aria-disabled (not disabled) keeps the chip focusable so keyboard/AT
+    // users can reach the tooltip explaining why the reference is unusable.
     return (
-      <button
-        type="button"
-        disabled
-        title={result.error.message}
-        className={`${chipClass} opacity-50 cursor-not-allowed bg-surface-muted`}
-      >
-        <ResourceLinkIcon preset={preset} />
-        <ChipLabel label={label} target={target} />
-      </button>
+      <Tooltip content={result.error.message}>
+        <button
+          type="button"
+          aria-disabled="true"
+          className={`${chipClass} opacity-50 cursor-not-allowed bg-surface-muted`}
+        >
+          <ResourceLinkIcon preset={preset} />
+          <ChipLabel label={label} />
+        </button>
+      </Tooltip>
     );
   }
 
@@ -59,29 +59,35 @@ export function ResourceLink({
     ref.kind === "external_url" ? ref.href : target,
     ref.kind,
   );
+  const tooltipContent = `${label} — ${target}`;
 
   if (ref.kind === "external_url") {
     return (
-      <a
-        href={ref.href}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={chipClass}
-      >
-        <ResourceLinkIcon preset={preset} />
-        <ChipLabel label={label} target={target} />
-      </a>
+      <Tooltip content={tooltipContent}>
+        <a
+          href={ref.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={chipClass}
+        >
+          <ResourceLinkIcon preset={preset} />
+          <ChipLabel label={label} />
+          <span className="sr-only">(opens in new tab)</span>
+        </a>
+      </Tooltip>
     );
   }
 
   return (
-    <button
-      type="button"
-      onClick={() => onDocumentPreview?.(ref.documentPath)}
-      className={chipClass}
-    >
-      <ResourceLinkIcon preset={preset} />
-      <ChipLabel label={label} target={target} />
-    </button>
+    <Tooltip content={tooltipContent}>
+      <button
+        type="button"
+        onClick={() => onDocumentPreview?.(ref.documentPath)}
+        className={chipClass}
+      >
+        <ResourceLinkIcon preset={preset} />
+        <ChipLabel label={label} />
+      </button>
+    </Tooltip>
   );
 }

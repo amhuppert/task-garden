@@ -1,16 +1,6 @@
-import {
-  FloatingFocusManager,
-  FloatingOverlay,
-  FloatingPortal,
-  useDismiss,
-  useFloating,
-  useInteractions,
-} from "@floating-ui/react";
 import { useEffect, useMemo, useState } from "react";
-import type { PlanPatch } from "../../../../cli/shared/patch-schema";
 import {
-  type EditApiResult,
-  type PatchPlanOptions,
+  type PatchPlanFn,
   patchPlan as defaultPatchPlan,
 } from "../../../lib/plan/edit-api-client";
 import {
@@ -21,19 +11,11 @@ import {
   TaskGardenWorkItemSchema,
 } from "../../../lib/plan/task-garden-plan.schema";
 import { usePlanExplorerStore } from "../plan-explorer.store";
+import { Dialog } from "../ui/Dialog";
 import { CreateBar } from "./CreateBar";
-import { useEditStore } from "./edit.store";
+import { draftKeys, useEditStore } from "./edit.store";
+import type { NewItemFormPrefill } from "./editing-keyboard";
 import { VALIDATION_COPY } from "./validation-copy";
-
-type PatchPlanFn = (
-  patch: PlanPatch,
-  opts: PatchPlanOptions,
-) => Promise<EditApiResult>;
-
-export interface NewItemFormPrefill {
-  lane?: string;
-  dependsOn?: string[];
-}
 
 export interface NewItemFormProps {
   open: boolean;
@@ -144,21 +126,10 @@ export function NewItemForm({
     setTouched((prev) => (prev[field] ? prev : { ...prev, [field]: true }));
   };
 
-  const { refs, context } = useFloating({
-    open,
-    onOpenChange: (next) => {
-      if (!next) onClose();
-    },
-  });
-  const dismiss = useDismiss(context, { escapeKey: true, outsidePress: false });
-  const { getFloatingProps } = useInteractions([dismiss]);
-
   const validation = useMemo(() => {
     const input = buildSchemaInput(draft);
     return TaskGardenWorkItemSchema.safeParse(input);
   }, [draft]);
-
-  if (!open) return null;
 
   const fieldError = (
     field: keyof TaskGardenWorkItem | "estimate" | string,
@@ -192,7 +163,7 @@ export function NewItemForm({
     const newItem = validation.data;
     // Route the create through the shared write-status machinery so the
     // footer reflects this operation instead of a stale earlier result.
-    const statusKey = `work_item:${newItem.id}:create`;
+    const statusKey = draftKeys.workItemField(newItem.id, "create");
     useEditStore.getState().beginCommit(statusKey, operationId, newItem);
     const result = await patchFn(
       { kind: "work_item.create", value: newItem },
@@ -228,241 +199,217 @@ export function NewItemForm({
   const errValue = fieldError("value");
 
   return (
-    <FloatingPortal>
-      <FloatingOverlay
-        lockScroll
-        className="z-50 flex items-start justify-center bg-background/70 p-6 backdrop-blur-sm"
+    <Dialog
+      title="New work item"
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+      disableOutsideClose
+      width="lg"
+    >
+      <div
+        data-testid="new-item-form"
+        className="flex max-h-[60vh] flex-col gap-3 overflow-y-auto p-4"
       >
-        <FloatingFocusManager context={context} modal>
-          <div
-            ref={refs.setFloating}
-            data-testid="new-item-form"
-            aria-label="New work item"
-            className="atlas-panel z-50 flex w-full max-w-2xl flex-col overflow-hidden"
-            {...getFloatingProps()}
-          >
-            <div className="flex items-center justify-between border-b border-border px-4 py-3">
-              <h2 className="atlas-title text-base text-foreground">
-                New work item
-              </h2>
-              <button
-                type="button"
-                aria-label="Close"
-                data-testid="new-item-form-close"
-                onClick={onClose}
-                className="text-xs text-muted-foreground hover:text-foreground"
-              >
-                Esc
-              </button>
-            </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="nif-id" className="atlas-kicker text-foreground">
+            ID (slug)
+          </label>
+          <input
+            id="nif-id"
+            data-testid="nif-id"
+            value={draft.id}
+            onChange={(e) => update("id", e.target.value)}
+            onBlur={() => markTouched("id")}
+            aria-invalid={errId ? true : undefined}
+            aria-describedby={errId ? "nif-id-error" : undefined}
+            placeholder="my-new-item"
+            className="rounded-[var(--radius-sm)] border border-border bg-surface px-2 py-1 text-sm text-foreground outline-none focus:border-moss"
+          />
+          {errId && (
+            <span
+              id="nif-id-error"
+              className="text-xs text-petal"
+              data-testid="nif-id-error"
+            >
+              {errId}
+            </span>
+          )}
+        </div>
 
-            <div className="flex max-h-[60vh] flex-col gap-3 overflow-y-auto p-4">
-              <div className="flex flex-col gap-1">
-                <label
-                  htmlFor="nif-id"
-                  className="atlas-kicker text-foreground"
-                >
-                  ID (slug)
-                </label>
-                <input
-                  id="nif-id"
-                  data-testid="nif-id"
-                  value={draft.id}
-                  onChange={(e) => update("id", e.target.value)}
-                  onBlur={() => markTouched("id")}
-                  placeholder="my-new-item"
-                  className="rounded-[var(--radius-sm)] border border-border bg-surface px-2 py-1 text-sm text-foreground outline-none focus:border-moss"
-                />
-                {errId && (
-                  <span
-                    className="text-xs text-petal"
-                    data-testid="nif-id-error"
-                  >
-                    {errId}
-                  </span>
-                )}
-              </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="nif-title" className="atlas-kicker text-foreground">
+            Title
+          </label>
+          <input
+            id="nif-title"
+            data-testid="nif-title"
+            value={draft.title}
+            onChange={(e) => update("title", e.target.value)}
+            onBlur={() => markTouched("title")}
+            aria-invalid={errTitle ? true : undefined}
+            aria-describedby={errTitle ? "nif-title-error" : undefined}
+            className="rounded-[var(--radius-sm)] border border-border bg-surface px-2 py-1 text-sm text-foreground outline-none focus:border-moss"
+          />
+          {errTitle && (
+            <span
+              id="nif-title-error"
+              className="text-xs text-petal"
+              data-testid="nif-title-error"
+            >
+              {errTitle}
+            </span>
+          )}
+        </div>
 
-              <div className="flex flex-col gap-1">
-                <label
-                  htmlFor="nif-title"
-                  className="atlas-kicker text-foreground"
-                >
-                  Title
-                </label>
-                <input
-                  id="nif-title"
-                  data-testid="nif-title"
-                  value={draft.title}
-                  onChange={(e) => update("title", e.target.value)}
-                  onBlur={() => markTouched("title")}
-                  className="rounded-[var(--radius-sm)] border border-border bg-surface px-2 py-1 text-sm text-foreground outline-none focus:border-moss"
-                />
-                {errTitle && (
-                  <span
-                    className="text-xs text-petal"
-                    data-testid="nif-title-error"
-                  >
-                    {errTitle}
-                  </span>
-                )}
-              </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="nif-summary" className="atlas-kicker text-foreground">
+            Summary
+          </label>
+          <textarea
+            id="nif-summary"
+            data-testid="nif-summary"
+            rows={3}
+            value={draft.summary}
+            onChange={(e) => update("summary", e.target.value)}
+            onBlur={() => markTouched("summary")}
+            aria-invalid={errSummary ? true : undefined}
+            aria-describedby={errSummary ? "nif-summary-error" : undefined}
+            className="rounded-[var(--radius-sm)] border border-border bg-surface px-2 py-1 text-sm text-foreground outline-none focus:border-moss"
+          />
+          {errSummary && (
+            <span
+              id="nif-summary-error"
+              className="text-xs text-petal"
+              data-testid="nif-summary-error"
+            >
+              {errSummary}
+            </span>
+          )}
+        </div>
 
-              <div className="flex flex-col gap-1">
-                <label
-                  htmlFor="nif-summary"
-                  className="atlas-kicker text-foreground"
-                >
-                  Summary
-                </label>
-                <textarea
-                  id="nif-summary"
-                  data-testid="nif-summary"
-                  rows={3}
-                  value={draft.summary}
-                  onChange={(e) => update("summary", e.target.value)}
-                  onBlur={() => markTouched("summary")}
-                  className="rounded-[var(--radius-sm)] border border-border bg-surface px-2 py-1 text-sm text-foreground outline-none focus:border-moss"
-                />
-                {errSummary && (
-                  <span
-                    className="text-xs text-petal"
-                    data-testid="nif-summary-error"
-                  >
-                    {errSummary}
-                  </span>
-                )}
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div className="flex flex-col gap-1">
-                  <label
-                    htmlFor="nif-lane"
-                    className="atlas-kicker text-foreground"
-                  >
-                    Lane
-                  </label>
-                  <select
-                    id="nif-lane"
-                    data-testid="nif-lane"
-                    value={draft.lane}
-                    onChange={(e) => update("lane", e.target.value)}
-                    onBlur={() => markTouched("lane")}
-                    className="rounded-[var(--radius-sm)] border border-border bg-surface px-2 py-1 text-sm text-foreground outline-none focus:border-moss"
-                  >
-                    {lanes.length === 0 ? (
-                      <option value="">(no lanes)</option>
-                    ) : (
-                      lanes.map((l) => (
-                        <option key={l.id} value={l.id}>
-                          {l.label}
-                        </option>
-                      ))
-                    )}
-                  </select>
-                  {errLane && (
-                    <span className="text-xs text-petal">{errLane}</span>
-                  )}
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label
-                    htmlFor="nif-status"
-                    className="atlas-kicker text-foreground"
-                  >
-                    Status
-                  </label>
-                  <select
-                    id="nif-status"
-                    data-testid="nif-status"
-                    value={draft.status}
-                    onChange={(e) =>
-                      update("status", e.target.value as TaskGardenStatus)
-                    }
-                    className="rounded-[var(--radius-sm)] border border-border bg-surface px-2 py-1 text-sm text-foreground outline-none focus:border-moss"
-                  >
-                    {STATUS_OPTIONS.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label
-                    htmlFor="nif-value"
-                    className="atlas-kicker text-foreground"
-                  >
-                    Value
-                  </label>
-                  <input
-                    id="nif-value"
-                    data-testid="nif-value"
-                    type="number"
-                    min={0}
-                    step={1}
-                    value={draft.valueValue}
-                    onChange={(e) => update("valueValue", e.target.value)}
-                    onBlur={() => markTouched("value")}
-                    className="rounded-[var(--radius-sm)] border border-border bg-surface px-2 py-1 text-sm text-foreground outline-none focus:border-moss"
-                  />
-                  {errValue && (
-                    <span className="text-xs text-petal">{errValue}</span>
-                  )}
-                </div>
-              </div>
-
-              {draft.depends_on.length > 0 && (
-                <div className="flex flex-col gap-1">
-                  <span className="atlas-kicker text-foreground">
-                    Depends on
-                  </span>
-                  <div
-                    className="flex flex-wrap gap-1"
-                    data-testid="nif-depends-on"
-                  >
-                    {draft.depends_on.map((dep) => (
-                      <span
-                        key={dep}
-                        className="rounded-[var(--radius-sm)] border border-border bg-surface px-2 py-0.5 font-mono text-[0.7rem] text-foreground"
-                      >
-                        {dep}
-                      </span>
-                    ))}
-                  </div>
-                </div>
+        <div className="grid grid-cols-3 gap-3">
+          <div className="flex flex-col gap-1">
+            <label htmlFor="nif-lane" className="atlas-kicker text-foreground">
+              Lane
+            </label>
+            <select
+              id="nif-lane"
+              data-testid="nif-lane"
+              value={draft.lane}
+              onChange={(e) => update("lane", e.target.value)}
+              onBlur={() => markTouched("lane")}
+              aria-invalid={errLane ? true : undefined}
+              aria-describedby={errLane ? "nif-lane-error" : undefined}
+              className="rounded-[var(--radius-sm)] border border-border bg-surface px-2 py-1 text-sm text-foreground outline-none focus:border-moss"
+            >
+              {lanes.length === 0 ? (
+                <option value="">(no lanes)</option>
+              ) : (
+                lanes.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.label}
+                  </option>
+                ))
               )}
-
-              {submitError && (
-                <p
-                  role="alert"
-                  className="rounded-[var(--radius-sm)] border border-petal/40 bg-surface px-2 py-1 text-xs text-petal"
-                  data-testid="nif-error"
-                >
-                  {submitError}
-                </p>
-              )}
-            </div>
-
-            <CreateBar
-              primaryLabel="Add to plan"
-              primaryDisabled={!canSubmit}
-              busy={submitting}
-              onPrimary={handleSubmit}
-              secondaryLabel="Cancel"
-              onSecondary={onClose}
-              hint={
-                validation.success ? null : (
-                  <span data-testid="nif-validity">
-                    Form has unresolved fields
-                  </span>
-                )
-              }
-            />
+            </select>
+            {errLane && (
+              <span id="nif-lane-error" className="text-xs text-petal">
+                {errLane}
+              </span>
+            )}
           </div>
-        </FloatingFocusManager>
-      </FloatingOverlay>
-    </FloatingPortal>
+
+          <div className="flex flex-col gap-1">
+            <label
+              htmlFor="nif-status"
+              className="atlas-kicker text-foreground"
+            >
+              Status
+            </label>
+            <select
+              id="nif-status"
+              data-testid="nif-status"
+              value={draft.status}
+              onChange={(e) =>
+                update("status", e.target.value as TaskGardenStatus)
+              }
+              className="rounded-[var(--radius-sm)] border border-border bg-surface px-2 py-1 text-sm text-foreground outline-none focus:border-moss"
+            >
+              {STATUS_OPTIONS.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label htmlFor="nif-value" className="atlas-kicker text-foreground">
+              Value
+            </label>
+            <input
+              id="nif-value"
+              data-testid="nif-value"
+              type="number"
+              min={0}
+              step={1}
+              value={draft.valueValue}
+              onChange={(e) => update("valueValue", e.target.value)}
+              onBlur={() => markTouched("value")}
+              aria-invalid={errValue ? true : undefined}
+              aria-describedby={errValue ? "nif-value-error" : undefined}
+              className="rounded-[var(--radius-sm)] border border-border bg-surface px-2 py-1 text-sm text-foreground outline-none focus:border-moss"
+            />
+            {errValue && (
+              <span id="nif-value-error" className="text-xs text-petal">
+                {errValue}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {draft.depends_on.length > 0 && (
+          <div className="flex flex-col gap-1">
+            <span className="atlas-kicker text-foreground">Depends on</span>
+            <div className="flex flex-wrap gap-1" data-testid="nif-depends-on">
+              {draft.depends_on.map((dep) => (
+                <span
+                  key={dep}
+                  className="rounded-[var(--radius-sm)] border border-border bg-surface px-2 py-0.5 font-mono text-[0.7rem] text-foreground"
+                >
+                  {dep}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {submitError && (
+          <p
+            role="alert"
+            className="rounded-[var(--radius-sm)] border border-petal/40 bg-surface px-2 py-1 text-xs text-petal"
+            data-testid="nif-error"
+          >
+            {submitError}
+          </p>
+        )}
+      </div>
+
+      <CreateBar
+        primaryLabel="Add to plan"
+        primaryDisabled={!canSubmit}
+        busy={submitting}
+        onPrimary={handleSubmit}
+        secondaryLabel="Cancel"
+        onSecondary={onClose}
+        hint={
+          validation.success ? null : (
+            <span data-testid="nif-validity">Form has unresolved fields</span>
+          )
+        }
+      />
+    </Dialog>
   );
 }

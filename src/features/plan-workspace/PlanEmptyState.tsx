@@ -21,16 +21,18 @@ export interface PlanEmptyStateProps {
  * Shown when a valid plan's search or filter criteria match zero work items.
  * This is NOT an error state — the plan itself is valid. The empty set is
  * the result of the user's current filter/search selection.
+ *
+ * Purely presentational: this component mounts conditionally, so it cannot
+ * host a live region itself (a region inserted with content is never
+ * announced). The announcement comes from PlanGraphCanvas's persistently
+ * mounted status region, which swaps in the same message.
  */
 export function PlanEmptyState({
   message,
   onClearFilters,
 }: PlanEmptyStateProps) {
   return (
-    <output
-      className="flex flex-col items-center justify-center gap-4 py-16 text-center"
-      aria-label="No matching items"
-    >
+    <div className="flex flex-col items-center justify-center gap-4 py-16 text-center">
       {/* Quiet botanical mark */}
       <span className="text-3xl text-muted-foreground/40" aria-hidden="true">
         ◌
@@ -52,6 +54,6 @@ export function PlanEmptyState({
           Clear filters
         </button>
       )}
-    </output>
+    </div>
   );
 }

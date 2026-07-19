@@ -25,6 +25,7 @@ import {
 } from "./plan-details-panel.helpers";
 import type { PlanExplorerStateValue } from "./plan-explorer.store";
 import { getStatusAccentColor } from "./plan-graph-canvas.helpers";
+import { Tooltip } from "./ui/Tooltip";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -135,37 +136,97 @@ function WorkItemRefButton({
   onClick,
 }: WorkItemRefButtonProps) {
   const handleClick = onClick ? () => onClick(id) : undefined;
+  const statusLabel = getStatusLabel(
+    status as Parameters<typeof getStatusLabel>[0],
+  );
+  // aria-disabled (not disabled) keeps the ref focusable so its tooltip stays
+  // reachable from the keyboard even when navigation is unavailable.
   return (
-    <button
-      type="button"
-      onClick={handleClick}
-      disabled={!onClick}
-      className="w-full rounded-[var(--radius-sm)] border border-border bg-surface px-3 py-2 text-left transition-colors hover:border-border-strong hover:bg-surface-muted disabled:cursor-default"
-    >
-      <div className="flex min-w-0 items-center justify-between gap-2">
-        <span className="truncate font-mono text-[0.68rem] text-muted-foreground">
-          {id}
-        </span>
-        <div
-          className="flex shrink-0 items-center gap-1.5"
-          title={`${getStatusLabel(status as Parameters<typeof getStatusLabel>[0])} · value ${formatValue(value)}`}
-        >
-          <span
-            className="h-1.5 w-1.5 shrink-0 rounded-full"
-            style={{
-              backgroundColor: getStatusAccentColor(
-                status as Parameters<typeof getStatusAccentColor>[0],
-              ),
-            }}
-            aria-label={status}
-          />
-          <span className="font-mono text-[0.62rem] text-muted-foreground">
-            V{formatValue(value)}
+    <Tooltip content={`${statusLabel} · value ${formatValue(value)}`}>
+      <button
+        type="button"
+        onClick={handleClick}
+        aria-disabled={onClick ? undefined : true}
+        className="w-full rounded-[var(--radius-sm)] border border-border bg-surface px-3 py-2 text-left transition-colors hover:border-border-strong hover:bg-surface-muted aria-disabled:cursor-default"
+      >
+        <div className="flex min-w-0 items-center justify-between gap-2">
+          <span className="truncate font-mono text-[0.68rem] text-muted-foreground">
+            {id}
           </span>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <span
+              aria-hidden="true"
+              className="h-1.5 w-1.5 shrink-0 rounded-full"
+              style={{
+                backgroundColor: getStatusAccentColor(
+                  status as Parameters<typeof getStatusAccentColor>[0],
+                ),
+              }}
+            />
+            <span className="sr-only">{statusLabel}</span>
+            <span className="font-mono text-[0.62rem] text-muted-foreground">
+              V{formatValue(value)}
+            </span>
+          </div>
         </div>
-      </div>
-      <p className="mt-0.5 text-sm text-foreground">{title}</p>
-    </button>
+        <p className="mt-0.5 text-sm text-foreground">{title}</p>
+      </button>
+    </Tooltip>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// History navigation button
+// ---------------------------------------------------------------------------
+
+interface HistoryNavButtonProps {
+  label: string;
+  /** aria-keyshortcuts value, e.g. "Alt+ArrowLeft". */
+  keyshortcuts: string;
+  /** Human-readable shortcut shown in the tooltip, e.g. "Alt+Left". */
+  shortcutHint: string;
+  enabled: boolean;
+  onClick?: () => void;
+  iconPath: string;
+}
+
+function HistoryNavButton({
+  label,
+  keyshortcuts,
+  shortcutHint,
+  enabled,
+  onClick,
+  iconPath,
+}: HistoryNavButtonProps) {
+  // aria-disabled (not disabled) keeps the button focusable so the tooltip
+  // with its shortcut hint stays reachable from the keyboard.
+  return (
+    <Tooltip content={`${label} (${shortcutHint})`}>
+      <button
+        type="button"
+        aria-label={label}
+        aria-keyshortcuts={keyshortcuts}
+        aria-disabled={enabled ? undefined : true}
+        onClick={enabled ? onClick : undefined}
+        className="flex h-6 w-6 items-center justify-center rounded-[var(--radius-sm)] text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground aria-disabled:opacity-30 aria-disabled:hover:bg-transparent aria-disabled:hover:text-muted-foreground"
+      >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 14 14"
+          fill="none"
+          aria-hidden="true"
+        >
+          <path
+            d={iconPath}
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+    </Tooltip>
   );
 }
 
@@ -242,52 +303,22 @@ export function PlanDetailsPanel({
             className="flex shrink-0 items-center gap-0.5"
             aria-label="History navigation"
           >
-            <button
-              type="button"
-              aria-label="Go back (Alt+Left)"
-              disabled={!canGoBack}
+            <HistoryNavButton
+              label="Go back"
+              keyshortcuts="Alt+ArrowLeft"
+              shortcutHint="Alt+Left"
+              enabled={canGoBack}
               onClick={onGoBack}
-              className="flex h-6 w-6 items-center justify-center rounded-[var(--radius-sm)] text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 14 14"
-                fill="none"
-                aria-hidden="true"
-              >
-                <path
-                  d="M8.5 3L4.5 7L8.5 11"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
-            <button
-              type="button"
-              aria-label="Go forward (Alt+Right)"
-              disabled={!canGoForward}
+              iconPath="M8.5 3L4.5 7L8.5 11"
+            />
+            <HistoryNavButton
+              label="Go forward"
+              keyshortcuts="Alt+ArrowRight"
+              shortcutHint="Alt+Right"
+              enabled={canGoForward}
               onClick={onGoForward}
-              className="flex h-6 w-6 items-center justify-center rounded-[var(--radius-sm)] text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 14 14"
-                fill="none"
-                aria-hidden="true"
-              >
-                <path
-                  d="M5.5 3L9.5 7L5.5 11"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
+              iconPath="M5.5 3L9.5 7L5.5 11"
+            />
           </nav>
         </div>
         <EditableTitleCell

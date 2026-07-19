@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { LiveRegion } from "../ui/LiveRegion";
 
 export interface CreateBarProps {
   primaryLabel: string;
@@ -14,7 +15,8 @@ export interface CreateBarProps {
 /**
  * Footer chrome for forms that create or commit a record. Matches the
  * prototype in `edit-components.jsx` ~l.726: a right-aligned action bar with
- * a primary CTA and optional secondary (Cancel-style) action.
+ * a primary CTA and optional secondary (Cancel-style) action. The hint slot
+ * is a persistent status live region, so hint changes are announced to AT.
  */
 export function CreateBar({
   primaryLabel,
@@ -30,7 +32,12 @@ export function CreateBar({
       data-testid="create-bar"
       className="flex items-center justify-between gap-3 border-t border-border bg-surface/60 px-3 py-2"
     >
-      <div className="min-w-0 flex-1 text-xs text-muted-foreground">{hint}</div>
+      <LiveRegion
+        kind="status"
+        className="min-w-0 flex-1 text-xs text-muted-foreground"
+      >
+        {hint}
+      </LiveRegion>
       <div className="flex shrink-0 items-center gap-2">
         {secondaryLabel && onSecondary && (
           <button
@@ -48,6 +55,7 @@ export function CreateBar({
           data-testid="create-bar-primary"
           onClick={onPrimary}
           disabled={primaryDisabled || busy}
+          aria-busy={busy || undefined}
           className="atlas-button-primary text-xs disabled:cursor-not-allowed disabled:opacity-50"
         >
           {busy ? "Saving…" : primaryLabel}

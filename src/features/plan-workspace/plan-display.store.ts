@@ -1,42 +1,25 @@
 import { create } from "zustand";
+import type {
+  InsightMode,
+  PlanDisplayStateValue,
+  ScheduleOverlayMode,
+} from "../../lib/graph/graph-view-state";
+import type {
+  ColorEncodingMode,
+  SizeEncodingMode,
+} from "../../lib/graph/metric-registry";
 
 // ---------------------------------------------------------------------------
-// Types
+// Types — canonical definitions live in lib/graph; re-exported for consumers.
 // ---------------------------------------------------------------------------
 
-export type ColorEncodingMode =
-  | "default"
-  | "lane"
-  | "status"
-  | "value"
-  | "value_per_effort"
-  | "estimate_days"
-  | "remaining_days"
-  | "downstream_effort_days"
-  | "degree"
-  | "betweenness"
-  | "dependency_span";
-
-export type SizeEncodingMode =
-  | "uniform"
-  | "value"
-  | "value_per_effort"
-  | "estimate_days"
-  | "remaining_days"
-  | "downstream_effort_days"
-  | "degree"
-  | "betweenness"
-  | "dependency_span";
-
-export type InsightMode = "overview" | "ready" | "ordering" | "metrics";
-export type ScheduleOverlayMode = "none" | "critical_path" | "slack_heatmap";
-
-export interface PlanDisplayStateValue {
-  colorMode: ColorEncodingMode;
-  sizeMode: SizeEncodingMode;
-  insightMode: InsightMode;
-  scheduleOverlay: ScheduleOverlayMode;
-}
+export type {
+  ColorEncodingMode,
+  InsightMode,
+  PlanDisplayStateValue,
+  ScheduleOverlayMode,
+  SizeEncodingMode,
+};
 
 interface PlanDisplayActions {
   setColorMode(mode: ColorEncodingMode): void;

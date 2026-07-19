@@ -1,6 +1,7 @@
 import { Handle, type Node, type NodeProps, Position } from "@xyflow/react";
 import { memo, useContext } from "react";
 import type { FlowNodeData } from "../../lib/graph/flow-projection-service";
+import { STATUS_LABELS } from "../../lib/plan/status-presentation";
 import {
   compactUnitSuffix,
   formatCompactUnitValue,
@@ -27,19 +28,6 @@ import {
 // ---------------------------------------------------------------------------
 
 export type WorkItemNodeType = Node<FlowNodeData, "workItem">;
-
-// ---------------------------------------------------------------------------
-// Display labels
-// ---------------------------------------------------------------------------
-
-const STATUS_LABELS: Record<FlowNodeData["status"], string> = {
-  planned: "Planned",
-  ready: "Ready",
-  blocked: "Blocked",
-  in_progress: "In Progress",
-  done: "Done",
-  future: "Future",
-};
 
 // ---------------------------------------------------------------------------
 // Encoding helpers (pure)
@@ -221,13 +209,13 @@ function WorkItemNodeImpl({ data }: NodeProps<WorkItemNodeType>) {
           <p className="truncate font-mono text-[0.56rem] uppercase tracking-[0.18em] text-muted-foreground">
             {data.laneLabel}
           </p>
-          <div
-            className="mt-1 line-clamp-2 text-[0.72rem] font-semibold leading-snug text-foreground"
-            title={
-              data.summary ? `${data.title} — ${data.summary}` : data.title
-            }
-          >
+          <div className="mt-1 line-clamp-2 text-[0.72rem] font-semibold leading-snug text-foreground">
             {data.title}
+            {/* line-clamp is visual-only; AT reads the full title in browse
+                mode, and the focus stop is named by the React Flow wrapper's
+                aria-label (FlowNode.ariaLabel), so only the summary needs a
+                hidden supplement here (was a title attr). */}
+            {data.summary && <span className="sr-only"> — {data.summary}</span>}
           </div>
         </div>
 
@@ -239,8 +227,8 @@ function WorkItemNodeImpl({ data }: NodeProps<WorkItemNodeType>) {
                 borderColor: `color-mix(in oklab, ${criticalPathAccent} 44%, transparent)`,
                 boxShadow: `0 10px 20px color-mix(in oklab, ${criticalPathAccent} 10%, transparent)`,
               }}
-              title={`Critical path step ${data.criticalPathOrder! + 1}`}
             >
+              <span className="sr-only">Critical path step </span>
               {data.criticalPathOrder! + 1}
             </span>
           )}
@@ -269,8 +257,9 @@ function WorkItemNodeImpl({ data }: NodeProps<WorkItemNodeType>) {
 
       {/* Footer: status, critical-path note, remaining days */}
       <div className="mt-2 flex min-w-0 items-center gap-1.5">
+        {/* Decorative: the adjacent visible text is the status label. */}
         <span
-          aria-label={STATUS_LABELS[data.status]}
+          aria-hidden="true"
           style={{ backgroundColor: getStatusAccentColor(data.status) }}
           className="h-1.5 w-1.5 shrink-0 rounded-full"
         />
@@ -284,9 +273,9 @@ function WorkItemNodeImpl({ data }: NodeProps<WorkItemNodeType>) {
               borderColor: `color-mix(in oklab, ${slackColor} 42%, transparent)`,
               color: slackColor,
             }}
-            title={`Slack: ${slackValue}${unitSuffix} buffer`}
           >
-            {slackLabel}
+            <span aria-hidden="true">{slackLabel}</span>
+            <span className="sr-only">{`Slack: ${slackValue}${unitSuffix} buffer`}</span>
           </span>
         )}
         {data.metricSummary.remaining_days > 0 && (

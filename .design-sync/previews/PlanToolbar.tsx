@@ -17,7 +17,10 @@ export function Default() {
     <div style={{ width: 300 }}>
       <PlanToolbar
         availableFilters={availableFilters}
-        projectionSummary={{ hiddenNodeCount: 0, selectedNodeFilteredOut: false }}
+        projectionSummary={{
+          hiddenNodeCount: 0,
+          selectedNodeFilteredOut: false,
+        }}
         baseRevision={7}
         onNewItem={() => {}}
       />
@@ -30,7 +33,10 @@ export function WithHiddenItems() {
     <div style={{ width: 300 }}>
       <PlanToolbar
         availableFilters={availableFilters}
-        projectionSummary={{ hiddenNodeCount: 3, selectedNodeFilteredOut: true }}
+        projectionSummary={{
+          hiddenNodeCount: 3,
+          selectedNodeFilteredOut: true,
+        }}
         baseRevision={7}
         onNewItem={() => {}}
       />

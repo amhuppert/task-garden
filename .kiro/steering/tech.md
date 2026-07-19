@@ -108,7 +108,7 @@ type PlanStateSnapshot = {
 ```bash
 bun run dev        # Dev server (Vite + plan-file watcher)
 bun run build      # SPA + CLI bundle into dist/
-bun test           # Run tests
+bun run test       # Run tests (vitest; bare `bun test` runs Bun's native runner and fails)
 bun run lint       # Lint and format
 bun run typecheck  # Type checking (src/ + cli/)
 ```

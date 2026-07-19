@@ -1,17 +1,10 @@
-import { useCallback } from "react";
-import type { PlanPatch } from "../../../../cli/shared/patch-schema";
-import type {
-  EditApiResult,
-  PatchPlanOptions,
-} from "../../../lib/plan/edit-api-client";
+import { useCallback, useId } from "react";
+import type { PatchPlanFn } from "../../../lib/plan/edit-api-client";
+import { FieldShell } from "../ui/FieldShell";
 import { FieldSaveIndicator } from "./FieldSaveIndicator";
+import { draftKeys } from "./edit.store";
 import { patchTargets } from "./patch-targets";
 import { useFieldDraft } from "./useFieldDraft";
-
-type PatchPlanFn = (
-  patch: PlanPatch,
-  opts: PatchPlanOptions,
-) => Promise<EditApiResult>;
 
 export interface ValueInputCellProps {
   workItemId: string;
@@ -26,7 +19,8 @@ export function ValueInputCell({
   baseRevision,
   patchPlan,
 }: ValueInputCellProps) {
-  const key = `work_item:${workItemId}:value`;
+  const key = draftKeys.workItemField(workItemId, "value");
+  const inputId = useId();
 
   const buildPatch = useCallback(
     (next: number) => patchTargets.workItemValue(workItemId, next),
@@ -60,28 +54,24 @@ export function ValueInputCell({
   };
 
   return (
-    <label className="flex flex-col gap-1">
-      <div className="flex items-center gap-2">
-        <span className="atlas-kicker">Value</span>
-        {isDirty && (
-          <span
-            aria-hidden="true"
-            className="inline-block h-1.5 w-1.5 rounded-full"
-            style={{ backgroundColor: "var(--color-pollen)" }}
-            data-testid="value-dirty-dot"
-          />
-        )}
-        <FieldSaveIndicator stateKey={key} />
-      </div>
+    <FieldShell
+      label="Value"
+      htmlFor={inputId}
+      dirty={isDirty}
+      status={<FieldSaveIndicator stateKey={key} />}
+    >
       <div className="flex items-center gap-2 rounded-[var(--radius-md)] border border-border bg-surface px-3 py-2 focus-within:border-moss">
-        <span className="font-mono text-[0.65rem] uppercase tracking-[0.16em] text-muted-foreground">
+        <span
+          aria-hidden="true"
+          className="font-mono text-[0.65rem] uppercase tracking-[0.16em] text-muted-foreground"
+        >
           V
         </span>
         <input
+          id={inputId}
           type="number"
           min={0}
           step={1}
-          aria-label="Value"
           data-testid="value-input"
           value={value}
           onChange={handleChange}
@@ -90,6 +80,6 @@ export function ValueInputCell({
           className="min-w-0 flex-1 bg-transparent font-mono text-base font-semibold text-foreground outline-none"
         />
       </div>
-    </label>
+    </FieldShell>
   );
 }

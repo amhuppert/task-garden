@@ -7,18 +7,9 @@ import {
   screen,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { PlanPatch } from "../../../../cli/shared/patch-schema";
-import type {
-  EditApiResult,
-  PatchPlanOptions,
-} from "../../../lib/plan/edit-api-client";
+import type { PatchPlanFn } from "../../../lib/plan/edit-api-client";
 import { EditableTitleCell } from "./EditableTitleCell";
 import { useEditStore } from "./edit.store";
-
-type PatchPlanFn = (
-  patch: PlanPatch,
-  opts: PatchPlanOptions,
-) => Promise<EditApiResult>;
 
 function reset() {
   useEditStore.setState({
@@ -61,7 +52,8 @@ describe("EditableTitleCell", () => {
     });
 
     expect(useEditStore.getState().drafts["work_item:a:title"]).toBe("Edited");
-    expect(screen.getByTestId("title-dirty-dot")).toBeTruthy();
+    // FieldShell renders the dirty marker as visually-hidden text
+    expect(screen.getByText("unsaved changes")).toBeTruthy();
   });
 
   it("blur dispatches a PATCH with the new value", async () => {

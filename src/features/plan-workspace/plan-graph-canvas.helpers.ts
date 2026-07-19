@@ -1,11 +1,15 @@
 import { type EdgeMarker, MarkerType } from "@xyflow/react";
 import type { CSSProperties } from "react";
 import type { FlowNode } from "../../lib/graph/flow-projection-service";
+import { HIGHER_IS_BETTER_METRICS } from "../../lib/graph/metric-registry";
 import type { TaskGardenStatus } from "../../lib/plan/task-garden-plan.schema";
 import type {
   ColorEncodingMode,
   ScheduleOverlayMode,
 } from "./plan-display.store";
+
+// Canonical definition lives in lib/graph; re-exported for canvas consumers.
+export { getLanePaletteColor } from "../../lib/graph/lane-palette";
 
 // ---------------------------------------------------------------------------
 // Layout constants. Width matches FlowProjectionService's NODE_WIDTH exactly.
@@ -204,23 +208,6 @@ export function getStatusAccentColor(status: TaskGardenStatus): string {
   return STATUS_COLORS[status];
 }
 
-/** Cycling palette of botanical tones for lane color encoding. */
-const LANE_COLOR_PALETTE = [
-  "var(--color-water)",
-  "var(--color-moss)",
-  "var(--color-pollen)",
-  "var(--color-petal)",
-  "var(--color-lichen)",
-  "var(--color-sage)",
-  "var(--color-bark)",
-  "var(--color-iron)",
-];
-
-/** Returns a palette color for a lane by its index in the lane order. */
-export function getLanePaletteColor(laneIndex: number): string {
-  return LANE_COLOR_PALETTE[laneIndex % LANE_COLOR_PALETTE.length];
-}
-
 /** Maps a normalized metric value [0,1] to a severity accent color (green → yellow → red). */
 export function getMetricAccentColor(normalizedValue: number): string {
   if (normalizedValue < 0.33) return "var(--color-moss)";
@@ -229,25 +216,16 @@ export function getMetricAccentColor(normalizedValue: number): string {
 }
 
 /**
- * Metric color modes where a *higher* value is desirable. The base gradient runs
- * green → yellow → red as the normalized value rises (the right direction for
- * cost/severity metrics like effort or chain length). For these "benefit" modes
- * we invert the input so green means high value / high value-per-effort.
- */
-const HIGHER_IS_BETTER_COLOR_MODES = new Set<ColorEncodingMode>([
-  "value",
-  "value_per_effort",
-]);
-
-/**
  * Maps a normalized metric value [0,1] to an accent color, orienting the
- * gradient so that "good" is always green for the given color mode.
+ * gradient so that "good" is always green for the given color mode. The base
+ * gradient runs green → yellow → red as the normalized value rises (right for
+ * cost/severity metrics); "benefit" metrics invert the input.
  */
 export function getMetricAccentColorForMode(
   colorMode: ColorEncodingMode,
   normalizedValue: number,
 ): string {
-  const oriented = HIGHER_IS_BETTER_COLOR_MODES.has(colorMode)
+  const oriented = HIGHER_IS_BETTER_METRICS.has(colorMode)
     ? 1 - normalizedValue
     : normalizedValue;
   return getMetricAccentColor(oriented);

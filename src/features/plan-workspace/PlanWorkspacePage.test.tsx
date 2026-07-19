@@ -1,8 +1,12 @@
 // @vitest-environment happy-dom
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { PlanWorkspacePage } from "./PlanWorkspacePage";
 import { useEditStore } from "./editing/edit.store";
+import { installRadixDomShims } from "./ui/test/radix-dom-shims";
+
+installRadixDomShims();
 
 function resetEditStore() {
   useEditStore.setState({
@@ -61,7 +65,60 @@ describe("PlanWorkspacePage", () => {
       />,
     );
 
-    expect(screen.getByRole("alert")).toBeTruthy();
+    // The alert carries only a brief summary (title + issue count); the
+    // detailed issue list renders as ordinary navigable content outside it.
+    const alert = screen.getByRole("alert");
+    expect(alert.textContent).toContain("Invalid plan");
+    expect(alert.textContent).toMatch(/\d+ issues? found/);
+    const heading = screen.getByRole("heading", { name: "Invalid plan" });
+    expect(alert.contains(heading)).toBe(false);
+  });
+
+  it("opens the plan-details popover as a labelled dialog and closes it on Escape", async () => {
+    const user = userEvent.setup();
+    render(
+      <PlanWorkspacePage
+        source={validPlanYaml}
+        revision={1}
+        planFileName="ws-test.yaml"
+      />,
+    );
+
+    const trigger = screen.getByRole("button", { name: "Plan details" });
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+
+    await user.click(trigger);
+
+    const dialog = screen.getByRole("dialog", { name: "Plan details" });
+    // Panel hosts the plan overview editor (title field seeded from the plan)
+    expect(within(dialog).getByDisplayValue("Workspace Test")).toBeTruthy();
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog", { name: "Plan details" })).toBeNull();
+  });
+
+  it("switches the right panel between Details and Insights tabs", async () => {
+    const user = userEvent.setup();
+    render(
+      <PlanWorkspacePage
+        source={validPlanYaml}
+        revision={1}
+        planFileName="ws-test.yaml"
+      />,
+    );
+
+    const tablist = screen.getByRole("tablist", { name: "Right panel tabs" });
+    const detailsTab = within(tablist).getByRole("tab", { name: "Details" });
+    const insightsTab = within(tablist).getByRole("tab", { name: "Insights" });
+    expect(detailsTab.getAttribute("aria-selected")).toBe("true");
+
+    await user.click(insightsTab);
+
+    expect(insightsTab.getAttribute("aria-selected")).toBe("true");
+    expect(detailsTab.getAttribute("aria-selected")).toBe("false");
+    // Insights tabpanel content replaces the details panel
+    expect(screen.getByLabelText("Plan Insights")).toBeTruthy();
   });
 
   it("mounts the write-through status footer in the ready state", () => {
@@ -102,15 +159,14 @@ describe("PlanWorkspacePage", () => {
       />,
     );
 
-    // ValidationToast renders an assertive live region (role="alert" +
-    // aria-live="assertive"); the footer's error variant uses role="alert"
-    // with aria-live="polite", so we filter by the assertive level.
-    const alerts = screen.getAllByRole("alert");
-    const toast = alerts.find(
-      (el) => el.getAttribute("aria-live") === "assertive",
+    // ValidationToast renders a Radix toast (role="status") inside the
+    // page-mounted ToastViewport; the footer's status region also has
+    // role="status", so we find the toast by its content.
+    const statusRegions = screen.getAllByRole("status");
+    const toast = statusRegions.find((el) =>
+      el.textContent?.includes("Would create a cycle"),
     );
     expect(toast).toBeDefined();
-    expect(toast?.textContent).toContain("Would create a cycle");
     expect(toast?.textContent).toContain("cycle_detected");
     // Close button exists (only the toast renders one with this label)
     expect(screen.getByLabelText("Close notification")).toBeTruthy();
@@ -125,7 +181,12 @@ describe("PlanWorkspacePage", () => {
       />,
     );
 
-    // No alert region — only the (non-alert) footer is mounted.
-    expect(screen.queryByRole("alert")).toBeNull();
+    // The footer's persistent alert live region stays mounted (LiveRegion
+    // regions persist with empty content by design), so absence of the toast
+    // is asserted as: no toast close button, and every alert region is empty.
+    expect(screen.queryByLabelText("Close notification")).toBeNull();
+    for (const region of screen.queryAllByRole("alert")) {
+      expect(region.textContent).toBe("");
+    }
   });
 });

@@ -20,21 +20,36 @@ export interface PlanWriter {
   apply(currentSource: string, patch: PlanPatch): PlanWriterResult;
 }
 
-function findItemIndex(
+type IndexResolution =
+  | { ok: true; index: number }
+  | { ok: false; error: PlanWriterResult };
+
+// `error` is a ready-to-return PlanWriterResult so every operation can do
+// `if (!resolved.ok) return resolved.error;` without rebuilding the failure.
+function resolveItemIndex(
   doc: ReturnType<typeof parseDocument>,
   key: "work_items" | "lanes",
   id: string,
-): number {
+): IndexResolution {
   const seq = doc.get(key);
-  if (!(seq instanceof YAMLSeq)) return -1;
-  for (let i = 0; i < seq.items.length; i++) {
-    const item = seq.items[i];
-    if (item instanceof YAMLMap) {
-      const itemId = item.get("id");
-      if (itemId === id) return i;
+  if (seq instanceof YAMLSeq) {
+    for (let i = 0; i < seq.items.length; i++) {
+      const item = seq.items[i];
+      if (item instanceof YAMLMap && item.get("id") === id) {
+        return { ok: true, index: i };
+      }
     }
   }
-  return -1;
+  return {
+    ok: false,
+    error: {
+      ok: false,
+      failure: {
+        type: "target_not_found",
+        target: { kind: key === "lanes" ? "lane" : "work_item", id },
+      },
+    },
+  };
 }
 
 function setBlockStyleAt(
@@ -65,16 +80,9 @@ export function createPlanWriter(
 
       switch (patch.kind) {
         case "work_item.field": {
-          const i = findItemIndex(doc, "work_items", patch.target.id);
-          if (i < 0) {
-            return {
-              ok: false,
-              failure: {
-                type: "target_not_found",
-                target: { kind: "work_item", id: patch.target.id },
-              },
-            };
-          }
+          const resolved = resolveItemIndex(doc, "work_items", patch.target.id);
+          if (!resolved.ok) return resolved.error;
+          const i = resolved.index;
           if (patch.field === "notes" && patch.value === null) {
             doc.deleteIn(["work_items", i, "notes"]);
           } else {
@@ -83,31 +91,17 @@ export function createPlanWriter(
           break;
         }
         case "work_item.value": {
-          const i = findItemIndex(doc, "work_items", patch.target.id);
-          if (i < 0) {
-            return {
-              ok: false,
-              failure: {
-                type: "target_not_found",
-                target: { kind: "work_item", id: patch.target.id },
-              },
-            };
-          }
+          const resolved = resolveItemIndex(doc, "work_items", patch.target.id);
+          if (!resolved.ok) return resolved.error;
+          const i = resolved.index;
           doc.setIn(["work_items", i, "value"], patch.value);
           setBlockStyleAt(doc, ["work_items", i, "value"]);
           break;
         }
         case "work_item.estimate": {
-          const i = findItemIndex(doc, "work_items", patch.target.id);
-          if (i < 0) {
-            return {
-              ok: false,
-              failure: {
-                type: "target_not_found",
-                target: { kind: "work_item", id: patch.target.id },
-              },
-            };
-          }
+          const resolved = resolveItemIndex(doc, "work_items", patch.target.id);
+          if (!resolved.ok) return resolved.error;
+          const i = resolved.index;
           if (patch.value === null) {
             doc.deleteIn(["work_items", i, "estimate"]);
           } else {
@@ -117,61 +111,33 @@ export function createPlanWriter(
           break;
         }
         case "work_item.tags": {
-          const i = findItemIndex(doc, "work_items", patch.target.id);
-          if (i < 0) {
-            return {
-              ok: false,
-              failure: {
-                type: "target_not_found",
-                target: { kind: "work_item", id: patch.target.id },
-              },
-            };
-          }
+          const resolved = resolveItemIndex(doc, "work_items", patch.target.id);
+          if (!resolved.ok) return resolved.error;
+          const i = resolved.index;
           doc.setIn(["work_items", i, "tags"], patch.value);
           setBlockStyleAt(doc, ["work_items", i, "tags"]);
           break;
         }
         case "work_item.depends_on": {
-          const i = findItemIndex(doc, "work_items", patch.target.id);
-          if (i < 0) {
-            return {
-              ok: false,
-              failure: {
-                type: "target_not_found",
-                target: { kind: "work_item", id: patch.target.id },
-              },
-            };
-          }
+          const resolved = resolveItemIndex(doc, "work_items", patch.target.id);
+          if (!resolved.ok) return resolved.error;
+          const i = resolved.index;
           doc.setIn(["work_items", i, "depends_on"], patch.value);
           setBlockStyleAt(doc, ["work_items", i, "depends_on"]);
           break;
         }
         case "work_item.string_list": {
-          const i = findItemIndex(doc, "work_items", patch.target.id);
-          if (i < 0) {
-            return {
-              ok: false,
-              failure: {
-                type: "target_not_found",
-                target: { kind: "work_item", id: patch.target.id },
-              },
-            };
-          }
+          const resolved = resolveItemIndex(doc, "work_items", patch.target.id);
+          if (!resolved.ok) return resolved.error;
+          const i = resolved.index;
           doc.setIn(["work_items", i, patch.field], patch.value);
           setBlockStyleAt(doc, ["work_items", i, patch.field]);
           break;
         }
         case "work_item.links": {
-          const i = findItemIndex(doc, "work_items", patch.target.id);
-          if (i < 0) {
-            return {
-              ok: false,
-              failure: {
-                type: "target_not_found",
-                target: { kind: "work_item", id: patch.target.id },
-              },
-            };
-          }
+          const resolved = resolveItemIndex(doc, "work_items", patch.target.id);
+          if (!resolved.ok) return resolved.error;
+          const i = resolved.index;
           doc.setIn(["work_items", i, "links"], patch.value);
           setBlockStyleAt(doc, ["work_items", i, "links"]);
           const linksSeq = doc.getIn(["work_items", i, "links"], true);
@@ -217,16 +183,9 @@ export function createPlanWriter(
           break;
         }
         case "lane.field": {
-          const i = findItemIndex(doc, "lanes", patch.target.id);
-          if (i < 0) {
-            return {
-              ok: false,
-              failure: {
-                type: "target_not_found",
-                target: { kind: "lane", id: patch.target.id },
-              },
-            };
-          }
+          const resolved = resolveItemIndex(doc, "lanes", patch.target.id);
+          if (!resolved.ok) return resolved.error;
+          const i = resolved.index;
           if (
             (patch.field === "description" || patch.field === "color") &&
             patch.value === null

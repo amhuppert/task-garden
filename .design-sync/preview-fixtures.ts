@@ -4,15 +4,15 @@
 // the converter's preview discovery only binds <ComponentName>.tsx, so this
 // sibling module is ignored by discovery and resolved only as an import.
 
-import {
-  createPlanAnalysisEngine,
-  type EstimateSummary,
-} from "../src/lib/graph/plan-analysis-engine";
-import type { FlowNodeData } from "../src/lib/graph/flow-projection-service";
-import type { ReferenceClassification } from "../src/lib/plan/reference-resolver";
-import type { TaskGardenPlan } from "../src/lib/plan/task-garden-plan.schema";
 import type { PlanDisplayStateValue } from "../src/features/plan-workspace/plan-display.store";
 import type { PlanExplorerStateValue } from "../src/features/plan-workspace/plan-explorer.store";
+import type { FlowNodeData } from "../src/lib/graph/flow-projection-service";
+import {
+  type EstimateSummary,
+  createPlanAnalysisEngine,
+} from "../src/lib/graph/plan-analysis-engine";
+import type { ReferenceClassification } from "../src/lib/plan/reference-resolver";
+import type { TaskGardenPlan } from "../src/lib/plan/task-garden-plan.schema";
 
 type ClassifyResult =
   | { ok: true; value: ReferenceClassification }
@@ -23,7 +23,10 @@ export const extUrl = (label: string, href: string): ClassifyResult => ({
   value: { kind: "external_url", label, href },
 });
 
-export const docPath = (label: string, documentPath: string): ClassifyResult => ({
+export const docPath = (
+  label: string,
+  documentPath: string,
+): ClassifyResult => ({
   ok: true,
   value: { kind: "document_path", label, documentPath },
 });
@@ -48,9 +51,24 @@ export const samplePlan: TaskGardenPlan = {
     { label: "Spec", href: "https://example.com/specs/task-garden" },
   ],
   lanes: [
-    { id: "foundation", label: "Foundation", color: "#7c9473", description: "Schema, parsing, and DAG validation." },
-    { id: "graph", label: "Graph", color: "#c2a35a", description: "Layout, projection, and the interactive canvas." },
-    { id: "editing", label: "Editing", color: "#b06a52", description: "Inline write-through edits to the plan YAML." },
+    {
+      id: "foundation",
+      label: "Foundation",
+      color: "#7c9473",
+      description: "Schema, parsing, and DAG validation.",
+    },
+    {
+      id: "graph",
+      label: "Graph",
+      color: "#c2a35a",
+      description: "Layout, projection, and the interactive canvas.",
+    },
+    {
+      id: "editing",
+      label: "Editing",
+      color: "#b06a52",
+      description: "Inline write-through edits to the plan YAML.",
+    },
     { id: "polish", label: "Polish" },
   ],
   work_items: [
@@ -66,7 +84,9 @@ export const samplePlan: TaskGardenPlan = {
       tags: ["core", "schema"],
       deliverables: ["task-garden-plan.schema.ts", "DAG validator"],
       reuse_candidates: [],
-      links: [{ label: "Schema", href: "schemas/task-garden-plan.schema.json" }],
+      links: [
+        { label: "Schema", href: "schemas/task-garden-plan.schema.json" },
+      ],
     },
     {
       id: "flow-projection",
@@ -85,7 +105,8 @@ export const samplePlan: TaskGardenPlan = {
     {
       id: "graph-canvas",
       title: "Interactive graph canvas",
-      summary: "Pan/zoom canvas with lane bands, focus mode, and metric encodings.",
+      summary:
+        "Pan/zoom canvas with lane bands, focus mode, and metric encodings.",
       lane: "graph",
       status: "in_progress",
       value: 100,
@@ -99,7 +120,8 @@ export const samplePlan: TaskGardenPlan = {
     {
       id: "inline-editing",
       title: "Inline write-through editing",
-      summary: "Edit titles, status, estimates, and links straight into the YAML.",
+      summary:
+        "Edit titles, status, estimates, and links straight into the YAML.",
       lane: "editing",
       status: "blocked",
       value: 75,
@@ -183,7 +205,9 @@ export const explorerStateSelected: PlanExplorerStateValue = {
 };
 
 /** A FlowNodeData for the React Flow node previews (WorkItemNode / MetricBubbleNode). */
-export const nodeData = (overrides: Partial<FlowNodeData> = {}): FlowNodeData => ({
+export const nodeData = (
+  overrides: Partial<FlowNodeData> = {},
+): FlowNodeData => ({
   id: "graph-canvas",
   title: "Interactive graph canvas",
   laneLabel: "Graph",

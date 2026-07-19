@@ -6,7 +6,7 @@ import {
   render,
   screen,
 } from "@testing-library/react";
-import { renderToStaticMarkup } from "react-dom/server";
+import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PlanPatch } from "../../../cli/shared/patch-schema";
 import type { PlanAnalysisSnapshot } from "../../lib/graph/plan-analysis-engine";
@@ -17,6 +17,10 @@ import type {
 import type { ReferenceClassificationResult } from "../../lib/plan/reference-resolver";
 import { PlanDetailsPanel } from "./PlanDetailsPanel";
 import { useEditStore } from "./editing/edit.store";
+import { TooltipProvider } from "./ui/Tooltip";
+import { installRadixDomShims } from "./ui/test/radix-dom-shims";
+
+installRadixDomShims();
 
 const stubClassify = (
   target: string,
@@ -142,9 +146,19 @@ function resetEditStore() {
   });
 }
 
-describe("PlanDetailsPanel — link rendering (static)", () => {
+function renderPanel(ui: ReactElement) {
+  return render(<TooltipProvider>{ui}</TooltipProvider>);
+}
+
+describe("PlanDetailsPanel — link rendering", () => {
+  beforeEach(resetEditStore);
+  afterEach(() => {
+    cleanup();
+    resetEditStore();
+  });
+
   it("renders task link labels from authored data", () => {
-    const html = renderToStaticMarkup(
+    renderPanel(
       <PlanDetailsPanel
         snapshot={snapshot}
         explorer={selectedExplorer}
@@ -153,12 +167,12 @@ describe("PlanDetailsPanel — link rendering (static)", () => {
         selectedNodeFilteredOut={false}
       />,
     );
-    expect(html).toContain("Schema Proposal");
-    expect(html).toContain("GitHub PR");
+    expect(screen.getByText("Schema Proposal")).toBeTruthy();
+    expect(screen.getByText("GitHub PR")).toBeTruthy();
   });
 
   it("renders through the shared ResourceLink markup (has data-icon)", () => {
-    const html = renderToStaticMarkup(
+    const { container } = renderPanel(
       <PlanDetailsPanel
         snapshot={snapshot}
         explorer={selectedExplorer}
@@ -167,8 +181,8 @@ describe("PlanDetailsPanel — link rendering (static)", () => {
         selectedNodeFilteredOut={false}
       />,
     );
-    expect(html).toContain('data-icon="file"');
-    expect(html).toContain('data-icon="github"');
+    expect(container.querySelector('[data-icon="file"]')).toBeTruthy();
+    expect(container.querySelector('[data-icon="github"]')).toBeTruthy();
   });
 });
 
@@ -182,7 +196,7 @@ describe("PlanDetailsPanel — selection states", () => {
   });
 
   it("renders the neutral fallback when no work item is selected", () => {
-    render(
+    renderPanel(
       <PlanDetailsPanel
         snapshot={snapshot}
         explorer={emptyExplorer}
@@ -207,7 +221,7 @@ describe("PlanDetailsPanel — selection states", () => {
       selectedWorkItemId: "does-not-exist",
     } as unknown as ExplorerArg;
 
-    render(
+    renderPanel(
       <PlanDetailsPanel
         snapshot={snapshot}
         explorer={missingExplorer}
@@ -223,7 +237,7 @@ describe("PlanDetailsPanel — selection states", () => {
   });
 
   it("renders all editable cells when a work item is selected", () => {
-    render(
+    renderPanel(
       <PlanDetailsPanel
         snapshot={snapshot}
         explorer={selectedExplorer}
@@ -247,7 +261,7 @@ describe("PlanDetailsPanel — selection states", () => {
   });
 
   it("renders TagEditorCell, StringListEditorCell (deliverables/reuse), and LinksEditorCell as editable surfaces", () => {
-    render(
+    renderPanel(
       <PlanDetailsPanel
         snapshot={snapshot}
         explorer={selectedExplorer}
@@ -278,7 +292,7 @@ describe("PlanDetailsPanel — hover affordance", () => {
   });
 
   it("renders the dashed hover-border affordance class on the title cell when unfocused", () => {
-    render(
+    renderPanel(
       <PlanDetailsPanel
         snapshot={snapshot}
         explorer={selectedExplorer}
@@ -295,8 +309,10 @@ describe("PlanDetailsPanel — hover affordance", () => {
     const title = screen.getByTestId("editable-title");
     expect(title.className).toMatch(/hover:border-dashed/);
 
-    // And the focused-state class is not yet applied
-    expect(title.className).not.toMatch(/border-moss/);
+    // And the focused-state styling is not yet active. The focus classes are
+    // always present as data-variants (data-[focused=true]:border-moss), so
+    // the live signal is the data-focused attribute set by InlineTextEditor.
+    expect(title.getAttribute("data-focused")).not.toBe("true");
   });
 });
 
@@ -322,7 +338,7 @@ describe("PlanDetailsPanel — edit dispatch integration", () => {
         revision: 2,
       });
 
-    render(
+    renderPanel(
       <PlanDetailsPanel
         snapshot={snapshot}
         explorer={selectedExplorer}
@@ -369,7 +385,7 @@ describe("PlanDetailsPanel — edit dispatch integration", () => {
         revision: 2,
       });
 
-    render(
+    renderPanel(
       <PlanDetailsPanel
         snapshot={snapshot}
         explorer={selectedExplorer}

@@ -12,8 +12,14 @@ export function MultipleLinks() {
       <LinksEditorCell
         workItemId="links-plan-schema"
         committedValue={[
-          { label: "Schema PR", href: "https://github.com/org/task-garden/pull/142" },
-          { label: "Design Atlas", href: "memory-bank/botanical-systems-atlas.md" },
+          {
+            label: "Schema PR",
+            href: "https://github.com/org/task-garden/pull/142",
+          },
+          {
+            label: "Design Atlas",
+            href: "memory-bank/botanical-systems-atlas.md",
+          },
           { label: "Spec", href: "https://example.com/specs/task-garden" },
         ]}
         baseRevision={8}

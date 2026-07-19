@@ -41,7 +41,9 @@ type Mode = { colorMode?: string; sizeMode?: string; scheduleOverlay?: string };
 
 function Field({ mode, children }: { mode: Mode; children: React.ReactNode }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 22, padding: 24 }}>
+    <div
+      style={{ display: "flex", alignItems: "center", gap: 22, padding: 24 }}
+    >
       <GraphDisplayModeContext.Provider
         value={{
           colorMode: mode.colorMode ?? "default",
@@ -66,16 +68,28 @@ export function SizedByEffortColoredByStatus() {
   return (
     <Field mode={{ colorMode: "status", sizeMode: "downstream_effort_days" }}>
       <MetricBubbleNode
-        data={nodeData({ status: "done", metricSummary: metrics({ downstream_effort_days: 2 }) })}
+        data={nodeData({
+          status: "done",
+          metricSummary: metrics({ downstream_effort_days: 2 }),
+        })}
       />
       <MetricBubbleNode
-        data={nodeData({ status: "in_progress", metricSummary: metrics({ downstream_effort_days: 6 }) })}
+        data={nodeData({
+          status: "in_progress",
+          metricSummary: metrics({ downstream_effort_days: 6 }),
+        })}
       />
       <MetricBubbleNode
-        data={nodeData({ status: "blocked", metricSummary: metrics({ downstream_effort_days: 11 }) })}
+        data={nodeData({
+          status: "blocked",
+          metricSummary: metrics({ downstream_effort_days: 11 }),
+        })}
       />
       <MetricBubbleNode
-        data={nodeData({ status: "ready", metricSummary: metrics({ downstream_effort_days: 14 }) })}
+        data={nodeData({
+          status: "ready",
+          metricSummary: metrics({ downstream_effort_days: 14 }),
+        })}
       />
     </Field>
   );
@@ -84,15 +98,36 @@ export function SizedByEffortColoredByStatus() {
 // Size + color both encode value; critical-path overlay adds order badges + rings.
 export function CriticalPathOverlay() {
   return (
-    <Field mode={{ colorMode: "value", sizeMode: "value", scheduleOverlay: "critical_path" }}>
+    <Field
+      mode={{
+        colorMode: "value",
+        sizeMode: "value",
+        scheduleOverlay: "critical_path",
+      }}
+    >
       <MetricBubbleNode
-        data={nodeData({ value: 90, criticalPathOrder: 0, isOnCriticalPath: true, metricSummary: metrics({ value: 90 }) })}
+        data={nodeData({
+          value: 90,
+          criticalPathOrder: 0,
+          isOnCriticalPath: true,
+          metricSummary: metrics({ value: 90 }),
+        })}
       />
       <MetricBubbleNode
-        data={nodeData({ value: 100, criticalPathOrder: 1, isOnCriticalPath: true, metricSummary: metrics({ value: 100 }) })}
+        data={nodeData({
+          value: 100,
+          criticalPathOrder: 1,
+          isOnCriticalPath: true,
+          metricSummary: metrics({ value: 100 }),
+        })}
       />
       <MetricBubbleNode
-        data={nodeData({ value: 60, criticalPathOrder: 2, isOnCriticalPath: true, metricSummary: metrics({ value: 60 }) })}
+        data={nodeData({
+          value: 60,
+          criticalPathOrder: 2,
+          isOnCriticalPath: true,
+          metricSummary: metrics({ value: 60 }),
+        })}
       />
     </Field>
   );
@@ -103,10 +138,18 @@ export function FocusVsContext() {
   return (
     <Field mode={{ colorMode: "status", sizeMode: "value" }}>
       <MetricBubbleNode
-        data={nodeData({ status: "in_progress", visibilityRole: "focus", metricSummary: metrics({ value: 100 }) })}
+        data={nodeData({
+          status: "in_progress",
+          visibilityRole: "focus",
+          metricSummary: metrics({ value: 100 }),
+        })}
       />
       <MetricBubbleNode
-        data={nodeData({ status: "planned", visibilityRole: "context", metricSummary: metrics({ value: 40 }) })}
+        data={nodeData({
+          status: "planned",
+          visibilityRole: "context",
+          metricSummary: metrics({ value: 40 }),
+        })}
       />
     </Field>
   );

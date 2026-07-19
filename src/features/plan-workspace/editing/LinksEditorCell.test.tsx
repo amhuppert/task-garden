@@ -7,18 +7,9 @@ import {
   screen,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { PlanPatch } from "../../../../cli/shared/patch-schema";
-import type {
-  EditApiResult,
-  PatchPlanOptions,
-} from "../../../lib/plan/edit-api-client";
+import type { PatchPlanFn } from "../../../lib/plan/edit-api-client";
 import { LinksEditorCell } from "./LinksEditorCell";
 import { useEditStore } from "./edit.store";
-
-type PatchPlanFn = (
-  patch: PlanPatch,
-  opts: PatchPlanOptions,
-) => Promise<EditApiResult>;
 
 function reset() {
   useEditStore.setState({
@@ -128,6 +119,37 @@ describe("LinksEditorCell", () => {
         { label: "Docs", href: "https://example.com" },
         { label: "Repo", href: "https://github.com" },
       ],
+    });
+  });
+
+  it("Enter in a row field blurs it and commits", async () => {
+    const patchPlan = okPatch();
+    render(
+      <LinksEditorCell
+        workItemId="a"
+        committedValue={[{ label: "Docs", href: "https://example.com" }]}
+        baseRevision={1}
+        patchPlan={patchPlan}
+      />,
+    );
+
+    const href = screen.getByTestId("link-href-0") as HTMLInputElement;
+
+    await act(async () => {
+      href.focus();
+      fireEvent.change(href, { target: { value: "https://example.org" } });
+      fireEvent.keyDown(href, { key: "Enter" });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(patchPlan).toHaveBeenCalled();
+    const calls = (patchPlan as ReturnType<typeof vi.fn>).mock.calls;
+    const finalCall = calls[calls.length - 1][0];
+    expect(finalCall).toEqual({
+      kind: "work_item.links",
+      target: { id: "a" },
+      value: [{ label: "Docs", href: "https://example.org" }],
     });
   });
 

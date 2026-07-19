@@ -1,18 +1,10 @@
-import { useCallback } from "react";
-import type { PlanPatch } from "../../../../cli/shared/patch-schema";
-import type {
-  EditApiResult,
-  PatchPlanOptions,
-} from "../../../lib/plan/edit-api-client";
+import { useCallback, useId } from "react";
+import type { PatchPlanFn } from "../../../lib/plan/edit-api-client";
 import type { TaskGardenLane } from "../../../lib/plan/task-garden-plan.schema";
+import { FieldShell } from "../ui/FieldShell";
 import { FieldSaveIndicator } from "./FieldSaveIndicator";
 import { patchTargets } from "./patch-targets";
 import { useFieldDraft } from "./useFieldDraft";
-
-type PatchPlanFn = (
-  patch: PlanPatch,
-  opts: PatchPlanOptions,
-) => Promise<EditApiResult>;
 
 export interface LaneInlineEditorProps {
   laneId: string;
@@ -43,6 +35,7 @@ function LaneScalarField({
   placeholder?: string;
 }) {
   const key = `lane:${laneId}:${field}`;
+  const inputId = useId();
 
   const buildPatch = useCallback(
     (next: string) => {
@@ -68,28 +61,22 @@ function LaneScalarField({
   };
 
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-2">
-        <span className="atlas-kicker">{label}</span>
-        {isDirty && (
-          <span
-            aria-hidden="true"
-            className="inline-block h-1.5 w-1.5 rounded-full"
-            style={{ backgroundColor: "var(--color-pollen)" }}
-          />
-        )}
-        <FieldSaveIndicator stateKey={key} />
-      </div>
+    <FieldShell
+      label={label}
+      htmlFor={inputId}
+      dirty={isDirty}
+      status={<FieldSaveIndicator stateKey={key} />}
+    >
       <input
+        id={inputId}
         data-testid={testId}
-        aria-label={label}
         value={value}
         placeholder={placeholder}
         onChange={(event) => setDraft(event.target.value)}
         onBlur={handleBlur}
         className="rounded-[var(--radius-sm)] border border-border bg-surface px-2 py-1 text-sm text-foreground outline-none focus:border-moss"
       />
-    </div>
+    </FieldShell>
   );
 }
 

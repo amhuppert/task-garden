@@ -50,6 +50,7 @@ import {
   resolveLegendItemColor,
 } from "./plan-graph-canvas.helpers";
 import { getColorModeLabel, getSizeModeLabel } from "./plan-toolbar.helpers";
+import { LiveRegion } from "./ui/LiveRegion";
 
 // ---------------------------------------------------------------------------
 // Lane band node (renders behind work items to visually group lanes)
@@ -459,6 +460,7 @@ export function PlanGraphCanvas({
           id: node.id,
           type: "metricBubble" as const,
           position: node.position,
+          ariaLabel: node.ariaLabel,
           data: node.data,
           draggable: false,
           selectable: true,
@@ -471,6 +473,7 @@ export function PlanGraphCanvas({
         id: node.id,
         type: "workItem" as const,
         position: node.position,
+        ariaLabel: node.ariaLabel,
         data: node.data,
         draggable: false,
         selectable: true,
@@ -578,160 +581,179 @@ export function PlanGraphCanvas({
     setHoveredLaneLabel(null);
   }, []);
 
-  // Empty state when all items are filtered out
+  // Empty state when all items are filtered out. The status region occupies
+  // the same tree position (fragment index 0) in both branches so React keeps
+  // one persistent element across the graph↔empty transition — a live region
+  // inserted into the DOM with content already present is never announced.
   if (projection.emptyStateMessage) {
     return (
-      <div className="flex h-full w-full items-center justify-center">
-        <PlanEmptyState
-          message={projection.emptyStateMessage}
-          onClearFilters={clearFilters}
-        />
-      </div>
+      <>
+        <LiveRegion kind="status" className="sr-only">
+          {projection.emptyStateMessage}
+        </LiveRegion>
+        <div className="flex h-full w-full items-center justify-center">
+          <PlanEmptyState
+            message={projection.emptyStateMessage}
+            onClearFilters={clearFilters}
+          />
+        </div>
+      </>
     );
   }
 
   return (
-    <GraphMetricRangesContext.Provider value={metricRanges}>
-      <GraphScheduleOverlayContext.Provider value={{ slackRange }}>
-        <GraphDisplayModeContext.Provider value={displayMode}>
-          <div
-            ref={canvasRef}
-            className="relative h-full w-full"
-            onMouseLeave={onCanvasMouseLeave}
-          >
-            <ReactFlow
-              nodes={rfNodes}
-              edges={rfEdges}
-              nodeTypes={nodeTypes}
-              onNodeClick={onNodeClick}
-              onNodeMouseEnter={onNodeMouseEnter}
-              onPaneClick={onPaneClick}
-              nodesDraggable={false}
-              nodesConnectable={false}
-              elementsSelectable={true}
-              fitView
-              fitViewOptions={{ padding: 0.12 }}
-              minZoom={0.15}
-              maxZoom={3}
-              proOptions={{ hideAttribution: true }}
-              style={{ background: "transparent" }}
+    <>
+      <LiveRegion kind="status" className="sr-only">
+        {null}
+      </LiveRegion>
+      <GraphMetricRangesContext.Provider value={metricRanges}>
+        <GraphScheduleOverlayContext.Provider value={{ slackRange }}>
+          <GraphDisplayModeContext.Provider value={displayMode}>
+            <div
+              ref={canvasRef}
+              className="relative h-full w-full"
+              onMouseLeave={onCanvasMouseLeave}
             >
-              {/* Atlas-style dot grid background */}
-              <Background
-                variant={BackgroundVariant.Dots}
-                gap={32}
-                size={1}
-                color="var(--color-grid)"
-              />
-
-              <ViewportController
-                selectedWorkItemId={selectedWorkItemId}
+              <ReactFlow
                 nodes={rfNodes}
-                skipAutoPanRef={skipAutoPanRef}
-              />
+                edges={rfEdges}
+                nodeTypes={nodeTypes}
+                onNodeClick={onNodeClick}
+                onNodeMouseEnter={onNodeMouseEnter}
+                onPaneClick={onPaneClick}
+                nodesDraggable={false}
+                nodesConnectable={false}
+                elementsSelectable={true}
+                fitView
+                fitViewOptions={{ padding: 0.12 }}
+                minZoom={0.15}
+                maxZoom={3}
+                proOptions={{ hideAttribution: true }}
+                style={{ background: "transparent" }}
+              >
+                {/* Atlas-style dot grid background */}
+                <Background
+                  variant={BackgroundVariant.Dots}
+                  gap={32}
+                  size={1}
+                  color="var(--color-grid)"
+                />
 
-              {/* Viewport controls: zoom in/out + fit-view */}
-              <Controls
-                showInteractive={false}
-                style={{
-                  boxShadow: "var(--shadow-specimen)",
-                  border: "1px solid var(--color-border)",
-                  borderRadius: "var(--radius-md)",
-                  background: "var(--color-panel)",
-                  overflow: "hidden",
-                }}
-              />
+                <ViewportController
+                  selectedWorkItemId={selectedWorkItemId}
+                  nodes={rfNodes}
+                  skipAutoPanRef={skipAutoPanRef}
+                />
 
-              {/* Minimap for large graphs */}
-              {/* Note: nodeColor/nodeStrokeColor/maskColor use hardcoded oklch values
+                {/* Viewport controls: zoom in/out + fit-view */}
+                <Controls
+                  showInteractive={false}
+                  style={{
+                    boxShadow: "var(--shadow-specimen)",
+                    border: "1px solid var(--color-border)",
+                    borderRadius: "var(--radius-md)",
+                    background: "var(--color-panel)",
+                    overflow: "hidden",
+                  }}
+                />
+
+                {/* Minimap for large graphs */}
+                {/* Note: nodeColor/nodeStrokeColor/maskColor use hardcoded oklch values
                 because CSS variables resolve to near-white in both themes, making
                 the minimap invisible. These values are minimap-specific overrides
                 tuned for visibility in light and dark themes. */}
-              <MiniMap
-                pannable={true}
-                zoomable={true}
-                nodeColor={(node) => {
-                  if (node.type === "laneBand")
-                    return "oklch(0.82 0.03 95 / 0.35)";
-                  const d = node.data as {
-                    isSelected?: boolean;
-                    visibilityRole?: string;
-                  };
-                  if (d.isSelected) return "var(--color-moss)";
-                  if (d.visibilityRole === "context")
-                    return "oklch(0.72 0.03 142)";
-                  return "oklch(0.62 0.04 142)";
-                }}
-                nodeStrokeColor="oklch(0.50 0.04 142)"
-                maskColor="oklch(0.96 0.01 95 / 0.25)"
-                style={{
-                  border: "1px solid var(--color-border)",
-                  borderRadius: "var(--radius-md)",
-                  background: "var(--color-panel)",
-                  cursor: "grab",
-                }}
-              />
-            </ReactFlow>
+                <MiniMap
+                  pannable={true}
+                  zoomable={true}
+                  nodeColor={(node) => {
+                    if (node.type === "laneBand")
+                      return "oklch(0.82 0.03 95 / 0.35)";
+                    const d = node.data as {
+                      isSelected?: boolean;
+                      visibilityRole?: string;
+                    };
+                    if (d.isSelected) return "var(--color-moss)";
+                    if (d.visibilityRole === "context")
+                      return "oklch(0.72 0.03 142)";
+                    return "oklch(0.62 0.04 142)";
+                  }}
+                  nodeStrokeColor="oklch(0.50 0.04 142)"
+                  maskColor="oklch(0.96 0.01 95 / 0.25)"
+                  style={{
+                    border: "1px solid var(--color-border)",
+                    borderRadius: "var(--radius-md)",
+                    background: "var(--color-panel)",
+                    cursor: "grab",
+                  }}
+                />
+              </ReactFlow>
 
-            <ScheduleOverlayCard legend={projection.scheduleLegend} />
+              <ScheduleOverlayCard legend={projection.scheduleLegend} />
 
-            {/* Legend overlay (bottom-right of canvas, pointer-events:none) */}
-            {(projection.colorLegend.items.length > 0 ||
-              projection.colorLegend.fallbackMessage ||
-              projection.sizeLegend) && (
-              <div
-                aria-label="Graph legend"
-                className="atlas-panel pointer-events-none absolute bottom-[210px] right-4 max-w-[210px] px-4 py-3"
-                style={{ zIndex: 20 }}
-              >
-                {/* Color section */}
-                <p className="atlas-kicker mb-1.5">{`Color \u2014 ${getColorModeLabel(colorMode)}`}</p>
-                {projection.colorLegend.fallbackMessage ? (
-                  <p className="text-[0.65rem] italic text-muted-foreground">
-                    {projection.colorLegend.fallbackMessage}
-                  </p>
-                ) : (
-                  <ul className="flex flex-col gap-1">
-                    {projection.colorLegend.items.map((item) => {
-                      const dotColor = resolveLegendItemColor(colorMode, item);
-                      return (
-                        <li key={item.key} className="flex items-center gap-2">
-                          <span
-                            className={`h-2 w-2 shrink-0 rounded-full${dotColor ? "" : " bg-foreground opacity-50"}`}
-                            style={
-                              dotColor
-                                ? { backgroundColor: dotColor }
-                                : undefined
-                            }
-                          />
-                          <span className="truncate text-[0.65rem] text-foreground">
-                            {item.label}
-                          </span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
+              {/* Legend overlay (bottom-right of canvas, pointer-events:none) */}
+              {(projection.colorLegend.items.length > 0 ||
+                projection.colorLegend.fallbackMessage ||
+                projection.sizeLegend) && (
+                <div
+                  aria-label="Graph legend"
+                  className="atlas-panel pointer-events-none absolute bottom-[210px] right-4 max-w-[210px] px-4 py-3"
+                  style={{ zIndex: 20 }}
+                >
+                  {/* Color section */}
+                  <p className="atlas-kicker mb-1.5">{`Color \u2014 ${getColorModeLabel(colorMode)}`}</p>
+                  {projection.colorLegend.fallbackMessage ? (
+                    <p className="text-[0.65rem] italic text-muted-foreground">
+                      {projection.colorLegend.fallbackMessage}
+                    </p>
+                  ) : (
+                    <ul className="flex flex-col gap-1">
+                      {projection.colorLegend.items.map((item) => {
+                        const dotColor = resolveLegendItemColor(
+                          colorMode,
+                          item,
+                        );
+                        return (
+                          <li
+                            key={item.key}
+                            className="flex items-center gap-2"
+                          >
+                            <span
+                              className={`h-2 w-2 shrink-0 rounded-full${dotColor ? "" : " bg-foreground opacity-50"}`}
+                              style={
+                                dotColor
+                                  ? { backgroundColor: dotColor }
+                                  : undefined
+                              }
+                            />
+                            <span className="truncate text-[0.65rem] text-foreground">
+                              {item.label}
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
 
-                {/* Size section */}
-                {projection.sizeLegend && (
-                  <>
-                    <div className="my-2 border-t border-border" />
-                    <p className="atlas-kicker mb-1.5">{`Node Size \u2014 ${getSizeModeLabel(sizeMode)}`}</p>
-                    {projection.sizeLegend.fallbackMessage ? (
-                      <p className="text-[0.65rem] italic text-muted-foreground">
-                        {projection.sizeLegend.fallbackMessage}
-                      </p>
-                    ) : (
-                      <SizeLegendItems items={projection.sizeLegend.items} />
-                    )}
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-        </GraphDisplayModeContext.Provider>
-      </GraphScheduleOverlayContext.Provider>
-    </GraphMetricRangesContext.Provider>
+                  {/* Size section */}
+                  {projection.sizeLegend && (
+                    <>
+                      <div className="my-2 border-t border-border" />
+                      <p className="atlas-kicker mb-1.5">{`Node Size \u2014 ${getSizeModeLabel(sizeMode)}`}</p>
+                      {projection.sizeLegend.fallbackMessage ? (
+                        <p className="text-[0.65rem] italic text-muted-foreground">
+                          {projection.sizeLegend.fallbackMessage}
+                        </p>
+                      ) : (
+                        <SizeLegendItems items={projection.sizeLegend.items} />
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          </GraphDisplayModeContext.Provider>
+        </GraphScheduleOverlayContext.Provider>
+      </GraphMetricRangesContext.Provider>
+    </>
   );
 }

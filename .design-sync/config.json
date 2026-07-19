@@ -7,13 +7,26 @@
   "tsconfig": "tsconfig.app.json",
   "cssEntry": ".design-sync/app-tailwind.css",
   "extraFonts": [".design-sync/brand-fonts.css"],
-  "runtimeFontPrefixes": ["Trebuchet MS", "Iowan Old Style", "Palatino Linotype", "Book Antiqua"],
+  "runtimeFontPrefixes": [
+    "Trebuchet MS",
+    "Iowan Old Style",
+    "Palatino Linotype",
+    "Book Antiqua"
+  ],
   "buildCmd": "sh .design-sync/prep.sh",
   "readmeHeader": ".design-sync/conventions.md",
   "provider": { "component": "ReactFlowProvider" },
   "overrides": {
-    "PlanWorkspacePage": { "cardMode": "single", "viewport": "1180x760", "primaryStory": "FullWorkspace" },
-    "NewItemForm": { "cardMode": "single", "viewport": "560x680", "primaryStory": "NewWorkItem" },
+    "PlanWorkspacePage": {
+      "cardMode": "single",
+      "viewport": "1180x760",
+      "primaryStory": "FullWorkspace"
+    },
+    "NewItemForm": {
+      "cardMode": "single",
+      "viewport": "560x680",
+      "primaryStory": "NewWorkItem"
+    },
     "CreateBar": { "cardMode": "column" },
     "DependencyEditorCell": { "cardMode": "column" },
     "FieldSaveIndicator": { "cardMode": "column" },

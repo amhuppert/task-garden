@@ -1,20 +1,15 @@
 import { create } from "zustand";
+import type {
+  GraphScope,
+  PlanExplorerStateValue,
+} from "../../lib/graph/graph-view-state";
 import type { TaskGardenStatus } from "../../lib/plan/task-garden-plan.schema";
 
 // ---------------------------------------------------------------------------
-// Types
+// Types — canonical definitions live in lib/graph; re-exported for consumers.
 // ---------------------------------------------------------------------------
 
-export type GraphScope = "all" | "upstream" | "downstream" | "chain";
-
-export interface PlanExplorerStateValue {
-  selectedWorkItemId: string | null;
-  searchQuery: string;
-  activeScope: GraphScope;
-  laneIds: readonly string[];
-  statuses: readonly TaskGardenStatus[];
-  tags: readonly string[];
-}
+export type { GraphScope, PlanExplorerStateValue };
 
 interface PlanExplorerActions {
   selectWorkItem(id: string): void;

@@ -78,6 +78,12 @@ export interface PatchPlanOptions {
   signal?: AbortSignal;
 }
 
+// Signature of patchPlan, for components that accept an injectable override.
+export type PatchPlanFn = (
+  patch: PlanPatch,
+  opts: PatchPlanOptions,
+) => Promise<EditApiResult>;
+
 interface ApiErrorBody {
   error?: string;
   operationId?: string;

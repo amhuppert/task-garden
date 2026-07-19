@@ -1,14 +1,3 @@
-import {
-  FloatingPortal,
-  autoUpdate,
-  flip,
-  offset,
-  shift,
-  useClick,
-  useDismiss,
-  useFloating,
-  useInteractions,
-} from "@floating-ui/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import {
@@ -19,7 +8,7 @@ import {
   type PlanAnalysisSnapshot,
   usePlanProcessing,
 } from "../../lib/plan/plan-processing-pipeline";
-import type { TaskGardenStatus } from "../../lib/plan/task-garden-plan.schema";
+import { STATUS_FILTER_ORDER } from "../../lib/plan/status-presentation";
 import { PlanDetailsPanel } from "./PlanDetailsPanel";
 import { PlanGraphCanvas } from "./PlanGraphCanvas";
 import { PlanInsightsPanel } from "./PlanInsightsPanel";
@@ -66,6 +55,10 @@ import {
   selectTags,
   usePlanExplorerStore,
 } from "./plan-explorer.store";
+import { Popover } from "./ui/Popover";
+import { TabPanel, Tabs } from "./ui/Tabs";
+import { ToastViewport } from "./ui/Toast";
+import { TooltipProvider } from "./ui/Tooltip";
 
 // ---------------------------------------------------------------------------
 // Info popover button
@@ -83,84 +76,63 @@ function InfoPopoverButton({
   onDocumentPreview,
   baseRevision,
 }: InfoPopoverButtonProps) {
-  const [open, setOpen] = useState(false);
-
-  const { refs, floatingStyles, context } = useFloating({
-    open,
-    onOpenChange: setOpen,
-    placement: "bottom-start",
-    whileElementsMounted: autoUpdate,
-    middleware: [offset(8), flip(), shift({ padding: 12 })],
-  });
-
-  const click = useClick(context);
-  const dismiss = useDismiss(context);
-  const { getReferenceProps, getFloatingProps } = useInteractions([
-    click,
-    dismiss,
-  ]);
-
   return (
-    <>
-      <button
-        ref={refs.setReference}
-        type="button"
-        aria-label="Plan details"
-        aria-expanded={open}
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] border border-border text-muted-foreground transition-colors hover:bg-surface-muted"
-        {...getReferenceProps()}
-      >
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 16 16"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          aria-hidden="true"
+    <Popover
+      ariaLabel="Plan details"
+      maxHeight="70vh"
+      trigger={
+        <button
+          type="button"
+          aria-label="Plan details"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] border border-border text-muted-foreground transition-colors hover:bg-surface-muted"
         >
-          <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" />
-          <rect
-            x="7.25"
-            y="7"
-            width="1.5"
-            height="5"
-            rx="0.75"
-            fill="currentColor"
-          />
-          <rect
-            x="7.25"
-            y="4"
-            width="1.5"
-            height="1.5"
-            rx="0.75"
-            fill="currentColor"
-          />
-        </svg>
-      </button>
-
-      {open && (
-        <FloatingPortal>
-          <div
-            ref={refs.setFloating}
-            style={{ ...floatingStyles, maxHeight: "70vh" }}
-            className="atlas-panel z-50 max-w-[360px] overflow-y-auto"
-            {...getFloatingProps()}
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
           >
-            <div className="flex flex-col gap-4 p-4">
-              <PlanOverviewEditor plan={plan} baseRevision={baseRevision} />
-              <PlanOverviewHeader
-                plan={plan}
-                estimateSummary={estimateSummary}
-                estimateUnit={estimateUnit}
-                classify={classify}
-                onDocumentPreview={onDocumentPreview}
-                hideEditableSections
-              />
-            </div>
-          </div>
-        </FloatingPortal>
-      )}
-    </>
+            <circle
+              cx="8"
+              cy="8"
+              r="7"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            />
+            <rect
+              x="7.25"
+              y="7"
+              width="1.5"
+              height="5"
+              rx="0.75"
+              fill="currentColor"
+            />
+            <rect
+              x="7.25"
+              y="4"
+              width="1.5"
+              height="1.5"
+              rx="0.75"
+              fill="currentColor"
+            />
+          </svg>
+        </button>
+      }
+    >
+      <div className="flex max-w-[360px] flex-col gap-4 p-4">
+        <PlanOverviewEditor plan={plan} baseRevision={baseRevision} />
+        <PlanOverviewHeader
+          plan={plan}
+          estimateSummary={estimateSummary}
+          estimateUnit={estimateUnit}
+          classify={classify}
+          onDocumentPreview={onDocumentPreview}
+          hideEditableSections
+        />
+      </div>
+    </Popover>
   );
 }
 
@@ -200,7 +172,11 @@ export function PlanWorkspacePage({
   // ── Local UI state (unconditional hooks — must come before early returns) ──
   const [previewPath, setPreviewPath] = useState<string | null>(null);
   const [rightTab, setRightTab] = useState<"details" | "insights">("details");
-  const rightPanelScrollRef = useRef<HTMLDivElement>(null);
+  // One ref per tabpanel: Radix keeps every panel element mounted (hidden), so
+  // a shared ref would permanently point at the last-rendered panel and the
+  // scroll reset would never reach the Details panel.
+  const detailsScrollRef = useRef<HTMLDivElement>(null);
+  const insightsScrollRef = useRef<HTMLDivElement>(null);
   const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(false);
   const [newItemFormState, setNewItemFormState] = useState<{
@@ -223,7 +199,11 @@ export function PlanWorkspacePage({
   // with its header off-screen.
   // biome-ignore lint/correctness/useExhaustiveDependencies: deps are the reset triggers, not values read
   useEffect(() => {
-    rightPanelScrollRef.current?.scrollTo({ top: 0 });
+    const panel =
+      rightTab === "details"
+        ? detailsScrollRef.current
+        : insightsScrollRef.current;
+    panel?.scrollTo({ top: 0 });
   }, [selectedWorkItemId, rightTab]);
   const searchQuery = usePlanExplorerStore(selectSearchQuery);
   const activeScope = usePlanExplorerStore(selectActiveScope);
@@ -304,18 +284,10 @@ export function PlanWorkspacePage({
       return { lanes: [], statuses: [], tags: [] };
     }
     const items = Object.values(snapshot.workItems);
-    const statusOrder: TaskGardenStatus[] = [
-      "planned",
-      "ready",
-      "in_progress",
-      "blocked",
-      "done",
-      "future",
-    ];
     const present = new Set(items.map((i) => i.status));
     return {
       lanes: snapshot.plan.lanes,
-      statuses: statusOrder.filter((s) => present.has(s)),
+      statuses: STATUS_FILTER_ORDER.filter((s) => present.has(s)),
       tags: [...new Set(items.flatMap((i) => i.tags))].sort(),
     };
   }, [snapshot]);
@@ -428,226 +400,221 @@ export function PlanWorkspacePage({
   };
 
   return (
-    <>
-      {/* ── Document preview modal ─────────────────────────────────────── */}
-      <DocumentPreviewModal documentPath={previewPath} onClose={closePreview} />
+    <TooltipProvider>
+      <ToastViewport>
+        {/* ── Document preview modal ───────────────────────────────────── */}
+        <DocumentPreviewModal
+          documentPath={previewPath}
+          onClose={closePreview}
+        />
 
-      {/* ── Workspace ──────────────────────────────────────────────────── */}
-      <div className="atlas-page flex h-screen overflow-hidden">
-        {/* Mobile backdrop — dismisses open panels */}
-        {(leftOpen || rightOpen) && (
-          // biome-ignore lint/a11y/useKeyWithClickEvents: backdrop click
-          <div
-            className="fixed inset-0 z-30 bg-background/60 backdrop-blur-sm lg:hidden"
-            onClick={closeMobilePanels}
-            aria-hidden="true"
-          />
-        )}
-
-        {/* ============================================================ */}
-        {/* Left sidebar — Plan overview + Toolbar                       */}
-        {/* ============================================================ */}
-        <aside
-          className={[
-            // Base styles (shared mobile + desktop)
-            "flex flex-col border-r border-border",
-            // Mobile: fixed overlay, toggle via leftOpen
-            "fixed inset-y-0 left-0 z-40 w-72 bg-panel/98 backdrop-blur-xl",
-            "transition-transform duration-300 ease-in-out",
-            leftOpen ? "translate-x-0" : "-translate-x-full",
-            // Desktop: in-flow, always visible
-            "lg:relative lg:z-auto lg:translate-x-0 lg:bg-panel lg:backdrop-blur-none",
-          ].join(" ")}
-          aria-label="Plan controls"
-        >
-          {/* Compact plan header with info popover */}
-          <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-3">
-            <h1
-              className="atlas-title min-w-0 flex-1 truncate text-lg text-foreground"
-              title={`${readySnapshot.plan.title} — ${planFileName}`}
-            >
-              {readySnapshot.plan.title}
-            </h1>
-            <InfoPopoverButton
-              plan={readySnapshot.plan}
-              estimateSummary={readySnapshot.estimateSummary}
-              estimateUnit={readySnapshot.estimateUnit}
-              onDocumentPreview={handleDocumentPreview}
-              baseRevision={processingState.input.revision}
+        {/* ── Workspace ──────────────────────────────────────────────────── */}
+        <div className="atlas-page flex h-screen overflow-hidden">
+          {/* Mobile backdrop — dismisses open panels */}
+          {(leftOpen || rightOpen) && (
+            // biome-ignore lint/a11y/useKeyWithClickEvents: backdrop click
+            <div
+              className="fixed inset-0 z-30 bg-background/60 backdrop-blur-sm lg:hidden"
+              onClick={closeMobilePanels}
+              aria-hidden="true"
             />
-          </div>
+          )}
 
-          {/* Filter + encoding controls */}
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            <PlanToolbar
-              availableFilters={availableFilters}
-              projectionSummary={projectionSummary}
-              baseRevision={processingState.input.revision}
-              onNewItem={() => {
-                const lane = activeLaneScope ?? firstLaneId ?? undefined;
-                openNewItemForm(lane ? { lane } : undefined);
-              }}
-            />
-          </div>
-        </aside>
-
-        {/* ============================================================ */}
-        {/* Center + right column                                        */}
-        {/* ============================================================ */}
-        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          {/* Mobile top bar — shown only on narrow viewports */}
-          <div className="flex shrink-0 items-center justify-between border-b border-border bg-panel/90 px-4 py-2.5 backdrop-blur-sm lg:hidden">
-            <button
-              type="button"
-              onClick={() => {
-                setLeftOpen((v) => !v);
-                setRightOpen(false);
-              }}
-              aria-expanded={leftOpen}
-              aria-label="Toggle controls panel"
-              className="atlas-chip text-[0.65rem]"
-            >
-              ☰ Controls
-            </button>
-            <span className="atlas-title min-w-0 truncate px-2 text-sm text-foreground">
-              {readySnapshot.plan.title}
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                setRightOpen((v) => !v);
-                setLeftOpen(false);
-              }}
-              aria-expanded={rightOpen}
-              aria-label="Toggle details panel"
-              className="atlas-chip text-[0.65rem]"
-            >
-              Details ⊞
-            </button>
-          </div>
-
-          {/* Graph canvas + right panel — the main content row */}
-          <div className="flex min-h-0 flex-1 overflow-hidden">
-            {/* ──────────────────────────────────────────────────── */}
-            {/* Graph canvas                                         */}
-            {/* ──────────────────────────────────────────────────── */}
-            <main
-              className="relative min-w-0 flex-1"
-              aria-label="Plan graph visualization"
-            >
-              {/* ReactFlow requires an explicit-height container */}
-              <div className="absolute inset-0">
-                <PlanGraphCanvas
-                  projection={readyProjection}
-                  selectedWorkItemId={selectedWorkItemId}
-                  onSelectWorkItem={handleSelectWorkItem}
-                  onClearSelection={handleClearSelection}
-                  lanes={readySnapshot.plan.lanes}
-                  onAddInLane={(laneId) => openNewItemForm({ lane: laneId })}
-                />
-              </div>
-            </main>
-
-            {/* ──────────────────────────────────────────────────── */}
-            {/* Right panel — Details / Insights                     */}
-            {/* ──────────────────────────────────────────────────── */}
-            <aside
-              className={[
-                "flex flex-col border-l border-border",
-                "fixed inset-y-0 right-0 z-40 w-80 bg-panel/98 backdrop-blur-xl",
-                "transition-transform duration-300 ease-in-out",
-                rightOpen ? "translate-x-0" : "translate-x-full",
-                "lg:relative lg:z-auto lg:translate-x-0 lg:bg-panel lg:backdrop-blur-none",
-              ].join(" ")}
-              aria-label="Details and insights"
-            >
-              {/* Tab bar */}
-              <div
-                className="flex shrink-0 border-b border-border"
-                role="tablist"
-                aria-label="Right panel tabs"
+          {/* ============================================================ */}
+          {/* Left sidebar — Plan overview + Toolbar                       */}
+          {/* ============================================================ */}
+          <aside
+            className={[
+              // Base styles (shared mobile + desktop)
+              "flex flex-col border-r border-border",
+              // Mobile: fixed overlay, toggle via leftOpen
+              "fixed inset-y-0 left-0 z-40 w-72 bg-panel/98 backdrop-blur-xl",
+              "transition-transform duration-300 ease-in-out",
+              leftOpen ? "translate-x-0" : "-translate-x-full",
+              // Desktop: in-flow, always visible
+              "lg:relative lg:z-auto lg:translate-x-0 lg:bg-panel lg:backdrop-blur-none",
+            ].join(" ")}
+            aria-label="Plan controls"
+          >
+            {/* Compact plan header with info popover */}
+            <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-3">
+              <h1
+                className="atlas-title min-w-0 flex-1 truncate text-lg text-foreground"
+                title={`${readySnapshot.plan.title} — ${planFileName}`}
               >
-                {(["details", "insights"] as const).map((tab) => (
-                  <button
-                    key={tab}
-                    type="button"
-                    role="tab"
-                    aria-selected={rightTab === tab}
-                    onClick={() => setRightTab(tab)}
-                    className={[
-                      "flex-1 border-b-2 px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] transition-colors",
-                      rightTab === tab
-                        ? "border-moss text-foreground"
-                        : "border-transparent text-muted-foreground hover:text-foreground",
-                    ].join(" ")}
-                  >
-                    {tab === "details" ? "Details" : "Insights"}
-                  </button>
-                ))}
-              </div>
+                {readySnapshot.plan.title}
+              </h1>
+              <InfoPopoverButton
+                plan={readySnapshot.plan}
+                estimateSummary={readySnapshot.estimateSummary}
+                estimateUnit={readySnapshot.estimateUnit}
+                onDocumentPreview={handleDocumentPreview}
+                baseRevision={processingState.input.revision}
+              />
+            </div>
 
-              {/* Panel content */}
-              <div
-                ref={rightPanelScrollRef}
-                className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-4"
-                role="tabpanel"
-                aria-label={
-                  rightTab === "details" ? "Details panel" : "Insights panel"
-                }
+            {/* Filter + encoding controls */}
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <PlanToolbar
+                availableFilters={availableFilters}
+                projectionSummary={projectionSummary}
+                baseRevision={processingState.input.revision}
+                onNewItem={() => {
+                  const lane = activeLaneScope ?? firstLaneId ?? undefined;
+                  openNewItemForm(lane ? { lane } : undefined);
+                }}
+              />
+            </div>
+          </aside>
+
+          {/* ============================================================ */}
+          {/* Center + right column                                        */}
+          {/* ============================================================ */}
+          <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+            {/* Mobile top bar — shown only on narrow viewports */}
+            <div className="flex shrink-0 items-center justify-between border-b border-border bg-panel/90 px-4 py-2.5 backdrop-blur-sm lg:hidden">
+              <button
+                type="button"
+                onClick={() => {
+                  setLeftOpen((v) => !v);
+                  setRightOpen(false);
+                }}
+                aria-expanded={leftOpen}
+                aria-label="Toggle controls panel"
+                className="atlas-chip text-[0.65rem]"
               >
-                {rightTab === "details" ? (
-                  <PlanDetailsPanel
-                    snapshot={readySnapshot}
-                    explorer={explorerState}
-                    baseRevision={processingState.input.revision}
-                    selectedNodeFilteredOut={
-                      readyProjection.summary.selectedNodeFilteredOut
-                    }
-                    onSelectWorkItem={handleSelectWorkItem}
-                    onDocumentPreview={handleDocumentPreview}
-                    onBranchNewDependent={
-                      selectedWorkItemId
-                        ? () =>
-                            openNewItemForm({ dependsOn: [selectedWorkItemId] })
-                        : undefined
-                    }
-                    canGoBack={canGoBack}
-                    canGoForward={canGoForward}
-                    onGoBack={handleGoBack}
-                    onGoForward={handleGoForward}
-                  />
-                ) : (
-                  <PlanInsightsPanel
-                    snapshot={readySnapshot}
-                    display={displayState}
-                    explorer={explorerState}
+                ☰ Controls
+              </button>
+              <span className="atlas-title min-w-0 truncate px-2 text-sm text-foreground">
+                {readySnapshot.plan.title}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setRightOpen((v) => !v);
+                  setLeftOpen(false);
+                }}
+                aria-expanded={rightOpen}
+                aria-label="Toggle details panel"
+                className="atlas-chip text-[0.65rem]"
+              >
+                Details ⊞
+              </button>
+            </div>
+
+            {/* Graph canvas + right panel — the main content row */}
+            <div className="flex min-h-0 flex-1 overflow-hidden">
+              {/* ──────────────────────────────────────────────────── */}
+              {/* Graph canvas                                         */}
+              {/* ──────────────────────────────────────────────────── */}
+              <main
+                className="relative min-w-0 flex-1"
+                aria-label="Plan graph visualization"
+              >
+                {/* ReactFlow requires an explicit-height container */}
+                <div className="absolute inset-0">
+                  <PlanGraphCanvas
                     projection={readyProjection}
+                    selectedWorkItemId={selectedWorkItemId}
                     onSelectWorkItem={handleSelectWorkItem}
-                    onSetInsightMode={handleSetInsightMode}
+                    onClearSelection={handleClearSelection}
+                    lanes={readySnapshot.plan.lanes}
+                    onAddInLane={(laneId) => openNewItemForm({ lane: laneId })}
                   />
-                )}
-              </div>
+                </div>
+              </main>
 
-              {/* Write-through footer — always mounted so phase transitions are visible */}
-              <div className="shrink-0 border-t border-border bg-panel">
-                <WriteThroughStatusFooter />
-              </div>
-            </aside>
+              {/* ──────────────────────────────────────────────────── */}
+              {/* Right panel — Details / Insights                     */}
+              {/* ──────────────────────────────────────────────────── */}
+              <aside
+                className={[
+                  "flex flex-col border-l border-border",
+                  "fixed inset-y-0 right-0 z-40 w-80 bg-panel/98 backdrop-blur-xl",
+                  "transition-transform duration-300 ease-in-out",
+                  rightOpen ? "translate-x-0" : "translate-x-full",
+                  "lg:relative lg:z-auto lg:translate-x-0 lg:bg-panel lg:backdrop-blur-none",
+                ].join(" ")}
+                aria-label="Details and insights"
+              >
+                <Tabs
+                  value={rightTab}
+                  onValueChange={(value) =>
+                    setRightTab(value as "details" | "insights")
+                  }
+                  tabs={[
+                    { value: "details", label: "Details" },
+                    { value: "insights", label: "Insights" },
+                  ]}
+                  ariaLabel="Right panel tabs"
+                  className="flex min-h-0 flex-1 flex-col"
+                  listClassName="flex shrink-0 border-b border-border [&>button]:border-b-2 [&>button]:border-transparent [&>button]:px-4 [&>button]:py-3 [&>button]:text-xs [&>button]:font-semibold [&>button]:uppercase [&>button]:tracking-[0.14em] [&>button[data-state=active]]:border-moss"
+                >
+                  <TabPanel
+                    value="details"
+                    scrollRef={detailsScrollRef}
+                    className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-4"
+                  >
+                    <PlanDetailsPanel
+                      snapshot={readySnapshot}
+                      explorer={explorerState}
+                      baseRevision={processingState.input.revision}
+                      selectedNodeFilteredOut={
+                        readyProjection.summary.selectedNodeFilteredOut
+                      }
+                      onSelectWorkItem={handleSelectWorkItem}
+                      onDocumentPreview={handleDocumentPreview}
+                      onBranchNewDependent={
+                        selectedWorkItemId
+                          ? () =>
+                              openNewItemForm({
+                                dependsOn: [selectedWorkItemId],
+                              })
+                          : undefined
+                      }
+                      canGoBack={canGoBack}
+                      canGoForward={canGoForward}
+                      onGoBack={handleGoBack}
+                      onGoForward={handleGoForward}
+                    />
+                  </TabPanel>
+                  <TabPanel
+                    value="insights"
+                    scrollRef={insightsScrollRef}
+                    className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-4"
+                  >
+                    <PlanInsightsPanel
+                      snapshot={readySnapshot}
+                      display={displayState}
+                      explorer={explorerState}
+                      projection={readyProjection}
+                      onSelectWorkItem={handleSelectWorkItem}
+                      onSetInsightMode={handleSetInsightMode}
+                    />
+                  </TabPanel>
+                </Tabs>
+
+                {/* Write-through footer — always mounted so phase transitions are visible */}
+                <div className="shrink-0 border-t border-border bg-panel">
+                  <WriteThroughStatusFooter />
+                </div>
+              </aside>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Page-level validation toast (rendered via FloatingPortal internally) */}
-      <ValidationToast />
+        {/* Page-level validation toast — renders into the ToastViewport region */}
+        <ValidationToast />
 
-      {/* New work item form — opened via toolbar, ghost-node, or N/⇧N hotkeys */}
-      <NewItemForm
-        open={newItemFormState.open}
-        onClose={closeNewItemForm}
-        prefill={newItemFormState.prefill}
-        lanes={readySnapshot.plan.lanes}
-        baseRevision={processingState.input.revision}
-      />
-    </>
+        {/* New work item form — opened via toolbar, ghost-node, or N/⇧N hotkeys */}
+        <NewItemForm
+          open={newItemFormState.open}
+          onClose={closeNewItemForm}
+          prefill={newItemFormState.prefill}
+          lanes={readySnapshot.plan.lanes}
+          baseRevision={processingState.input.revision}
+        />
+      </ToastViewport>
+    </TooltipProvider>
   );
 }

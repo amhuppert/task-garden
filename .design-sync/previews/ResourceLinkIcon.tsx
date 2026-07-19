@@ -1,5 +1,5 @@
-import { ResourceLinkIcon } from "task-garden";
 import type { CSSProperties } from "react";
+import { ResourceLinkIcon } from "task-garden";
 
 // ResourceLinkIcon maps a detected link preset to a 14px glyph: file / external
 // links draw in currentColor (inherit the chip's text color), while github,
@@ -24,8 +24,7 @@ const chip: CSSProperties = {
   border: "1px solid var(--color-border)",
   background: "var(--color-surface)",
   color: "var(--color-foreground)",
-  fontFamily:
-    "ui-monospace, SFMono-Regular, Menlo, monospace",
+  fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
   fontSize: 12,
   letterSpacing: "0.02em",
 };

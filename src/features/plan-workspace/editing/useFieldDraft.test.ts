@@ -4,15 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PlanPatch } from "../../../../cli/shared/patch-schema";
 import type {
   EditApiResult,
-  PatchPlanOptions,
+  PatchPlanFn,
 } from "../../../lib/plan/edit-api-client";
 import { useEditStore } from "./edit.store";
 import { useFieldDraft } from "./useFieldDraft";
-
-type PatchPlanFn = (
-  patch: PlanPatch,
-  opts: PatchPlanOptions,
-) => Promise<EditApiResult>;
 
 function reset() {
   useEditStore.setState({

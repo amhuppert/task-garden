@@ -489,6 +489,53 @@ describe("planWriter.apply — failure paths", () => {
     expect(result.failure.target.kind).toBe("work_item");
   });
 
+  const unknownTargetPatches: readonly PlanPatch[] = [
+    {
+      kind: "work_item.value",
+      target: { id: "no-such-id" },
+      value: 10,
+    },
+    {
+      kind: "work_item.estimate",
+      target: { id: "no-such-id" },
+      value: 3,
+    },
+    {
+      kind: "work_item.tags",
+      target: { id: "no-such-id" },
+      value: ["x"],
+    },
+    {
+      kind: "work_item.depends_on",
+      target: { id: "no-such-id" },
+      value: [],
+    },
+    {
+      kind: "work_item.string_list",
+      target: { id: "no-such-id" },
+      field: "deliverables",
+      value: [],
+    },
+    {
+      kind: "work_item.links",
+      target: { id: "no-such-id" },
+      value: [],
+    },
+  ];
+
+  test.each(unknownTargetPatches.map((patch) => [patch.kind, patch] as const))(
+    "target_not_found for %s with unknown id",
+    (_kind, patch) => {
+      const result = planWriter.apply(SAMPLE_PLAN, patch);
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.failure.type).toBe("target_not_found");
+      if (result.failure.type !== "target_not_found") return;
+      expect(result.failure.target.id).toBe("no-such-id");
+      expect(result.failure.target.kind).toBe("work_item");
+    },
+  );
+
   test("target_not_found for lane.field with unknown id", () => {
     const patch: PlanPatch = {
       kind: "lane.field",

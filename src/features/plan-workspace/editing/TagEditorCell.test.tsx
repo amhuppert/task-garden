@@ -7,18 +7,9 @@ import {
   screen,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { PlanPatch } from "../../../../cli/shared/patch-schema";
-import type {
-  EditApiResult,
-  PatchPlanOptions,
-} from "../../../lib/plan/edit-api-client";
+import type { PatchPlanFn } from "../../../lib/plan/edit-api-client";
 import { TagEditorCell } from "./TagEditorCell";
 import { useEditStore } from "./edit.store";
-
-type PatchPlanFn = (
-  patch: PlanPatch,
-  opts: PatchPlanOptions,
-) => Promise<EditApiResult>;
 
 function reset() {
   useEditStore.setState({
@@ -51,6 +42,8 @@ describe("TagEditorCell", () => {
     );
     expect(screen.getByText("#schema")).toBeTruthy();
     expect(screen.getByText("#validation")).toBeTruthy();
+    // Persistent alert region: present but empty when there is no error.
+    expect(screen.getByTestId("tag-editor-error").textContent).toBe("");
   });
 
   it("Enter adds a tag and commits the appended array", async () => {
@@ -110,6 +103,51 @@ describe("TagEditorCell", () => {
     });
   });
 
+  it("moves focus to the previous chip's remove button after removing a later tag", async () => {
+    render(
+      <TagEditorCell
+        workItemId="a"
+        committedValue={["schema", "validation"]}
+        baseRevision={1}
+        patchPlan={okPatch()}
+      />,
+    );
+
+    await act(async () => {
+      const removeBtn = screen.getByLabelText("Remove tag validation");
+      removeBtn.focus();
+      fireEvent.click(removeBtn);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(document.activeElement).toBe(
+      screen.getByLabelText("Remove tag schema"),
+    );
+  });
+
+  it("moves focus to the add-tag input after removing the first tag", async () => {
+    render(
+      <TagEditorCell
+        workItemId="a"
+        committedValue={["schema", "validation"]}
+        baseRevision={1}
+        patchPlan={okPatch()}
+      />,
+    );
+
+    await act(async () => {
+      const removeBtn = screen.getByLabelText("Remove tag schema");
+      removeBtn.focus();
+      fireEvent.click(removeBtn);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Removing the focused button must not drop focus to <body>.
+    expect(document.activeElement).toBe(screen.getByTestId("tag-editor-input"));
+  });
+
   it("Backspace on empty input removes trailing chip", async () => {
     const patchPlan = okPatch();
     render(
@@ -160,7 +198,11 @@ describe("TagEditorCell", () => {
     });
 
     expect(patchPlan).not.toHaveBeenCalled();
-    expect(screen.getByTestId("tag-editor-error")).toBeTruthy();
+    const errorRegion = screen.getByTestId("tag-editor-error");
+    expect(errorRegion.textContent).not.toBe("");
+    expect(screen.getByRole("alert").textContent).toBe(errorRegion.textContent);
+    expect(input.getAttribute("aria-invalid")).toBe("true");
+    expect(input.getAttribute("aria-describedby")).toBe(errorRegion.id);
     expect(input.value).toBe("INVALID TAG!");
   });
 });

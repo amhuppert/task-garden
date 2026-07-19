@@ -7,19 +7,10 @@ import {
   screen,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { PlanPatch } from "../../../../cli/shared/patch-schema";
-import type {
-  EditApiResult,
-  PatchPlanOptions,
-} from "../../../lib/plan/edit-api-client";
+import type { PatchPlanFn } from "../../../lib/plan/edit-api-client";
 import type { TaskGardenLane } from "../../../lib/plan/task-garden-plan.schema";
 import { LaneInlineEditor } from "./LaneInlineEditor";
 import { useEditStore } from "./edit.store";
-
-type PatchPlanFn = (
-  patch: PlanPatch,
-  opts: PatchPlanOptions,
-) => Promise<EditApiResult>;
 
 function reset() {
   useEditStore.setState({

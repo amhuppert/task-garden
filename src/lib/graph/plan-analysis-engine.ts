@@ -6,25 +6,14 @@ import type {
   TaskGardenPlan,
   TaskGardenWorkItem,
 } from "../plan/task-garden-plan.schema";
+import { METRIC_KEYS, type MetricKey } from "./metric-registry";
 
-/** Re-exported for graph/UI consumers; canonical definition lives in the schema. */
-export type { EstimateUnit };
+/** Re-exported for graph/UI consumers; canonical definitions live in the schema and metric registry. */
+export type { EstimateUnit, MetricKey };
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-
-export type MetricKey =
-  | "degree"
-  | "in_degree"
-  | "out_degree"
-  | "betweenness"
-  | "dependency_span"
-  | "value"
-  | "value_per_effort"
-  | "estimate_days"
-  | "remaining_days"
-  | "downstream_effort_days";
 
 export interface WorkItemScheduleAnalysis {
   estimateDays: number | null;
@@ -98,19 +87,6 @@ export interface PlanAnalysisEngineService {
 // ---------------------------------------------------------------------------
 // Implementation
 // ---------------------------------------------------------------------------
-
-const METRIC_KEYS: MetricKey[] = [
-  "degree",
-  "in_degree",
-  "out_degree",
-  "betweenness",
-  "dependency_span",
-  "value",
-  "value_per_effort",
-  "estimate_days",
-  "remaining_days",
-  "downstream_effort_days",
-];
 
 export function createPlanAnalysisEngine(): PlanAnalysisEngineService {
   return {

@@ -4,6 +4,13 @@ import { type ValidationCopy, resolveValidationCopy } from "./validation-copy";
 
 export type DraftKey = string;
 
+// Single owner of the draft-key format shared by all field editors.
+export const draftKeys = {
+  workItemField: (workItemId: string, field: string): DraftKey =>
+    `work_item:${workItemId}:${field}`,
+  plan: (field: string): DraftKey => `plan:${field}`,
+};
+
 export type LastWriteResult =
   | { phase: "idle" }
   | { phase: "saving"; key: DraftKey; operationId: string }

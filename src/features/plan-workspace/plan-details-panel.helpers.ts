@@ -1,28 +1,9 @@
-import type {
-  EstimateUnit,
-  TaskGardenStatus,
-} from "../../lib/plan/task-garden-plan.schema";
+import { compactUnitSuffix } from "../../lib/graph/metric-registry";
+import { getStatusLabel } from "../../lib/plan/status-presentation";
+import type { EstimateUnit } from "../../lib/plan/task-garden-plan.schema";
 
-// ---------------------------------------------------------------------------
-// Status labels
-// ---------------------------------------------------------------------------
-
-export function getStatusLabel(status: TaskGardenStatus): string {
-  switch (status) {
-    case "planned":
-      return "Planned";
-    case "ready":
-      return "Ready";
-    case "blocked":
-      return "Blocked";
-    case "in_progress":
-      return "In Progress";
-    case "done":
-      return "Done";
-    case "future":
-      return "Future";
-  }
-}
+// Canonical definitions live in lib; re-exported for panel consumers.
+export { compactUnitSuffix, getStatusLabel };
 
 // ---------------------------------------------------------------------------
 // Numeric formatting
@@ -41,29 +22,18 @@ export function formatValueDensity(value: number): string {
   return Number.isInteger(value) ? `${value}` : value.toFixed(2);
 }
 
-const COMPACT_UNIT_SUFFIX: Record<EstimateUnit, string> = {
-  hours: "h",
-  days: "d",
-  points: "pt",
-};
-
 const UNIT_SINGULAR: Record<EstimateUnit, string> = {
   hours: "hour",
   days: "day",
   points: "point",
 };
 
-/** Compact unit suffix used after a numeric value, e.g. "d", "h", "pt". */
-export function compactUnitSuffix(unit: EstimateUnit): string {
-  return COMPACT_UNIT_SUFFIX[unit];
-}
-
 /** Compact value + unit suffix for an estimate or derived metric, e.g. "8d", "5pt". */
 export function formatCompactUnitValue(
   value: number,
   unit: EstimateUnit,
 ): string {
-  return `${formatNumeric(value)}${COMPACT_UNIT_SUFFIX[unit]}`;
+  return `${formatNumeric(value)}${compactUnitSuffix(unit)}`;
 }
 
 /** Spelled-out value + unit, singularised at 1, e.g. "1 day", "5 points". */

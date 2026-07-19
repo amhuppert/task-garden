@@ -1,8 +1,7 @@
 import { useCallback, useRef } from "react";
 import type { PlanPatch } from "../../../../cli/shared/patch-schema";
 import {
-  type EditApiResult,
-  type PatchPlanOptions,
+  type PatchPlanFn,
   patchPlan as defaultPatchPlan,
 } from "../../../lib/plan/edit-api-client";
 import {
@@ -11,11 +10,6 @@ import {
   useEditStore,
   useLastWriteResult,
 } from "./edit.store";
-
-type PatchPlanFn = (
-  patch: PlanPatch,
-  opts: PatchPlanOptions,
-) => Promise<EditApiResult>;
 
 export interface UseFieldDraftOptions<T> {
   key: DraftKey;

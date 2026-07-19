@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { PlanDisplayStateValue } from "../../features/plan-workspace/plan-display.store";
-import type { PlanExplorerStateValue } from "../../features/plan-workspace/plan-explorer.store";
 import type { TaskGardenPlan } from "../plan/task-garden-plan.schema";
 import { createFlowProjectionService } from "./flow-projection-service";
+import type {
+  PlanDisplayStateValue,
+  PlanExplorerStateValue,
+} from "./graph-view-state";
 import { createPlanAnalysisEngine } from "./plan-analysis-engine";
 import type { PlanAnalysisSnapshot } from "./plan-analysis-engine";
 
@@ -167,6 +169,29 @@ describe("FlowProjectionService — task 3.3: basic projection", () => {
     expect(nodeA.data.criticalPathOrder).toBeNull();
     expect(nodeA.data.slackDays).toBe(0);
     expect(nodeA.data.isSelected).toBe(false);
+  });
+
+  it("names each node for AT: title, lane, and status label", () => {
+    const svc = createFlowProjectionService();
+    const snapshot = makeLinearSnapshot();
+    const result = svc.project(snapshot, defaultExplorer, defaultDisplay);
+    const nodeA = result.nodes.find((n) => n.id === "a")!;
+    // React Flow renders each node as a focusable role=group element that
+    // takes its accessible name from this field; group computes no name from
+    // contents, so an empty label leaves an unnamed tab stop.
+    expect(nodeA.ariaLabel).toBe("Title a, Backend, Planned");
+  });
+
+  it("adds estimate and critical-path context to the node's accessible name", () => {
+    const svc = createFlowProjectionService();
+    const snapshot = makeEstimatedBranchingSnapshot();
+    const result = svc.project(snapshot, defaultExplorer, defaultDisplay);
+    const nodeA = result.nodes.find((n) => n.id === "a")!;
+    expect(nodeA.ariaLabel).toContain("estimate 2 days");
+    expect(nodeA.ariaLabel).toContain("critical path");
+    // b (estimate 1 vs sibling c's 4) has slack — not on the critical path.
+    const nodeB = result.nodes.find((n) => n.id === "b")!;
+    expect(nodeB.ariaLabel).not.toContain("critical path");
   });
 
   it("marks selected node as isSelected=true", () => {
